@@ -75,11 +75,11 @@
 
 > **目的**：Skill 全部 active 后立刻能动手编码，不再临时设计。
 
-### 4.1 工程初始化（待用户确认后由 Claude 生成）
+### 4.1 工程初始化（已完成开工前决策，待执行）
 
-- ⏳ 创建 `backend/` 目录，初始化 Spring Boot 3 工程（Maven 还是 Gradle？**待确认**）；
-- ⏳ 包结构按 `com.ning.pm` 落地：`common / config / infrastructure / project / task / user`；
-- ⏳ 配置依赖：Sa-Token、MyBatis Plus、Knife4j、Hutool、MapStruct、Lombok、Validation；
+- ⏳ 创建 `backend/` 目录，初始化 Spring Boot 3 工程（构建工具：**Maven**）；
+- ⏳ 包结构按 `com.ning.pm` 落地：`common / config / infrastructure / auth / user / project / task`；
+- ⏳ 配置依赖：Sa-Token、MyBatis Plus、Knife4j、Hutool、MapStruct、Lombok、Validation、Flyway、Caffeine；
 - ⏳ 配置 `application.yml`：MySQL 连接、Sa-Token 内存模式、`pm.tenant.enabled=false`；
 - ⏳ 实现 `common` 模块：
   - 统一响应 `R<T>` + `traceId`
@@ -96,37 +96,55 @@
 
 ### 4.2 数据库初始化
 
-- ⏳ 选定建库方式：Flyway / Liquibase / 手写 SQL（**待确认**）；
-- ⏳ 第 1 阶段建表清单：`pm_user`、`pm_project`、`pm_task`（依据 `docs/04-数据模型.md`，需先完成）；
+- ⏳ 选定建库方式：**Flyway**；
+- ⏳ 第 1 阶段建表清单：`pm_user`、`pm_project`、`pm_project_member`、`pm_task`、`pm_task_status_log`；
+- ⏳ 初始化数据：默认用户、示例项目、若干示例任务，用于登录、项目列表和任务看板演示；
 - ⏳ 所有表带 `tenant_id BIGINT NOT NULL DEFAULT 0`。
 
 ### 4.3 前端骨架准备（与后端并行）
 
-- ⏳ 创建 `frontend/` 目录，Vite + Vue 3 + TS + Naive UI；
+- ⏳ 当前 `frontend` 分支只维护前端代码，后端另建 `backend` 分支；
+- ⏳ 使用 Node 20 LTS + pnpm 初始化 `frontend/`，技术栈为 Vite + Vue 3 + TypeScript + Naive UI；
 - ⏳ Axios 封装：自动注入 `X-Trace-Id`（前端生成 UUID）、`X-Idempotency-Key`（表单级生成）；
 - ⏳ Pinia + Vue Router 基础结构；
-- ⏳ 登录页 + 任务看板雏形（待 `pm-agent-frontend-builder` 落地后细化）。
+- ⏳ 前端提供简单本地 Mock 层，接口未完成前模拟登录、项目、任务数据；
+- ⏳ 登录页 + 主布局 + 项目列表页 + 项目详情页 + 任务看板页；
+- ⏳ 任务看板第 1 阶段使用下拉框切换任务状态，拖拽能力后置。
 
 ### 4.4 Python Agent 服务（第 3 阶段才启动，本阶段仅占位）
 
-- ⏳ 暂不创建 `agent-service/` 目录，等 Skill 与 `docs/06-Agent设计.md` 完成后再启动；
+- ⏳ 暂不创建 `agent-service/` 目录，等第 3 阶段再启动；
 - ⏳ Java 侧 `AgentClient` 接口先以 mock 实现，等 Python 服务上线后切真实地址。
+
+### 4.5 本地开发与 Docker 中间件准备
+
+- ⏳ 创建 `deploy/` 目录；
+- ⏳ 使用 Docker 容器承载项目涉及到的中间件；
+- ⏳ 第 1 阶段仅启用 MySQL 8 容器；
+- ⏳ Redis、RabbitMQ、MinIO、向量库等中间件按阶段在 Docker Compose 中增量加入，默认不提前启动；
+- ⏳ 后端 Spring Boot 与前端 Vite 均在本机运行，便于调试；
+- ⏳ 后端与前端分别维护环境变量示例文件。
 
 ---
 
-## 五、需要用户决策的空白点（按主题汇总）
+## 五、已确认的开工前决策（按主题汇总）
 
-以下空白点会卡住对应任务，**Skill 完善过程中或开工前需要回答**：
+以下决策已完成确认，可作为后续工程初始化依据：
 
-| 编号 | 主题 | 问题 | 卡住的任务 |
+| 编号 | 主题 | 决策结果 | 影响任务 |
 |---|---|---|---|
-| Q1 | 构建工具 | backend 用 Maven 还是 Gradle？ | 4.1 工程初始化 |
-| Q2 | 数据库迁移 | Flyway / Liquibase / 手写 SQL？ | 4.2 数据库初始化 |
-| Q3 | 节点版本 | frontend 锁定 Node 版本（18 LTS / 20 LTS）？ | 4.3 前端骨架 |
-| Q4 | 测试插件 | 你说"用其他插件"，是 TestMe / Spock / 还是别的？ | `pm-agent-test-planner` Skill |
-| Q5 | LLM SDK | 已决策：DeepSeek 优先 + 自研轻量 `ModelClient` 适配层 | 第 3 阶段前细化 |
-| Q6 | 部署 | 本地 docker-compose 全栈起？还是仅 MySQL 用 Docker、应用本机跑？ | `deploy/` 目录、第 1 阶段联调 |
-| Q7 | 仓库 | 是否需要初始化 Git 仓库 + .gitignore + 提交规范钩子？ | 工程初始化前 |
+| Q1 | 构建工具 | ✅ 后端使用 Maven | 4.1 工程初始化 |
+| Q2 | 数据库迁移 | ✅ 使用 Flyway | 4.2 数据库初始化 |
+| Q3 | 节点版本 | ✅ 前端锁定 Node 20 LTS | 4.3 前端骨架 |
+| Q4 | 前端包管理 | ✅ 使用 pnpm | 4.3 前端骨架 |
+| Q5 | 本地部署 | ✅ Docker 承载中间件，前端和后端本机运行；第 1 阶段仅启用 MySQL | 4.5 Docker 中间件准备 |
+| Q6 | 分支策略 | ✅ 当前 `frontend` 分支只做前端，后端另建 `backend` 分支 | 工程初始化前 |
+| Q7 | 第 1 阶段建表范围 | ✅ `pm_user`、`pm_project`、`pm_project_member`、`pm_task`、`pm_task_status_log` | 4.2 数据库初始化 |
+| Q8 | `deploy/` 目录 | ✅ 第 1 阶段创建 `deploy/` 目录 | 4.5 Docker 中间件准备 |
+| Q9 | 环境变量示例 | ✅ 后端和前端分别维护环境变量示例 | 4.1 / 4.3 |
+| Q10 | 初始化数据 | ✅ 初始化默认用户、示例项目、若干示例任务 | 4.2 数据库初始化 |
+| Q11 | 前端 Mock | ✅ 使用简单本地 Mock 层模拟接口返回 | 4.3 前端骨架 |
+| Q12 | 看板状态切换 | ✅ 第 1 阶段使用下拉框切换任务状态 | 4.3 前端骨架 |
 
 ---
 
@@ -136,11 +154,14 @@ Skill 与正式文档已全部补齐，后续只剩开工前决策与工程初�
 
 ### 批次 A：开工前决策
 
-1. 回答 Q1：后端构建工具（Maven / Gradle）；
-2. 回答 Q2：数据库迁移方式（Flyway / Liquibase / 手写 SQL）；
-3. 回答 Q3：前端 Node 版本；
-4. 回答 Q6：本地部署方式；
-5. 回答 Q7：是否初始化 Git 仓库。
+1. ✅ Q1：后端构建工具使用 Maven；
+2. ✅ Q2：数据库迁移方式使用 Flyway；
+3. ✅ Q3：前端 Node 版本锁定 Node 20 LTS；
+4. ✅ Q4：前端包管理器使用 pnpm；
+5. ✅ Q5：Docker 承载中间件，前端和后端本机运行；
+6. ✅ Q6：当前 `frontend` 分支只做前端，后端另建 `backend` 分支；
+7. ✅ Q7：第 1 阶段建表范围包含 `pm_project_member` 与 `pm_task_status_log`；
+8. ✅ Q8~Q12：`deploy/`、环境变量示例、初始化数据、本地 Mock、看板状态切换方式已确认。
 
 ### 批次 B：第 1 阶段工程骨架
 

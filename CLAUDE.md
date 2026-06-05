@@ -39,6 +39,8 @@
 | 框架 | Vue 3 |
 | 语言 | TypeScript |
 | 构建 | Vite |
+| Node.js | Node 20 LTS |
+| 包管理器 | pnpm |
 | 组件库 | Naive UI |
 | 状态管理 | Pinia |
 | 路由 | Vue Router |
@@ -53,7 +55,9 @@
 | 类别 | 选型 |
 |---|---|
 | 框架 | Spring Boot 3 |
+| 构建工具 | Maven |
 | ORM | MyBatis Plus |
+| 数据库迁移 | Flyway |
 | 认证授权 | Sa-Token |
 | API 文档 | Knife4j / OpenAPI |
 | 校验 | Jakarta Validation |
@@ -126,7 +130,10 @@ PM-AGENT/
 │   ├── 05-接口规范.md
 │   ├── 06-Agent设计.md
 │   ├── 07-成本控制.md
-│   └── 08-阶段总结.md
+│   ├── 08-阶段总结.md
+│   ├── 09-第1阶段开发前置确认问题清单.md
+│   ├── 10-第1阶段业务流程与验收清单.md
+│   └── 11-Docker中间件引入方案.md
 ├── backend/                        # Java Spring Boot 后端（待创建）
 ├── agent-service/                  # Python FastAPI Agent 服务（待创建）
 ├── frontend/                       # Vue 3 前端（待创建）
@@ -335,11 +342,14 @@ Claude 在生成代码、设计或文档时默认输出结构：
 | Agent 设计 | `docs/06-Agent设计.md` | Agent 编排、工具、Trace |
 | 成本控制 | `docs/07-成本控制.md` | LLM 与中间件成本方案 |
 | 阶段总结 | `docs/08-阶段总结.md` | 每个阶段复盘 |
+| 第 1 阶段前置确认 | `docs/09-第1阶段开发前置确认问题清单.md` | 工程初始化前的决策清单与确认结果 |
+| 第 1 阶段业务流程与验收 | `docs/10-第1阶段业务流程与验收清单.md` | 登录、项目、任务、看板闭环流程与验收标准 |
+| Docker 中间件引入 | `docs/11-Docker中间件引入方案.md` | 本地 Docker 中间件启动、验证与后续扩展方案 |
 
 ---
 
 ## 十一、当前状态
 
-- 已完成：项目定位、技术选型、9 个项目级 Skill 规范化、`docs/00~08` 文档体系搭建；
-- 进行中：第 1 阶段编码前的工程初始化决策确认；
-- 下一步：确认构建工具、数据库迁移方式、Node 版本、Git 初始化与本地部署方式，然后启动第 1 阶段后端与前端骨架开发。
+- 已完成：项目定位、技术选型、9 个项目级 Skill 规范化、`docs/00~09` 文档体系搭建、第 1 阶段开发前置决策确认；
+- 进行中：第 1 阶段工程骨架初始化准备；
+- 下一步：按已确认方案创建后端 `backend` 分支，初始化 Maven + Spring Boot 后端工程；当前 `frontend` 分支继续初始化 Vue 3 + Node 20 LTS + pnpm 前端工程，并创建 `deploy/` 中间件容器配置。

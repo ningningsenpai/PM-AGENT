@@ -17,12 +17,45 @@
 - Vue 3；
 - TypeScript；
 - Vite；
+- Node.js 20 LTS；
+- pnpm；
 - Naive UI；
 - Pinia；
 - Vue Router；
 - ECharts；
 - Axios；
 - UnoCSS 可选，不与 Tailwind 同时引入。
+
+## 本地启动
+
+当前环境要求：
+
+```bash
+node --version # 期望为 20.x
+pnpm --version # 期望为 9.x 或更高
+```
+
+初始化依赖并启动：
+
+```bash
+pnpm install
+cp .env.example .env
+pnpm dev
+```
+
+如本机尚未安装 pnpm，可先启用 Corepack：
+
+```bash
+corepack enable
+corepack prepare pnpm@9.15.4 --activate
+```
+
+## 第 1 阶段开发约定
+
+- 当前 `frontend` 分支只维护前端代码；
+- 后端代码另建 `backend` 分支维护；
+- 前端开发期提供简单本地 Mock 层，接口未完成前模拟登录、项目和任务数据；
+- 任务看板第 1 阶段使用下拉框切换任务状态，拖拽能力后置到后续阶段。
 
 详细规则见：
 

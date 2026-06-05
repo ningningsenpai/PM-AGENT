@@ -1,0 +1,38 @@
+# Claude Code worktree
+.claude/worktrees/
+
+# 依赖目录
+node_modules/
+frontend/node_modules/
+backend/target/
+
+# 构建产物
+frontend/dist/
+frontend/.vite/
+
+# 环境变量
+.env
+.env.local
+*.local
+frontend/.env
+backend/.env
+deploy/.env
+
+# IDE 与系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/
+
+# Java
+*.class
+*.jar
+*.war
+
+# 临时文件
+.tmp/
+tmp/
