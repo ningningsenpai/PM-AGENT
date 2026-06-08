@@ -1,8 +1,14 @@
 package com.ning.pm.common.errorcode;
 
+import lombok.Getter;
+
 /**
- * 统一错误码枚举。
+ * ErrorCode 是统一错误码枚举。
+ *
+ * @author ning
+ * @date 2026-06-08
  */
+@Getter
 public enum ErrorCode {
     SUCCESS(0, "成功"),
     PARAM_INVALID(10001, "参数不合法"),
@@ -11,6 +17,9 @@ public enum ErrorCode {
     UNAUTHORIZED(20001, "未登录"),
     FORBIDDEN(20002, "无权限"),
     USER_NOT_FOUND(20003, "用户不存在"),
+    AUTH_LOGIN_FAILED(20004, "用户名或密码错误"),
+    USER_DISABLED(20005, "用户已禁用"),
+    USERNAME_EXISTS(20006, "用户名已存在"),
     PROJECT_NOT_FOUND(30001, "项目不存在"),
     TASK_NOT_FOUND(30002, "任务不存在"),
     TASK_STATUS_INVALID(30003, "任务状态流转不合法"),
@@ -30,11 +39,4 @@ public enum ErrorCode {
         this.message = message;
     }
 
-    public int getCode() {
-        return code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
 }

@@ -28,11 +28,12 @@ mybatis-plus:
 
 sa-token:
   token-name: Authorization
+  token-prefix: Bearer
+  jwt-secret-key: ${PM_AGENT_JWT_SECRET:pm-agent-dev-secret-change-me}
   timeout: 2592000
   active-timeout: -1
   is-concurrent: true
   is-share: false
-  token-style: uuid
   is-log: true
 
 knife4j:
