@@ -64,6 +64,7 @@
 - ✅ `/api/v1/` 前缀已同步进 `CLAUDE.md`、`docs/01-开发规划.md`、`docs/05-接口规范.md`；
 - ✅ 强制 `X-Idempotency-Key` 已写入 `docs/05-接口规范.md`，并在 Skill 与前端/后端设计中对齐；
 - ✅ 日志 MDC 字段已写入 `docs/05-接口规范.md`，与 `pm-agent-backend-architect` 一致；
+- ✅ Git 管理策略已统一为 Monorepo + `main` 主干 + `feature/*` 任务分支，详见 `docs/12-Git管理策略.md`；
 - ✅ 审计日志延期、第 1 阶段仅留注解占位，已与 `docs/01-开发规划.md`、`docs/03-业务流程.md`、`docs/06-Agent设计.md` 对齐；
 - ✅ 旧项目名、旧包名、旧迭代表名、旧接口路径、RAG 阶段、模型调用策略等口径已完成扫描和修正。
 
@@ -103,7 +104,7 @@
 
 ### 4.3 前端骨架准备（与后端并行）
 
-- ⏳ 当前 `frontend` 分支只维护前端代码，后端另建 `backend` 分支；
+- ⏳ 前端代码统一放在 `frontend/` 目录，当前前端初始化工作按 `feature/init-frontend` 任务分支语义处理；
 - ⏳ 使用 Node 20 LTS + pnpm 初始化 `frontend/`，技术栈为 Vite + Vue 3 + TypeScript + Naive UI；
 - ⏳ Axios 封装：自动注入 `X-Trace-Id`（前端生成 UUID）、`X-Idempotency-Key`（表单级生成）；
 - ⏳ Pinia + Vue Router 基础结构；
@@ -138,7 +139,7 @@
 | Q3 | 节点版本 | ✅ 前端锁定 Node 20 LTS | 4.3 前端骨架 |
 | Q4 | 前端包管理 | ✅ 使用 pnpm | 4.3 前端骨架 |
 | Q5 | 本地部署 | ✅ Docker 承载中间件，前端和后端本机运行；第 1 阶段仅启用 MySQL | 4.5 Docker 中间件准备 |
-| Q6 | 分支策略 | ✅ 当前 `frontend` 分支只做前端，后端另建 `backend` 分支 | 工程初始化前 |
+| Q6 | 分支策略 | ✅ 单仓库 Monorepo + `main` 主干 + `feature/*` 任务分支；不再使用长期 `frontend` / `backend` 模块分支 | 工程初始化前 |
 | Q7 | 第 1 阶段建表范围 | ✅ `pm_user`、`pm_project`、`pm_project_member`、`pm_task`、`pm_task_status_log` | 4.2 数据库初始化 |
 | Q8 | `deploy/` 目录 | ✅ 第 1 阶段创建 `deploy/` 目录 | 4.5 Docker 中间件准备 |
 | Q9 | 环境变量示例 | ✅ 后端和前端分别维护环境变量示例 | 4.1 / 4.3 |
@@ -159,17 +160,18 @@ Skill 与正式文档已全部补齐，后续只剩开工前决策与工程初�
 3. ✅ Q3：前端 Node 版本锁定 Node 20 LTS；
 4. ✅ Q4：前端包管理器使用 pnpm；
 5. ✅ Q5：Docker 承载中间件，前端和后端本机运行；
-6. ✅ Q6：当前 `frontend` 分支只做前端，后端另建 `backend` 分支；
+6. ✅ Q6：单仓库 Monorepo + `main` 主干 + `feature/*` 任务分支，不再使用长期 `frontend` / `backend` 模块分支；
 7. ✅ Q7：第 1 阶段建表范围包含 `pm_project_member` 与 `pm_task_status_log`；
 8. ✅ Q8~Q12：`deploy/`、环境变量示例、初始化数据、本地 Mock、看板状态切换方式已确认。
 
 ### 批次 B：第 1 阶段工程骨架
 
-1. 初始化 `backend/` Spring Boot 3 工程；
-2. 初始化 `frontend/` Vue 3 + Vite 工程；
-3. 准备 `deploy/` 本地开发配置；
-4. 按 `docs/04-数据模型.md` 生成第 1 阶段建表脚本；
-5. 按 `docs/05-接口规范.md` 落地统一响应、错误码、traceId、幂等。
+1. 将当前前端初始化工作按 `feature/init-frontend` 任务分支语义整理，并合并回 `main`；
+2. 从 `main` 创建 `feature/init-backend`，初始化 `backend/` Spring Boot 3 工程；
+3. 继续完善 `frontend/` Vue 3 + Vite 工程；
+4. 准备 `deploy/` 本地开发配置；
+5. 按 `docs/04-数据模型.md` 生成第 1 阶段建表脚本；
+6. 按 `docs/05-接口规范.md` 落地统一响应、错误码、traceId、幂等。
 
 ### 批次 C：第 1 阶段业务闭环
 

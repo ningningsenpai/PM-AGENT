@@ -133,11 +133,12 @@ PM-AGENT/
 │   ├── 08-阶段总结.md
 │   ├── 09-第1阶段开发前置确认问题清单.md
 │   ├── 10-第1阶段业务流程与验收清单.md
-│   └── 11-Docker中间件引入方案.md
+│   ├── 11-Docker中间件引入方案.md
+│   └── 12-Git管理策略.md
 ├── backend/                        # Java Spring Boot 后端（待创建）
-├── agent-service/                  # Python FastAPI Agent 服务（待创建）
-├── frontend/                       # Vue 3 前端（待创建）
-└── deploy/                         # 部署脚本与 docker-compose（待创建）
+├── agent-service/                  # Python FastAPI Agent 服务（第 3 阶段创建）
+├── frontend/                       # Vue 3 前端
+└── deploy/                         # 本地中间件与部署配置
 ```
 
 ---
@@ -207,6 +208,25 @@ chore: 杂项
 test: 测试
 perf: 性能优化
 ```
+
+建议使用 scope 标明影响模块：
+
+```text
+feat(frontend): 初始化 Vue 3 前端工程
+feat(backend): 初始化 Spring Boot 后端工程
+feat(auth): 完成登录接口与前端联调
+docs(git): 更新 Git 管理策略
+chore(deploy): 添加 MySQL 本地容器配置
+```
+
+### 4.6 Git 管理规范
+
+- 仓库采用 **单仓库 Monorepo + `main` 主干 + `feature/*` 任务分支**；
+- `main` 代表完整项目基线，应包含文档、前端、后端、部署配置和后续 Agent 服务骨架；
+- 目录用于区分模块，分支用于区分任务，不使用长期 `frontend` / `backend` 分支维护模块；
+- 当前前端初始化工作可视为 `feature/init-frontend` 任务，完成后合并回 `main`；
+- 后端初始化从 `main` 新建 `feature/init-backend`，不再新增长期 `backend` 分支；
+- 详细规则见 `docs/12-Git管理策略.md`。
 
 ---
 
@@ -345,11 +365,12 @@ Claude 在生成代码、设计或文档时默认输出结构：
 | 第 1 阶段前置确认 | `docs/09-第1阶段开发前置确认问题清单.md` | 工程初始化前的决策清单与确认结果 |
 | 第 1 阶段业务流程与验收 | `docs/10-第1阶段业务流程与验收清单.md` | 登录、项目、任务、看板闭环流程与验收标准 |
 | Docker 中间件引入 | `docs/11-Docker中间件引入方案.md` | 本地 Docker 中间件启动、验证与后续扩展方案 |
+| Git 管理策略 | `docs/12-Git管理策略.md` | Monorepo、main 主干与 feature/* 任务分支规范 |
 
 ---
 
 ## 十一、当前状态
 
-- 已完成：项目定位、技术选型、9 个项目级 Skill 规范化、`docs/00~09` 文档体系搭建、第 1 阶段开发前置决策确认；
-- 进行中：第 1 阶段工程骨架初始化准备；
-- 下一步：按已确认方案创建后端 `backend` 分支，初始化 Maven + Spring Boot 后端工程；当前 `frontend` 分支继续初始化 Vue 3 + Node 20 LTS + pnpm 前端工程，并创建 `deploy/` 中间件容器配置。
+- 已完成：项目定位、技术选型、9 个项目级 Skill 规范化、`docs/00~12` 文档体系搭建、第 1 阶段开发前置决策确认、前端工程与本地中间件配置初始化；
+- 进行中：第 1 阶段工程骨架补齐与 Git 管理策略整理；
+- 下一步：将当前前端初始化工作按 `feature/init-frontend` 任务分支语义合并回 `main`；再从 `main` 创建 `feature/init-backend`，初始化 Maven + Spring Boot 后端工程。
