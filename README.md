@@ -9,7 +9,7 @@ PM-Agent 是一个基于 Java + Python + 大模型 Agent 的智能项目管理�
 ```text
 PM-AGENT/
 ├── frontend/        # Vue 3 前端工程
-├── backend/         # Spring Boot 后端工程，待初始化
+├── backend/         # Spring Boot 后端工程，已完成基础配置与用户认证接口
 ├── agent-service/   # Python Agent 服务，第 3 阶段引入
 ├── deploy/          # 本地中间件与部署配置
 ├── docs/            # 项目文档
@@ -33,13 +33,14 @@ PM-AGENT/
 
 当前处于第 1 阶段：项目基础骨架与 MVP 前置能力。
 
-- 已初始化：项目文档、项目级 Skill、前端工程、本地 MySQL 中间件配置；
-- 待初始化：`backend/` Spring Boot 3 + Maven 后端工程；
-- 后续：从 `main` 创建 `feature/init-backend`，落地用户、项目、任务最小闭环。
+- 已初始化：项目文档、项目级 Skill、前端工程、本地 MySQL 中间件配置、后端 Spring Boot 基础工程；
+- 已完成：后端统一响应、异常处理、traceId、幂等键校验、Flyway 建表、用户注册、登录、登出和当前用户接口；
+- 后续：继续落地项目管理与任务管理接口，完成第 1 阶段最小业务闭环。
 
 ## 文档入口
 
 - [docs/README.md](./docs/README.md)：项目文档索引；
 - [CLAUDE.md](./CLAUDE.md)：项目协作规范；
 - [docs/01-开发规划.md](./docs/01-开发规划.md)：分阶段开发规划；
-- [docs/12-Git管理策略.md](./docs/12-Git管理策略.md)：Git 分支与合并规则。
+- [docs/12-Git管理策略.md](./docs/12-Git管理策略.md)：Git 分支与合并规则；
+- [docs/13-用户认证模块设计.md](./docs/13-用户认证模块设计.md)：用户注册、登录、登出与当前用户接口设计。

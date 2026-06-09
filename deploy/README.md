@@ -25,7 +25,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 ### 4. 验证连接
 
 ```bash
-docker exec -it pm-agent-mysql mysql -upm_agent -ppm_agent_dev pm_agent
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec mysql mysql -upm_agent -ppm_agent_dev pm_agent
 ```
 
 进入 MySQL 后可执行：

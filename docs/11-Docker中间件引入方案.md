@@ -76,13 +76,14 @@ PM-AGENT/
 
 | 项目 | 建议值 |
 |---|---|
+| Compose 项目名 | `pm-agent`，对应项目 PM-AGENT；Docker Compose 项目名使用小写以兼容命名规则 |
+| 服务名 | `mysql` |
 | 镜像 | `mysql:8.0` |
-| 容器名 | `pm-agent-mysql` |
 | 数据库名 | `pm_agent` |
 | 默认端口 | `3306:3306` |
 | 字符集 | `utf8mb4` |
 | 排序规则 | `utf8mb4_0900_ai_ci` |
-| 数据卷 | `pm-agent-mysql-data` |
+| 数据卷 | `mysql-data` |
 | 健康检查 | 使用 `mysqladmin ping` |
 
 ### 5.2 环境变量示例
@@ -112,10 +113,11 @@ cp deploy/.env.example deploy/.env
 第 1 阶段建议 `deploy/docker-compose.yml` 只启用 MySQL：
 
 ```yaml
+name: pm-agent
+
 services:
   mysql:
     image: mysql:8.0
-    container_name: pm-agent-mysql
     restart: unless-stopped
     ports:
       - "${MYSQL_PORT:-3306}:3306"
@@ -130,7 +132,7 @@ services:
       - --collation-server=utf8mb4_0900_ai_ci
       - --default-time-zone=+08:00
     volumes:
-      - pm-agent-mysql-data:/var/lib/mysql
+      - mysql-data:/var/lib/mysql
       - ./mysql/conf.d:/etc/mysql/conf.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -139,7 +141,7 @@ services:
       retries: 10
 
 volumes:
-  pm-agent-mysql-data:
+  mysql-data:
 ```
 
 ---
@@ -167,13 +169,13 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 ### 7.4 查看 MySQL 日志
 
 ```bash
-docker logs pm-agent-mysql
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs mysql
 ```
 
 ### 7.5 验证 MySQL 连接
 
 ```bash
-docker exec -it pm-agent-mysql mysql -upm_agent -ppm_agent_dev pm_agent
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec mysql mysql -upm_agent -ppm_agent_dev pm_agent
 ```
 
 进入 MySQL 后可执行：
@@ -251,7 +253,7 @@ spring:
 - Sa-Token 会话；
 - 接口缓存；
 - 限流；
-- 幂等缓存从 Caffeine 切换到 Redis。
+- 幂等键校验；
 
 引入步骤：
 
@@ -259,7 +261,7 @@ spring:
 2. 在 `deploy/.env.example` 新增 Redis 端口和密码；
 3. 后端新增 Redis 依赖和连接配置；
 4. Sa-Token 存储从内存切换到 Redis；
-5. 幂等拦截器缓存从 Caffeine 切换到 Redis；
+5. 幂等键校验从“仅必填校验”增强为 Redis 集中式幂等缓存；
 6. 更新 `docs/02-技术选型.md`、`docs/05-接口规范.md` 和阶段总结。
 
 ---
@@ -326,7 +328,7 @@ spring:
 
 ### 11.1 为什么第 1 阶段不启动 Redis？
 
-第 1 阶段只要求登录、项目和任务最小闭环。Sa-Token 可以先使用内存模式，幂等键可以先用本地 Caffeine。Redis 第 2 阶段再引入，避免第 1 阶段中间件过多。
+第 1 阶段只要求登录、项目和任务最小闭环。Sa-Token JWT 可先使用单体应用配置，幂等能力先完成请求头必填校验。Redis 第 2 阶段再引入，避免第 1 阶段中间件过多。
 
 ### 11.2 为什么后端和前端不放进 Docker？
 

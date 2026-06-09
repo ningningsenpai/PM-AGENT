@@ -76,13 +76,13 @@
 
 > **目的**：Skill 全部 active 后立刻能动手编码，不再临时设计。
 
-### 4.1 工程初始化（已完成开工前决策，待执行）
+### 4.1 工程初始化（后端基础骨架已完成）
 
-- ⏳ 创建 `backend/` 目录，初始化 Spring Boot 3 工程（构建工具：**Maven**）；
-- ⏳ 包结构按 `com.ning.pm` 落地：`common / config / infrastructure / auth / user / project / task`；
-- ⏳ 配置依赖：Sa-Token、MyBatis Plus、Knife4j、Hutool、MapStruct、Lombok、Validation、Flyway、Caffeine；
-- ⏳ 配置 `application.yml`：MySQL 连接、Sa-Token 内存模式、`pm.tenant.enabled=false`；
-- ⏳ 实现 `common` 模块：
+- ✅ 创建 `backend/` 目录，初始化 Spring Boot 3 工程（构建工具：**Maven**）；
+- ✅ 包结构按 `com.ning.pm` 落地：`common / config / auth / user`，`project / task` 后续补齐；
+- ✅ 配置依赖：Sa-Token、MyBatis Plus、Knife4j、Hutool、MapStruct、Lombok、Validation、Flyway、Caffeine；
+- ✅ 配置 `application.yml`：MySQL 连接、Sa-Token JWT、`pm.tenant.enabled=false`；
+- ✅ 实现 `common` 模块：
   - 统一响应 `R<T>` + `traceId`
   - `BaseException` / `BizException` / `AgentException` / `SystemException`
   - `ErrorCode` 枚举
@@ -91,16 +91,17 @@
   - `@AuditLog` 空注解 + AOP 空切面
   - `CurrentUserHolder`
   - Trace 拦截器（写入 MDC）
-  - Idempotency 拦截器（第 1 阶段先用 Caffeine）
-- ⏳ 配置 Logback `logback-spring.xml`，pattern 包含 traceId/userId/tenantId/action/costMs；
-- ⏳ Knife4j 接入与 v1 baseUrl 配置。
+  - Idempotency 拦截器（第 1 阶段先校验幂等键必填）
+- ✅ 配置 Logback `logback-spring.xml`，pattern 包含 traceId/userId/tenantId/action/costMs；
+- ✅ Knife4j 接入与 OpenAPI 基础配置；
+- ✅ 用户注册、登录、登出和当前用户接口已完成，详见 `docs/13-用户认证模块设计.md`。
 
 ### 4.2 数据库初始化
 
-- ⏳ 选定建库方式：**Flyway**；
-- ⏳ 第 1 阶段建表清单：`pm_user`、`pm_project`、`pm_project_member`、`pm_task`、`pm_task_status_log`；
-- ⏳ 初始化数据：默认用户、示例项目、若干示例任务，用于登录、项目列表和任务看板演示；
-- ⏳ 所有表带 `tenant_id BIGINT NOT NULL DEFAULT 0`。
+- ✅ 选定建库方式：**Flyway**；
+- ✅ 第 1 阶段建表清单：`pm_user`、`pm_project`、`pm_project_member`、`pm_task`、`pm_task_status_log`；
+- ✅ 初始化数据：默认用户、示例项目、若干示例任务，用于登录、项目列表和任务看板演示；
+- ✅ 所有表带 `tenant_id BIGINT NOT NULL DEFAULT 0`。
 
 ### 4.3 前端骨架准备（与后端并行）
 
@@ -166,16 +167,16 @@ Skill 与正式文档已全部补齐，后续只剩开工前决策与工程初�
 
 ### 批次 B：第 1 阶段工程骨架
 
-1. 将当前前端初始化工作按 `feature/init-frontend` 任务分支语义整理，并合并回 `main`；
-2. 从 `main` 创建 `feature/init-backend`，初始化 `backend/` Spring Boot 3 工程；
-3. 继续完善 `frontend/` Vue 3 + Vite 工程；
-4. 准备 `deploy/` 本地开发配置；
-5. 按 `docs/04-数据模型.md` 生成第 1 阶段建表脚本；
-6. 按 `docs/05-接口规范.md` 落地统一响应、错误码、traceId、幂等。
+1. ✅ 后端 Spring Boot 3 工程已初始化并合并回 `main`；
+2. ✅ `frontend/` Vue 3 + Vite 工程已初始化并合并回 `main`；
+3. ✅ `deploy/` 本地开发配置已准备；
+4. ✅ 已按 `docs/04-数据模型.md` 生成第 1 阶段建表脚本；
+5. ✅ 已按 `docs/05-接口规范.md` 落地统一响应、错误码、traceId、幂等；
+6. ✅ 已完成用户注册、登录、登出和当前用户接口。
 
 ### 批次 C：第 1 阶段业务闭环
 
-1. 用户登录与当前用户接口；
+1. ✅ 用户注册、登录、登出与当前用户接口；
 2. 项目基础接口与页面；
 3. 任务基础接口与看板页面；
 4. 手动验收登录、项目、任务、状态流转。
