@@ -33,6 +33,12 @@ logs/
 *.jar
 *.war
 
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+agent-service/.venv/
+
 # 临时文件
 .tmp/
 tmp/
