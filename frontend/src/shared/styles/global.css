@@ -1,7 +1,24 @@
 :root {
-  color: #172033;
-  background: #f5f7fb;
-  font-family: "LXGW WenKai Screen", "Microsoft YaHei", sans-serif;
+  --pm-blue: #2f7df6;
+  --pm-blue-dark: #1f66d1;
+  --pm-blue-soft: #eaf2ff;
+  --pm-green: #26b983;
+  --pm-green-dark: #15966a;
+  --pm-green-soft: #eaf8f2;
+  --pm-yellow: #f5b83d;
+  --pm-yellow-dark: #d8911e;
+  --pm-yellow-soft: #fff7e3;
+  --pm-bg: #f8faf5;
+  --pm-surface: #ffffff;
+  --pm-text: #132033;
+  --pm-text-secondary: #667085;
+  --pm-text-muted: #98a2b3;
+  --pm-border: #e6eadf;
+  --pm-border-light: #eef2ea;
+
+  color: var(--pm-text);
+  background: var(--pm-bg);
+  font-family: MiSans, "HarmonyOS Sans SC", "Microsoft YaHei", Inter, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -12,14 +29,19 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   min-width: 1280px;
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.14), transparent 28%),
-    radial-gradient(circle at 85% 0%, rgba(14, 165, 233, 0.12), transparent 24%),
-    linear-gradient(180deg, #f9fbff 0%, #f3f6fb 100%);
+    radial-gradient(circle at 10% 8%, rgba(47, 125, 246, 0.14), transparent 28%),
+    radial-gradient(circle at 86% 2%, rgba(38, 185, 131, 0.12), transparent 24%),
+    radial-gradient(circle at 86% 88%, rgba(245, 184, 61, 0.1), transparent 22%),
+    linear-gradient(180deg, #fbfcf8 0%, var(--pm-bg) 100%);
 }
 
 button,
@@ -47,15 +69,16 @@ textarea {
 
 .page-eyebrow {
   margin: 0 0 6px;
-  color: #64748b;
+  color: var(--pm-text-secondary);
   font-size: 13px;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .page-title {
   margin: 0;
-  color: #0f172a;
+  color: var(--pm-text);
   font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -63,14 +86,14 @@ textarea {
 
 .page-description {
   margin: 8px 0 0;
-  color: #64748b;
+  color: var(--pm-text-secondary);
   font-size: 14px;
 }
 
 .glass-card {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(230, 234, 223, 0.86);
   background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 50px rgba(19, 32, 51, 0.08);
   backdrop-filter: blur(18px);
 }
 

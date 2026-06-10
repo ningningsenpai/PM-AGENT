@@ -1,43 +1,47 @@
 <template>
-  <div class="login-page">
-    <section class="login-hero">
-      <div class="hero-mark">PM</div>
-      <p class="page-eyebrow">PM-Agent</p>
-      <h1>把项目状态变成<br />可追踪的执行线索</h1>
-      <p class="hero-copy">
-        第 1 阶段先跑通登录、项目、任务和看板闭环，让后续 Agent 有真实业务数据可以分析。
-      </p>
-      <div class="hero-stack">
-        <span>项目</span>
-        <span>任务</span>
-        <span>看板</span>
-        <span>Trace</span>
-      </div>
-    </section>
+  <div class="auth-page">
+    <div class="auth-glow auth-glow-blue"></div>
+    <div class="auth-glow auth-glow-green"></div>
+    <div class="auth-glow auth-glow-yellow"></div>
 
-    <n-card class="login-card glass-card" :bordered="false">
-      <h2>登录工作台</h2>
-      <p>使用本地演示用户进入第 1 阶段 MVP。</p>
-      <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
+    <AuthBrandHero />
+
+    <AuthPanel title="登录工作台" description="使用项目账号进入 PM-Agent，继续推进项目、任务和风险线索。">
+      <n-form ref="formRef" :model="form" :rules="rules" label-placement="top" size="large">
         <n-form-item label="用户名" path="username">
-          <n-input v-model:value="form.username" placeholder="admin" size="large" />
+          <n-input v-model:value="form.username" placeholder="请输入用户名" clearable />
         </n-form-item>
         <n-form-item label="密码" path="password">
-          <n-input v-model:value="form.password" type="password" placeholder="任意非空密码" size="large" show-password-on="click" />
+          <n-input v-model:value="form.password" type="password" placeholder="请输入密码" show-password-on="click" />
         </n-form-item>
+
+        <div class="form-row">
+          <n-checkbox v-model:checked="form.remember">记住登录</n-checkbox>
+          <RouterLink class="muted-link" to="/">忘记密码</RouterLink>
+        </div>
+
         <n-button type="primary" size="large" block :loading="loading" @click="handleLogin">
           进入项目工作台
         </n-button>
       </n-form>
-      <div class="login-tip">Mock 模式下用户名默认 admin，密码任意非空。</div>
-    </n-card>
+
+      <template #footer>
+        <div class="auth-footer">
+          <span>还没有账号？</span>
+          <RouterLink to="/register">注册账号</RouterLink>
+          <RouterLink class="intro-link" to="/">返回项目介绍</RouterLink>
+        </div>
+      </template>
+    </AuthPanel>
   </div>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
+import AuthBrandHero from '@/modules/auth/components/AuthBrandHero.vue'
+import AuthPanel from '@/modules/auth/components/AuthPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -48,8 +52,9 @@ const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
 const form = reactive({
-  username: 'admin',
-  password: 'password',
+  username: '',
+  password: '',
+  remember: true,
 })
 
 const rules: FormRules = {
@@ -61,11 +66,12 @@ async function handleLogin() {
   await formRef.value?.validate()
   loading.value = true
   try {
-    await authStore.login(form)
+    await authStore.login({ username: form.username, password: form.password })
     message.success('登录成功')
-    await router.push((route.query.redirect as string) || '/projects')
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/projects'
+    await router.push(redirect)
   } catch (error) {
-    message.error(error instanceof Error ? error.message : '登录失败')
+    message.error(error instanceof Error ? error.message : '登录失败，请检查用户名和密码')
   } finally {
     loading.value = false
   }
@@ -73,79 +79,77 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.login-page {
+.auth-page {
+  position: relative;
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 1.2fr 440px;
-  gap: 48px;
+  grid-template-columns: minmax(640px, 1fr) 448px;
+  gap: 72px;
   align-items: center;
+  overflow: hidden;
   padding: 64px 8vw;
 }
 
-.login-hero h1 {
-  max-width: 780px;
-  margin: 0;
-  color: #0f172a;
-  font-size: 64px;
-  line-height: 1.04;
-  letter-spacing: -0.07em;
+.auth-glow {
+  position: fixed;
+  z-index: 0;
+  border-radius: 999px;
+  filter: blur(6px);
+  pointer-events: none;
 }
 
-.hero-mark {
-  display: inline-flex;
-  width: 72px;
-  height: 72px;
+.auth-glow-blue {
+  top: -140px;
+  left: -130px;
+  width: 480px;
+  height: 480px;
+  background: rgba(47, 125, 246, 0.12);
+}
+
+.auth-glow-green {
+  top: -120px;
+  right: -90px;
+  width: 520px;
+  height: 420px;
+  background: rgba(38, 185, 131, 0.1);
+}
+
+.auth-glow-yellow {
+  right: 4vw;
+  bottom: -120px;
+  width: 420px;
+  height: 280px;
+  background: rgba(245, 184, 61, 0.12);
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -4px 0 26px;
+}
+
+.muted-link,
+.auth-footer a {
+  color: var(--pm-blue-dark);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.auth-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   align-items: center;
   justify-content: center;
-  margin-bottom: 32px;
-  border-radius: 24px;
-  background: #0f172a;
-  color: white;
-  font-weight: 900;
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.28);
-}
-
-.hero-copy {
-  max-width: 560px;
-  margin: 24px 0 0;
-  color: #64748b;
-  font-size: 17px;
-  line-height: 1.8;
-}
-
-.hero-stack {
-  display: flex;
-  gap: 10px;
-  margin-top: 36px;
-}
-
-.hero-stack span {
-  padding: 8px 14px;
-  border: 1px solid rgba(37, 99, 235, 0.16);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #2563eb;
+  color: var(--pm-text-secondary);
   font-size: 13px;
 }
 
-.login-card {
-  padding: 18px;
-}
-
-.login-card h2 {
-  margin: 0 0 8px;
-  font-size: 28px;
-  letter-spacing: -0.04em;
-}
-
-.login-card p {
-  margin: 0 0 28px;
-  color: #64748b;
-}
-
-.login-tip {
-  margin-top: 18px;
-  color: #94a3b8;
-  font-size: 13px;
+.auth-footer .intro-link {
+  width: 100%;
+  color: var(--pm-text-muted);
+  text-align: center;
 }
 </style>

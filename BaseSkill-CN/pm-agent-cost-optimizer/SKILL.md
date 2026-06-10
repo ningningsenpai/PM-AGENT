@@ -6,8 +6,10 @@ metadata:
   language: zh-CN
   owner_module: cost
   related_docs:
-    - docs/07-成本控制.md
     - docs/06-Agent设计.md
+    - docs/02-技术选型.md
+    - docs/04-数据模型.md
+    - CLAUDE.md
 ---
 
 # PM-Agent 成本优化 Skill

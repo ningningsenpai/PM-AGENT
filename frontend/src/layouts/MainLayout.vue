@@ -18,9 +18,9 @@
           <strong>项目基础骨架</strong>
         </div>
         <div class="header-user">
-          <n-tag type="success" round>Mock 数据</n-tag>
-          <span>{{ authStore.user?.displayName || '宁宁' }}</span>
-          <n-button quaternary size="small" @click="logout">退出</n-button>
+          <n-tag :type="useMock ? 'success' : 'info'" round>{{ useMock ? 'Mock 数据' : '真实接口' }}</n-tag>
+          <span>{{ authStore.user?.displayName || '未命名用户' }}</span>
+          <n-button quaternary size="small" :loading="logoutLoading" @click="handleLogout">退出</n-button>
         </div>
       </n-layout-header>
 
@@ -32,14 +32,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import type { MenuOption } from 'naive-ui'
+import { useMessage, type MenuOption } from 'naive-ui'
+import { useMock } from '@/mock'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const message = useMessage()
 const authStore = useAuthStore()
+const logoutLoading = ref(false)
 
 const activeKey = computed(() => (route.path.startsWith('/projects') ? 'projects' : 'projects'))
 
@@ -54,9 +57,17 @@ function handleMenu() {
   return undefined
 }
 
-async function logout() {
-  authStore.logout()
-  await router.push('/login')
+async function handleLogout() {
+  logoutLoading.value = true
+  try {
+    await authStore.logout()
+    message.success('已退出登录')
+    await router.push('/login')
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '退出登录失败')
+  } finally {
+    logoutLoading.value = false
+  }
 }
 </script>
 
@@ -85,7 +96,7 @@ async function logout() {
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  background: #0f172a;
+  background: var(--pm-text);
   color: white;
   font-weight: 900;
 }
@@ -97,7 +108,7 @@ async function logout() {
 
 .brand span {
   margin-top: 2px;
-  color: #64748b;
+  color: var(--pm-text-secondary);
   font-size: 12px;
 }
 
@@ -113,7 +124,7 @@ async function logout() {
 
 .header-label {
   margin-right: 10px;
-  color: #64748b;
+  color: var(--pm-text-secondary);
   font-size: 13px;
 }
 

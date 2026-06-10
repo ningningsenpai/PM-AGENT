@@ -1,15 +1,27 @@
-import type { LoginRequest, LoginResponse, UserProfile } from '@/modules/auth/types'
+import type { AuthTokenResponse, LoginRequest, RegisterRequest, UserProfile } from '@/modules/auth/types'
 import { request } from '@/api/http'
 import { useMock } from '@/mock'
-import { mockLogin, mockMe } from '@/modules/auth/mock'
+import { mockLogin, mockLogout, mockMe, mockRegister } from '@/modules/auth/mock'
 
 export async function login(payload: LoginRequest) {
   if (useMock) {
     return mockLogin(payload)
   }
 
-  return request<LoginResponse>({
+  return request<AuthTokenResponse>({
     url: '/api/v1/auth/login',
+    method: 'post',
+    data: payload,
+  })
+}
+
+export async function register(payload: RegisterRequest) {
+  if (useMock) {
+    return mockRegister(payload)
+  }
+
+  return request<AuthTokenResponse>({
+    url: '/api/v1/auth/register',
     method: 'post',
     data: payload,
   })
@@ -21,7 +33,18 @@ export async function getCurrentUser() {
   }
 
   return request<UserProfile>({
-    url: '/api/v1/auth/me',
+    url: '/api/v1/users/me',
     method: 'get',
+  })
+}
+
+export async function logout() {
+  if (useMock) {
+    return mockLogout()
+  }
+
+  return request<void>({
+    url: '/api/v1/auth/logout',
+    method: 'post',
   })
 }

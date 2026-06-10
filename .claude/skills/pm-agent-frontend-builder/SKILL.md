@@ -1,6 +1,6 @@
 ---
 name: pm-agent-frontend-builder
-description: Frontend development skill for the PM-Agent intelligent project management Agent platform. Use this skill whenever the user designs Vue 3 frontend architecture, page structure, component boundaries, routing, Pinia state, Naive UI tables/forms, project kanban, Agent chat pages, data visualization, or frontend implementation plans.
+description: Frontend development skill for the PM-Agent intelligent project management Agent platform. Use this skill whenever the user designs Vue 3 frontend architecture, page structure, visual systems, Figma prototypes, component boundaries, routing, Pinia state, Naive UI tables/forms, project kanban, Agent chat pages, data visualization, or frontend implementation plans. It should preserve the confirmed PM-Agent Warm Linear visual direction.
 metadata:
   status: active
   language: en-US
@@ -49,12 +49,80 @@ Ask the user before replacing locked choices such as Naive UI, Vue 3, Pinia, or 
 
 ## 2. Visual and interaction style
 
-1. Default to a **Linear-inspired style**: simple, light, clear hierarchy, low-saturation status colors, compact but not crowded.
-2. Do not consider dark mode for now; do not complicate the theme system early for dark mode.
-3. Do not optimize for mobile in the first version; prioritize desktop admin experience.
-4. Admin systems are not only tables. Use cards, statistic blocks, risk tags, timelines, and status colors to increase information density.
-5. Agent pages should emphasize chat, tool-call steps, referenced data, executable actions, and human-confirmation results.
-6. Use motion only for state feedback, not decorative flourish.
+PM-Agent has a confirmed visual direction: **Warm Linear workspace style**. Treat it as the default design language for frontend pages and Figma prototypes unless the user explicitly changes it.
+
+### 2.1 Core direction
+
+1. Default to a **Warm Linear style**: Linear-inspired simplicity, whitespace, clear hierarchy, low-saturation status colors, compact but not crowded, with warmer blue/green/yellow/white tones.
+2. The product should feel like a project execution workspace, not a generic admin dashboard. Express traceability, state flow, and Agent insight through layout and visual motifs.
+3. Do not consider dark mode for now; do not complicate the theme system early for dark mode.
+4. Do not optimize for mobile in the first version; prioritize desktop admin experience.
+5. Admin systems are not only tables. Use cards, statistic blocks, risk tags, timelines, kanban columns, insight cards, and status colors to increase information density.
+6. Agent pages should emphasize chat, tool-call steps, referenced data, executable actions, and human-confirmation results.
+7. Use motion only for state feedback, not decorative flourish.
+
+### 2.2 Confirmed color system
+
+Use blue, green, yellow, and white as the base palette. Keep the approximate visual ratio: warm white/background 65%, blue 20%, green 10%, yellow 5%.
+
+| Token | Suggested value | Use |
+|---|---|---|
+| PM Blue | `#2F7DF6` / `#1F66D1` | Primary actions, links, project progress, selected navigation |
+| PM Green | `#26B983` / `#15966A` | Healthy status, completed state, positive progress |
+| PM Yellow | `#F5B83D` / `#D8911E` | Agent insights, risk hints, focus highlights |
+| Warm White | `#F8FAF5` / `#FFFFFF` | Page background, cards, content surfaces |
+| Main Text | `#132033` | Primary titles and important values |
+| Secondary Text | `#667085` | Descriptions, metadata, supporting text |
+| Muted Text | `#98A2B3` | Empty states, hints, low-priority details |
+
+Do not spread yellow evenly across the UI. Yellow means “insight / something worth attention”, especially Agent suggestions or risk clues.
+
+### 2.3 Brand and visual motifs
+
+1. Use the brand idea **“turn project status into traceable execution clues.”**
+2. The logo direction uses a dark rounded mark, blue execution orbit, green status node, yellow insight node, and a Trace-like connection line. Keep this logic when refining the brand.
+3. Reuse the “execution clue line” motif in cards and layouts: slim left border, top progress strip, connected dots, or timeline markers.
+4. Backgrounds may use a warm morning-light atmosphere: off-white base, soft blue glow, soft green glow, and small yellow insight glow. Avoid heavy gradients or purple AI-style visuals.
+
+### 2.4 Layout rules
+
+1. Main app layout should preserve: left navigation + top status bar + content workspace.
+2. Project workspace should favor: page header, metric cards, project cards, kanban preview, and Agent insight reservation area.
+3. Business detail pages should favor: summary area + tabs + main work area + right-side execution clue/insight panel.
+4. Auth pages can be bolder than internal pages: large brand hero, execution path visual, glass login/register cards.
+5. Reserve future entries for risk, Agent, report, and Trace, but do not implement later-stage business logic early.
+
+### 2.5 Typography and component sizing
+
+Prefer product-tool fonts such as `MiSans`, `HarmonyOS Sans SC`, or `Microsoft YaHei` in implementation. If unavailable in Figma, use `Inter` for prototypes. Avoid using `LXGW WenKai Screen` globally; it may be used only for occasional brand accents if the user wants a more expressive hero.
+
+| Element | Size | Weight |
+|---|---:|---:|
+| Page title | 28–32px | 700–800 |
+| Hero title | 52–64px | 800 |
+| Card title | 18–22px | 650–700 |
+| Body text | 14px | 400 |
+| Supporting text | 12–13px | 400–500 |
+| Metric number | 28–40px | 700–800 |
+
+Radii and spacing:
+
+- Page/card large radius: 24–30px;
+- Normal card radius: 18–24px;
+- Button/input radius: 10–14px;
+- Tag radius: `999px`;
+- Use 4px-based spacing: 4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 48 / 64.
+
+### 2.6 Confirmed prototype pages
+
+The current Figma prototype direction includes these baseline screens:
+
+1. Brand foundation: logo, color palette, type/component examples;
+2. Auth screens: login and register with a stronger brand hero;
+3. Project workspace: sidebar, top bar, metrics, project cards, kanban preview, Agent insight placeholder;
+4. Business layout: project summary, tabs, task kanban, right-side execution clue panel.
+
+When implementing frontend code, keep these structural decisions stable to avoid frequent layout rework.
 
 ---
 

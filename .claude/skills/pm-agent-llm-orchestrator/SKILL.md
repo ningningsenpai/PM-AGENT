@@ -7,7 +7,8 @@ metadata:
   owner_module: agent-service
   related_docs:
     - docs/06-Agent设计.md
-    - docs/07-成本控制.md
+    - docs/02-技术选型.md
+    - docs/04-数据模型.md
     - docs/05-接口规范.md
 ---
 
