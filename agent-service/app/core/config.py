@@ -10,7 +10,6 @@ class Settings:
         self.deepseek_api_key = os.getenv("DEEPSEEK_API_KEY", "")
         self.deepseek_model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro")
         self.deepseek_base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-        self.java_backend_base_url = os.getenv("JAVA_BACKEND_BASE_URL", "http://localhost:8080")
         self.demo_mode = not bool(self.deepseek_api_key)
 
 

@@ -276,28 +276,35 @@ Java 发布任务 → RabbitMQ → Python 消费任务 → 模型 / 工具 / RAG
 
 ---
 
-## 4. 推荐目录结构
+## 4. 当前目录结构
 
 ```text
 agent-service/
 ├── README.md
-├── pyproject.toml              # 后续正式编码时启用
-├── .env.example                # 后续存放模型 Key 和 Java 后端地址示例
+├── pyproject.toml              # Python 服务依赖与项目元信息
+├── .env.example                # 模型 Key 与本地运行配置示例
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                 # FastAPI 入口，后续实现
-│   ├── api/
+│   ├── main.py                 # FastAPI 应用入口
+│   ├── api/                    # HTTP 路由层
 │   │   └── v1/
-│   ├── core/
-│   ├── clients/
-│   ├── llm/
-│   ├── agents/
-│   ├── prompts/
-│   ├── tools/
-│   ├── schemas/
-│   └── rag/
-└── tests/
+│   │       └── agent.py
+│   ├── core/                   # 配置加载
+│   │   └── config.py
+│   ├── llm/                    # DeepSeek 模型适配
+│   │   └── deepseek_client.py
+│   ├── agents/                 # Agent 编排
+│   │   └── project_chat_agent.py
+│   ├── prompts/                # Prompt 模板
+│   │   └── project_chat.py
+│   ├── tools/                  # 工具调用 Demo
+│   │   └── demo_project_tool.py
+│   └── schemas/                # 请求与响应模型
+│       └── chat.py
+└── tests/                      # 后续补充
 ```
+
+`app/clients/` 和 `app/rag/` 暂时不保留空目录：Java 工具 API 与 RAG 到对应阶段正式实现时再创建。
 
 ---
 
@@ -346,19 +353,99 @@ agent-service/
 
 ---
 
-## 6. 给 Python 初学者的开发建议
+## 6. 给 Python 初学者的学习执行链路
 
-如果之前没有 Python 开发经验，建议按这个顺序学习和开发：
+如果之前没有 Python 开发经验，建议先按“请求怎么进来、数据怎么流转、结果怎么返回”的顺序阅读现有代码。
+
+### 6.1 先看运行入口
+
+1. `pyproject.toml`
+   - 看项目依赖：`fastapi`、`uvicorn`、`httpx`、`pydantic`；
+   - 先理解这个服务依赖哪些基础库。
+2. `.env.example`
+   - 看运行时配置：`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_BASE_URL`；
+   - 明白为什么不填 Key 时会进入本地 Demo 模式。
+3. `app/main.py`
+   - 看 FastAPI 应用如何创建；
+   - 看 `/internal/health` 健康检查；
+   - 看 Agent 路由如何挂载到应用。
+
+### 6.2 再看 HTTP 请求如何进入 Agent
+
+4. `app/api/v1/agent.py`
+   - `POST /api/v1/agent/chat` 是当前核心入口；
+   - 读取 `X-Trace-Id`、`X-User-Id`、`X-Tenant-Id`；
+   - 根据 `request.stream` 决定返回普通 JSON 还是 SSE 流式响应。
+5. `app/schemas/chat.py`
+   - `ChatRequest` 定义前端或 Java 传入什么；
+   - `ChatResponse` 定义 Agent 返回什么；
+   - `ToolCallRecord` 定义工具调用记录；
+   - `ApiResponse` 保持和 Java 后端统一响应风格一致。
+
+### 6.3 然后看 Agent 编排逻辑
+
+6. `app/agents/project_chat_agent.py`
+   - `chat()` 是非流式链路；
+   - `stream_chat()` 是流式链路；
+   - `_maybe_call_tools()` 决定是否调用工具；
+   - `_tool_summary()` 把工具结果整理成 Prompt 上下文。
+7. `app/tools/demo_project_tool.py`
+   - 当前只返回固定项目概览数据；
+   - 它模拟未来“Python 通过 Java 工具 API 查询项目数据”的位置；
+   - 第一版不要在 Python 里直接查数据库。
+
+### 6.4 最后看 Prompt 与模型调用
+
+8. `app/prompts/project_chat.py`
+   - `PROJECT_CHAT_SYSTEM_PROMPT` 定义 Agent 的边界；
+   - `build_project_chat_prompt()` 把用户问题和工具摘要组装成 messages。
+9. `app/core/config.py`
+   - `load_env_file()` 读取本地 `.env`；
+   - `get_settings()` 缓存配置；
+   - `demo_mode` 控制是否真实调用 DeepSeek。
+10. `app/llm/deepseek_client.py`
+    - `chat()` 处理非流式模型调用；
+    - `stream_chat()` 处理流式模型调用；
+    - `_demo_answer()` 是无 Key 时的本地假回答，方便先跑通链路。
+
+### 6.5 当前代码的完整执行顺序
 
 ```text
-1. Python 基础语法
-2. 虚拟环境和依赖管理
-3. FastAPI 路由和 Pydantic 模型
-4. HTTP 客户端调用 Java API
-5. 调用 DeepSeek 模型
-6. 流式输出
-7. Agent 工具调用
-8. RAG
+用户 / 前端 / Java 后端
+  ↓
+POST /api/v1/agent/chat
+  ↓
+app/api/v1/agent.py 读取请求体和请求头
+  ↓
+ChatRequest 校验请求字段
+  ↓
+ProjectChatAgent.chat() 或 ProjectChatAgent.stream_chat()
+  ↓
+按 message / use_tool_demo 判断是否调用 DemoProjectTool
+  ↓
+DemoProjectTool 返回固定项目概览 ToolCallRecord
+  ↓
+build_project_chat_prompt() 组装 system + user messages
+  ↓
+DeepSeekClient 根据 demo_mode 选择：
+  ├─ 没有 DEEPSEEK_API_KEY：返回本地 Demo 回答
+  └─ 有 DEEPSEEK_API_KEY：调用 DeepSeek chat/completions
+  ↓
+非流式：返回 ApiResponse
+流式：返回 meta / tool_call / token / done SSE 事件
+```
+
+### 6.6 建议学习顺序
+
+```text
+1. 先运行 /internal/health，确认 FastAPI 能启动
+2. 调非流式 /api/v1/agent/chat，理解普通 JSON 返回
+3. 打开 use_tool_demo=true，观察 tool_calls 如何出现
+4. 调 stream=true，理解 SSE 的 meta、tool_call、token、done
+5. 修改 demo_project_tool.py 的固定数据，观察回答变化
+6. 修改 project_chat.py 的 Prompt，观察回答风格变化
+7. 配置 DEEPSEEK_API_KEY，观察本地 Demo 回答和真实模型回答的区别
+8. 后续再实现 Java 工具 API 客户端，不要提前做 RAG
 ```
 
 第一版不要追求复杂框架，不建议一开始就引入 LangChain / LlamaIndex。先用简单、可读、可控的自研轻量编排。
