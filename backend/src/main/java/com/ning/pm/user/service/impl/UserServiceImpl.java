@@ -1,5 +1,6 @@
 package com.ning.pm.user.service.impl;
 
+import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ning.pm.auth.dto.RegisterRequest;
@@ -8,11 +9,14 @@ import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.user.converter.UserConverter;
 import com.ning.pm.user.domain.User;
+import com.ning.pm.user.dto.ChangePasswordRequest;
+import com.ning.pm.user.dto.UpdateUserProfileRequest;
 import com.ning.pm.user.dto.UserProfileResponse;
 import com.ning.pm.user.repository.UserMapper;
 import com.ning.pm.user.service.UserService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -73,12 +77,36 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserProfileResponse getCurrentUserProfile() {
-        Long userId = currentUserHolder.requireUserId();
-        User user = userMapper.selectById(userId);
-        if (user == null || Integer.valueOf(1).equals(user.getDeleted())) {
-            throw new BizException(ErrorCode.USER_NOT_FOUND);
-        }
+        User user = requireCurrentUser();
         return userConverter.toProfileResponse(user);
+    }
+
+    /** 修改当前登录用户的基础资料。 */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserProfileResponse updateCurrentUserProfile(UpdateUserProfileRequest request) {
+        User user = requireCurrentUser();
+        userConverter.updateEntity(user, request);
+        userMapper.updateById(user);
+        return userConverter.toProfileResponse(user);
+    }
+
+    /** 修改当前登录用户密码；密码仅写入哈希，不记录明文日志。 */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeCurrentUserPassword(ChangePasswordRequest request) {
+        User user = requireCurrentUser();
+        if (!BCrypt.checkpw(request.oldPassword(), user.getPasswordHash())) {
+            throw new BizException(ErrorCode.PASSWORD_INVALID);
+        }
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "两次输入的新密码不一致");
+        }
+        if (BCrypt.checkpw(request.newPassword(), user.getPasswordHash())) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "新密码不能与原密码相同");
+        }
+        user.setPasswordHash(BCrypt.hashpw(request.newPassword(), BCrypt.gensalt()));
+        userMapper.updateById(user);
     }
 
     @Override
@@ -86,5 +114,14 @@ public class UserServiceImpl implements UserService {
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, userId)
                 .set(User::getLastLoginAt, loginAt));
+    }
+
+    private User requireCurrentUser() {
+        Long userId = currentUserHolder.requireUserId();
+        User user = userMapper.selectById(userId);
+        if (user == null || Integer.valueOf(1).equals(user.getDeleted())) {
+            throw new BizException(ErrorCode.USER_NOT_FOUND);
+        }
+        return user;
     }
 }

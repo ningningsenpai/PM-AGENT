@@ -10,7 +10,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @author ning
  * @date 2026-06-08
  */
-@MapperScan("com.ning.pm.user.repository")
+@MapperScan({
+        "com.ning.pm.user.repository",
+        "com.ning.pm.project.repository",
+        "com.ning.pm.task.repository"
+})
 @SpringBootApplication
 public class PmApplication {
 

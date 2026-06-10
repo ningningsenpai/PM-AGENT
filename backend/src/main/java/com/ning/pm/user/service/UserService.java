@@ -2,6 +2,8 @@ package com.ning.pm.user.service;
 
 import com.ning.pm.auth.dto.RegisterRequest;
 import com.ning.pm.user.domain.User;
+import com.ning.pm.user.dto.ChangePasswordRequest;
+import com.ning.pm.user.dto.UpdateUserProfileRequest;
 import com.ning.pm.user.dto.UserProfileResponse;
 
 import java.time.LocalDateTime;
@@ -19,6 +21,10 @@ public interface UserService {
     User findActiveUserByUsername(String username);
 
     UserProfileResponse getCurrentUserProfile();
+
+    UserProfileResponse updateCurrentUserProfile(UpdateUserProfileRequest request);
+
+    void changeCurrentUserPassword(ChangePasswordRequest request);
 
     void updateLastLoginAt(Long userId, LocalDateTime loginAt);
 }
