@@ -8,7 +8,7 @@ from app.tools.demo_project_tool import DemoProjectTool
 
 
 class ProjectChatAgent:
-    """第 3 阶段项目问答 Agent Demo。"""
+    """第 3 阶段项目问答 Agent。"""
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -22,7 +22,6 @@ class ProjectChatAgent:
         return ChatResponse(
             answer=answer,
             model=self.settings.deepseek_model,
-            demo_mode=self.settings.demo_mode,
             tool_calls=tool_calls,
         )
 
@@ -32,13 +31,13 @@ class ProjectChatAgent:
             yield {"event": "tool_call", "data": tool_call.model_dump()}
 
         prompt = build_project_chat_prompt(request.message, self._tool_summary(tool_calls))
+        print(f"生成的 prompt: {prompt}")
         async for token in self.llm.stream_chat(prompt):
             yield {"event": "token", "data": token}
         yield {
             "event": "done",
             "data": {
                 "model": self.settings.deepseek_model,
-                "demo_mode": self.settings.demo_mode,
             },
         }
 

@@ -4,8 +4,8 @@ from app.schemas.chat import ToolCallRecord
 class DemoProjectTool:
     """项目概览工具 Demo。
 
-    当前工具不调用 Java，也不访问数据库，只返回固定演示数据，帮助理解工具调用链路。
-    后续正式版本应改为调用 Java 工具 API。
+    当前工具不调用外部服务，也不访问数据库，只返回固定演示数据，帮助理解工具调用链路。
+    后续正式版本可替换为受控业务工具 API。
     """
 
     tool_name = "demo_query_project_overview"

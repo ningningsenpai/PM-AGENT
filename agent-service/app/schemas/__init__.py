@@ -1,1 +1,0 @@
-"""Pydantic Schema 层。"""

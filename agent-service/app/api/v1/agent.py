@@ -8,7 +8,7 @@ from app.agents.project_chat_agent import ProjectChatAgent
 from app.core.config import get_settings
 from app.schemas.chat import ApiResponse, ChatRequest
 
-router = APIRouter(prefix="/api/v1/agent", tags=["Agent Demo"])
+router = APIRouter(prefix="/api/v1/agent", tags=["Agent"])
 
 
 @router.post("/chat")
@@ -18,7 +18,7 @@ async def chat(
     x_user_id: str | None = Header(default="0", alias="X-User-Id"),
     x_tenant_id: str | None = Header(default="0", alias="X-Tenant-Id"),
 ):
-    """Agent 对话 Demo；支持普通 JSON 和 SSE 流式输出。"""
+    """Agent 对话；支持普通 JSON 和 SSE 流式输出。"""
     trace_id = x_trace_id or uuid4().hex
     settings = get_settings()
     agent = ProjectChatAgent(settings)

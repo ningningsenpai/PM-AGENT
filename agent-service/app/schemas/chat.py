@@ -24,12 +24,11 @@ class ChatResponse(BaseModel):
 
     answer: str
     model: str
-    demo_mode: bool
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
 
 
 class ApiResponse(BaseModel):
-    """与 Java 后端风格保持一致的响应结构。"""
+    """统一响应结构。"""
 
     code: int = 0
     message: str = "成功"
