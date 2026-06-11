@@ -4,6 +4,7 @@ from app.core.config import Settings
 from app.llm.deepseek_client import DeepSeekClient
 from app.prompts.project_chat import build_project_chat_prompt
 from app.schemas.chat import ChatRequest, ChatResponse, ToolCallRecord
+from app.streaming import StreamEventType
 from app.tools.demo_project_tool import DemoProjectTool
 
 
@@ -27,18 +28,17 @@ class ProjectChatAgent:
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[dict]:
         tool_calls = self._maybe_call_tools(request)
+
         for tool_call in tool_calls:
-            yield {"event": "tool_call", "data": tool_call.model_dump()}
+            yield {"event": StreamEventType.TOOL_CALL, "data": tool_call.model_dump()}
 
         prompt = build_project_chat_prompt(request.message, self._tool_summary(tool_calls))
-        print(f"生成的 prompt: {prompt}")
         async for token in self.llm.stream_chat(prompt):
-            yield {"event": "token", "data": token}
+            yield {"event": StreamEventType.TOKEN, "data": token}
+
         yield {
-            "event": "done",
-            "data": {
-                "model": self.settings.deepseek_model,
-            },
+            "event": StreamEventType.DONE,
+            "data": {"model": self.settings.deepseek_model},
         }
 
     def _maybe_call_tools(self, request: ChatRequest) -> list[ToolCallRecord]:

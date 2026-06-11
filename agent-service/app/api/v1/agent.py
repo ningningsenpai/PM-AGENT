@@ -1,4 +1,3 @@
-import json
 from uuid import uuid4
 
 from fastapi import APIRouter, Header
@@ -7,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from app.agents.project_chat_agent import ProjectChatAgent
 from app.core.config import get_settings
 from app.schemas.chat import ApiResponse, ChatRequest
+from app.streaming import SSEFormatter, StreamEventType
 
 router = APIRouter(prefix="/api/v1/agent", tags=["Agent"])
 
@@ -25,16 +25,15 @@ async def chat(
 
     if request.stream:
         async def event_generator():
-            yield _sse("meta", {"traceId": trace_id, "userId": x_user_id, "tenantId": x_tenant_id})
+            yield SSEFormatter.format(
+                StreamEventType.META,
+                {"traceId": trace_id, "userId": x_user_id, "tenantId": x_tenant_id},
+            )
             async for event in agent.stream_chat(request):
-                yield _sse(event["event"], event["data"])
+                yield SSEFormatter.format(event["event"], event["data"])
+            yield SSEFormatter.done_marker()
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     data = await agent.chat(request)
     return ApiResponse(data=data, traceId=trace_id)
-
-
-def _sse(event: str, data: dict | str) -> str:
-    payload = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
-    return f"event: {event}\ndata: {payload}\n\n"
