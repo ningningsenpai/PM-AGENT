@@ -1,13 +1,10 @@
+"""Agent 对话响应数据结构。
+
+请求结构已迁移到 app/streaming/payloads/request.py 下的 AgentChatRequest，
+这里只保留响应与工具调用记录。
+"""
+
 from pydantic import BaseModel, Field
-
-
-class ChatRequest(BaseModel):
-    """Agent 对话请求。"""
-
-    message: str = Field(..., min_length=1, description="用户输入")
-    project_id: int | None = Field(default=None, description="项目 ID，可为空")
-    stream: bool = Field(default=False, description="是否使用流式输出")
-    use_tool_demo: bool = Field(default=False, description="是否强制演示工具调用")
 
 
 class ToolCallRecord(BaseModel):
@@ -24,6 +21,7 @@ class ChatResponse(BaseModel):
 
     answer: str
     model: str
+    conversation_id: str | None = Field(default=None, description="会话 ID")
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
 
 
