@@ -1,0 +1,108 @@
+"""OpenAI 兼容协议的通用客户端基类。
+
+DeepSeek、豆包（火山方舟）、智谱 GLM、Moonshot Kimi 等厂商均采用与
+OpenAI Chat Completions 高度兼容的 HTTP 协议，区别仅在于：
+- 鉴权头形式（普遍是 ``Authorization: Bearer <api_key>``）；
+- 域名与路径前缀；
+- 默认模型名 / endpoint ID；
+- 个别字段的可用性。
+
+把公共的请求体构造、HTTP 调用、SSE 流式解析放在这里，子类只需声明
+``provider`` 名即可被工厂识别。差异较大的厂商（如 MiniMax）不应继承本类，
+应当独立实现 ``BaseLLMClient``。
+"""
+
+import json
+from collections.abc import AsyncIterator
+
+import httpx
+
+from app.llm.base import BaseLLMClient
+from app.streaming.metrics import LLMChatResult, LLMStreamChunk, LLMTokenUsage
+
+
+class OpenAICompatibleClient(BaseLLMClient):
+    """OpenAI Chat Completions 兼容客户端的公共实现。"""
+
+    # 默认温度，可由子类或后续配置覆盖。
+    default_temperature: float = 0.2
+    # 当前只让 DeepSeek 开启真实 usage 解析，其他兼容厂商暂不统计。
+    supports_real_usage: bool = False
+
+    def _endpoint(self) -> str:
+        """拼接 chat/completions 接口的完整 URL。"""
+        return f"{self.config.base_url.rstrip('/')}/chat/completions"
+
+    def _headers(self) -> dict[str, str]:
+        """构造鉴权请求头；子类可重写以适配非 Bearer 的鉴权方式。"""
+        self.config.require_api_key(self.provider)
+        return {"Authorization": f"Bearer {self.config.api_key}"}
+
+    def _build_body(self, messages: list[dict], stream: bool) -> dict:
+        """构造请求体；保留为单独方法方便子类追加厂商私有字段。"""
+        body = {
+            "model": self.config.model,
+            "messages": messages,
+            "temperature": self.default_temperature,
+            "stream": stream,
+        }
+        if stream and self.supports_real_usage:
+            body["stream_options"] = {"include_usage": True}
+        return body
+
+    def _usage_from_response(self, data: dict) -> LLMTokenUsage | None:
+        """仅在开启真实 usage 的 provider 上解析响应 usage。"""
+        if not self.supports_real_usage:
+            return None
+        return LLMTokenUsage.from_openai_compatible_usage(
+            provider=self.provider,
+            model=data.get("model") or self.config.model,
+            usage=data.get("usage"),
+        )
+
+    async def chat_with_usage(self, messages: list[dict]) -> LLMChatResult:
+        """非流式对话，返回完整回答文本与可选 token 用量。"""
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                self._endpoint(),
+                headers=self._headers(),
+                json=self._build_body(messages, stream=False),
+            )
+            response.raise_for_status()
+            data = response.json()
+            return LLMChatResult(
+                content=data["choices"][0]["message"]["content"],
+                usage=self._usage_from_response(data),
+            )
+
+    async def stream_chat_with_usage(
+        self,
+        messages: list[dict],
+    ) -> AsyncIterator[LLMStreamChunk]:
+        """流式对话，逐片段 yield 文本或 token 用量。"""
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST",
+                self._endpoint(),
+                headers=self._headers(),
+                json=self._build_body(messages, stream=True),
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    payload = line.removeprefix("data: ").strip()
+                    if payload == "[DONE]":
+                        break
+                    data = json.loads(payload)
+                    usage = self._usage_from_response(data)
+                    if usage:
+                        yield LLMStreamChunk(usage=usage)
+
+                    choices = data.get("choices") or []
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content")
+                    if content:
+                        yield LLMStreamChunk(content=content)

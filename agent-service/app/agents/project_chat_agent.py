@@ -1,7 +1,8 @@
 from collections.abc import AsyncIterator
 
 from app.core.config import Settings
-from app.llm.deepseek_client import DeepSeekClient
+from app.llm.base import BaseLLMClient
+from app.llm.factory import get_llm_client
 from app.prompts.project_chat import build_project_chat_messages
 from app.schemas.chat import ChatResponse, ToolCallRecord
 from app.streaming import StreamEventType
@@ -14,37 +15,51 @@ class ProjectChatAgent:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.llm = DeepSeekClient(settings)
         self.project_tool = DemoProjectTool()
+
+    def _resolve_llm(self, request: AgentChatRequest) -> BaseLLMClient:
+        """按请求字段或服务端默认值解析具体的 LLM 客户端。"""
+        provider = request.llm_provider or self.settings.default_llm_provider
+        return get_llm_client(provider, self.settings)
 
     async def chat(self, request: AgentChatRequest) -> ChatResponse:
         """非流式多轮对话。"""
+        llm = self._resolve_llm(request)
         tool_calls = self._maybe_call_tools(request)
         messages = build_project_chat_messages(request, self._tool_summary(tool_calls))
-        answer = await self.llm.chat(messages)
+        result = await llm.chat_with_usage(messages)
+        usage = request.record_token_usage(result.usage)
         return ChatResponse(
-            answer=answer,
-            model=self.settings.deepseek_model,
+            answer=result.content,
+            model=llm.config.model,
             conversation_id=request.conversation_id,
             tool_calls=tool_calls,
+            usage=usage,
         )
 
     async def stream_chat(self, request: AgentChatRequest) -> AsyncIterator[dict]:
         """流式多轮对话；按事件 yield 工具调用与 token。"""
+        llm = self._resolve_llm(request)
         tool_calls = self._maybe_call_tools(request)
 
         for tool_call in tool_calls:
             yield {"event": StreamEventType.TOOL_CALL, "data": tool_call.model_dump()}
 
         messages = build_project_chat_messages(request, self._tool_summary(tool_calls))
-        async for token in self.llm.stream_chat(messages):
-            yield {"event": StreamEventType.TOKEN, "data": token}
+        usage = None
+        async for chunk in llm.stream_chat_with_usage(messages):
+            if chunk.content:
+                yield {"event": StreamEventType.TOKEN, "data": chunk.content}
+            if chunk.usage:
+                usage = request.record_token_usage(chunk.usage)
 
         yield {
             "event": StreamEventType.DONE,
             "data": {
-                "model": self.settings.deepseek_model,
+                "model": llm.config.model,
+                "provider": llm.provider,
                 "conversationId": request.conversation_id,
+                "usage": usage.model_dump() if usage else None,
             },
         }
 

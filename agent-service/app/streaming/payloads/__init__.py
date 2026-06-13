@@ -8,6 +8,14 @@ from app.streaming.payloads.request import (
     ToolCallRef,
     UserContext,
 )
+from app.streaming.payloads.validators import (
+    check_all,
+    check_last_is_user,
+    check_first_is_system,
+    check_role_specific_fields,
+    check_system_position,
+    check_tool_call_pairing,
+)
 
 __all__ = [
     "AgentChatRequest",
@@ -16,4 +24,10 @@ __all__ = [
     "MessageRole",
     "ToolCallRef",
     "UserContext",
+    "check_all",
+    "check_last_is_user",
+    "check_first_is_system",
+    "check_role_specific_fields",
+    "check_system_position",
+    "check_tool_call_pairing",
 ]

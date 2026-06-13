@@ -6,6 +6,8 @@
 
 from pydantic import BaseModel, Field
 
+from app.streaming.metrics import LLMTokenUsage
+
 
 class ToolCallRecord(BaseModel):
     """工具调用记录。"""
@@ -23,6 +25,7 @@ class ChatResponse(BaseModel):
     model: str
     conversation_id: str | None = Field(default=None, description="会话 ID")
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
+    usage: LLMTokenUsage | None = Field(default=None, description="本轮 LLM token 用量")
 
 
 class ApiResponse(BaseModel):

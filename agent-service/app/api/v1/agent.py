@@ -1,6 +1,8 @@
 from uuid import uuid4
+
 from fastapi import APIRouter, Header
 from fastapi.responses import StreamingResponse
+
 from app.agents.project_chat_agent import ProjectChatAgent
 from app.core.config import get_settings
 from app.schemas.chat import ApiResponse
@@ -31,6 +33,9 @@ async def chat(
         request.conversation_id = uuid4().hex
 
     settings = get_settings()
+    # 上下文处理
+
+
     agent = ProjectChatAgent(settings)
 
     if request.stream:
