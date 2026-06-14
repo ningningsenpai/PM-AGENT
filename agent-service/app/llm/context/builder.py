@@ -1,5 +1,5 @@
-from app.streaming.payloads import AgentChatRequest
-from app.streaming.payloads import check_last_is_user, check_first_is_system, check_role_specific_fields
+from app.prompts.project_chat import ensure_system_prompt
+from app.streaming.payloads import AgentChatRequest, ChatMessage, check_all
 
 
 class LLMContextBuilder:
@@ -15,10 +15,10 @@ class LLMContextBuilder:
         self.request = request
         self.messages = request.messages
 
-    def build(self) -> AgentChatRequest:
-        check_last_is_user(self.messages)
-        check_first_is_system(self.messages)
-        for message in self.messages:
-            if not message.confire:
-                check_role_specific_fields(message)
+    def build(self) -> list[ChatMessage]:
+        """构造标准化后的 LLM 输入消息。"""
+        messages = ensure_system_prompt(self.messages)
+        check_all(messages)
+        return messages
+
 

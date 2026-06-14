@@ -33,9 +33,6 @@ async def chat(
         request.conversation_id = uuid4().hex
 
     settings = get_settings()
-    # 上下文处理
-
-
     agent = ProjectChatAgent(settings)
 
     if request.stream:

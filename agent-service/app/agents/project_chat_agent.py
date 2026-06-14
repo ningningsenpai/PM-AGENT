@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 
 from app.core.config import Settings
 from app.llm.base import BaseLLMClient
+from app.llm.context.builder import LLMContextBuilder
 from app.llm.factory import get_llm_client
 from app.prompts.project_chat import build_project_chat_messages
 from app.schemas.chat import ChatResponse, ToolCallRecord
@@ -26,7 +27,12 @@ class ProjectChatAgent:
         """非流式多轮对话。"""
         llm = self._resolve_llm(request)
         tool_calls = self._maybe_call_tools(request)
-        messages = build_project_chat_messages(request, self._tool_summary(tool_calls))
+        base_messages = LLMContextBuilder(request).build()
+        messages = build_project_chat_messages(
+            request,
+            self._tool_summary(tool_calls),
+            base_messages=base_messages,
+        )
         result = await llm.chat_with_usage(messages)
         usage = request.record_token_usage(result.usage)
         return ChatResponse(
@@ -35,6 +41,7 @@ class ProjectChatAgent:
             conversation_id=request.conversation_id,
             tool_calls=tool_calls,
             usage=usage,
+            usage_summary=request.current_token_usage_summary(),
         )
 
     async def stream_chat(self, request: AgentChatRequest) -> AsyncIterator[dict]:
@@ -45,7 +52,12 @@ class ProjectChatAgent:
         for tool_call in tool_calls:
             yield {"event": StreamEventType.TOOL_CALL, "data": tool_call.model_dump()}
 
-        messages = build_project_chat_messages(request, self._tool_summary(tool_calls))
+        base_messages = LLMContextBuilder(request).build()
+        messages = build_project_chat_messages(
+            request,
+            self._tool_summary(tool_calls),
+            base_messages=base_messages,
+        )
         usage = None
         async for chunk in llm.stream_chat_with_usage(messages):
             if chunk.content:
@@ -60,6 +72,7 @@ class ProjectChatAgent:
                 "provider": llm.provider,
                 "conversationId": request.conversation_id,
                 "usage": usage.model_dump() if usage else None,
+                "usageSummary": request.current_token_usage_summary().model_dump(),
             },
         }
 

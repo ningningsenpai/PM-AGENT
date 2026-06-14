@@ -9,7 +9,7 @@
 
 from app.streaming.payloads import AgentChatRequest, ChatMessage
 
-PROJECT_CHAT_SYSTEM_PROMPT = """
+CHAT_SYSTEM_PROMPT = """
 你是 PM-Agent 的项目管理助手。
 
 必须遵守：
@@ -19,6 +19,29 @@ PROJECT_CHAT_SYSTEM_PROMPT = """
 4. 信息不足时要说明缺少什么，不要编造项目、任务、人员或日期；
 5. 删除、权限变更、对外通知等高风险动作只能生成建议，不能直接执行。
 """.strip()
+
+PROJECT_SYSTEM_PROMPT = """
+项目定位：
+PM-Agent 是一个基于 Java + Python + 大模型 Agent 构建的智能项目管理平台，面向项目经理、研发团队与管理层，帮助团队自动理解项目状态、识别交付风险、生成项目报告，并推动任务执行。
+""".strip()
+
+
+def ensure_system_prompt(messages: list[ChatMessage]) -> list[ChatMessage]:
+    """重建 system prompt，并移除前端传入的 system 消息。"""
+    if not messages:
+        raise ValueError("messages 不能为空")
+    system_message = ChatMessage(
+        role="system",
+        content=f"{CHAT_SYSTEM_PROMPT}\n\n{get_project_prompt()}",
+    )
+    history = [message for message in messages if message.role != "system"]
+    return [system_message, *history]
+
+
+def get_project_prompt() -> str:
+    """获取项目定位提示词；后续可替换为按项目动态生成。"""
+    # TODO 完善项目生成 PROJECT_SYSTEM_PROMPT 的算法
+    return PROJECT_SYSTEM_PROMPT
 
 
 def _context_hint(request: AgentChatRequest) -> str | None:
@@ -40,23 +63,32 @@ def _context_hint(request: AgentChatRequest) -> str | None:
 def build_project_chat_messages(
     request: AgentChatRequest,
     tool_summary: str | None = None,
-) -> list[dict[str, str]]:
+    base_messages: list[ChatMessage] | None = None,
+) -> list[dict]:
     """构造项目问答的多轮 messages 数组。
 
-    入参 request 中的 messages 视为前端持有的会话历史；本函数会在最前面拼接
-    system 人设与上下文，并在必要时注入工具调用摘要，最终返回可直接喂给
-    LLM 的 messages 列表。
+    ``base_messages`` 应由 ``LLMContextBuilder.build()`` 产出，包含服务端重建的
+    system prompt 与已校验的历史消息；本函数只负责追加业务上下文、工具摘要，
+    并转换为 LLM API 可直接接受的 dict 列表。
     """
-    messages: list[dict[str, str]] = [
-        {"role": "system", "content": PROJECT_CHAT_SYSTEM_PROMPT},
-    ]
+    source_messages = base_messages or request.messages
+    history = _serialize_history(source_messages)
+
+    messages: list[dict] = []
+    if history and history[0]["role"] == "system":
+        messages.append(history[0])
+        history = history[1:]
+    else:
+        messages.append(
+            {
+                "role": "system",
+                "content": f"{CHAT_SYSTEM_PROMPT}\n\n{get_project_prompt()}",
+            }
+        )
 
     context_hint = _context_hint(request)
     if context_hint:
         messages.append({"role": "system", "content": context_hint})
-
-    # 透传历史消息：剔除前端可能重复传入的 system 角色，避免覆盖人设。
-    history = _serialize_history(request.messages)
 
     # 工具摘要作为"已知事实"放在最后一条 user 之前，方便模型立即引用。
     if tool_summary and history and history[-1]["role"] == "user":
@@ -69,15 +101,11 @@ def build_project_chat_messages(
     return messages
 
 
-def _serialize_history(history: list[ChatMessage]) -> list[dict[str, str]]:
+def _serialize_history(history: list[ChatMessage]) -> list[dict]:
     """把 ChatMessage 列表序列化为 LLM API 可直接接受的 dict 列表。"""
-    serialized: list[dict[str, str]] = []
+    serialized: list[dict] = []
     for message in history:
-        # 前端可能误传 system 进来，统一在 build_project_chat_messages 里重建，
-        # 这里直接丢弃，避免覆盖服务端的人设与上下文。
-        if message.role == "system":
-            continue
-        item: dict[str, str] = {"role": message.role, "content": message.content}
+        item: dict = {"role": message.role, "content": message.content}
         if message.name:
             item["name"] = message.name
         if message.tool_call_id:

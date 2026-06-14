@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.streaming.metrics import ContextLengthStatus, LLMTokenUsage
+from app.streaming.metrics import ContextLengthStatus, LLMTokenUsage, LLMTokenUsageSummary
 
 # TODO 完善 Java 模块之后重新审查设计该模块数据结构字段的 default 值
 
@@ -32,10 +32,6 @@ class ChatMessage(BaseModel):
         default=None,
         description="tool 消息关联的工具调用 ID, 用于保证 assistant 调用的 tool_call_id 与 tool 消息的 tool_call_id 一致",
     )
-    confire: bool = Field(
-        default=False,
-        description="输入判断验证参数，避免多次验证"
-    )
 
     @model_validator(mode="after")
     def _check_role_specific_fields(self) -> "ChatMessage":
@@ -54,6 +50,7 @@ class ConversationContext(BaseModel):
 
     project_id: int | None = Field(default=None, description="当前项目 ID")
     iteration_id: int | None = Field(default=None, description="当前迭代 ID, 用于区分多轮对话(拆分任务在Java模块中设计算法实现)")
+    context_total_usage: int | None = Field(default=0, description="当前迭代ID轮次对应的总token消耗数量，用于统计上下文长度从而进行上下文压缩或者切分")
     task_id: int | None = Field(default=None, description="当前任务 ID")
 
 
@@ -96,6 +93,10 @@ class AgentChatRequest(BaseModel):
         default_factory=list,
         description="本会话已知的每轮 LLM token 用量；当前仅 DeepSeek 有真实统计",
     )
+    token_usage_summary: LLMTokenUsageSummary = Field(
+        default_factory=LLMTokenUsageSummary,
+        description="本会话累计 token 用量；由服务端响应返回，并可由下一轮请求带回",
+    )
 
     @model_validator(mode="after")
     def _check_messages(self) -> "AgentChatRequest":
@@ -122,6 +123,8 @@ class AgentChatRequest(BaseModel):
             update={"round_index": usage.round_index or self.current_round_index()}
         )
         self.token_usage_records.append(usage)
+        self.token_usage_summary.add(usage)
+        self.context.context_total_usage = self.token_usage_summary.total_tokens
         return usage
 
     def latest_token_usage(self, provider: str | None = None) -> LLMTokenUsage | None:
@@ -130,6 +133,10 @@ class AgentChatRequest(BaseModel):
             if provider is None or usage.provider == provider:
                 return usage
         return None
+
+    def current_token_usage_summary(self) -> LLMTokenUsageSummary:
+        """返回当前会话累计 token 用量。"""
+        return self.token_usage_summary
 
     def check_context_length(
         self,

@@ -15,16 +15,8 @@ from app.streaming.payloads.request import ChatMessage
 
 def check_last_is_user(messages: list[ChatMessage]) -> None:
     """最后一条必须是 user，否则模型没有可回答的输入。"""
-    if not messages:
-        raise ValueError("messages 不能为空")
     if messages[-1].role != "user":
         raise ValueError("需要用户输入才能继续对话")
-
-def check_first_is_system(messages: list[ChatMessage]) -> None:
-    if not messages:
-        raise ValueError("messages 不能为空")
-    if messages[0].role != "system":
-        raise ValueError("系统设定缺失")
 
 def check_role_specific_fields(message : ChatMessage) -> None:
     """根据角色校验扩展字段是否合规。"""

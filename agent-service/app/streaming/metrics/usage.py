@@ -48,6 +48,24 @@ class LLMTokenUsage(BaseModel):
         )
 
 
+class LLMTokenUsageSummary(BaseModel):
+    """会话级 token 用量累计统计。"""
+
+    total_input_tokens: int = Field(default=0, description="会话累计输入 token 数")
+    total_output_tokens: int = Field(default=0, description="会话累计输出 token 数")
+    total_tokens: int = Field(default=0, description="会话累计总 token 数")
+    rounds: int = Field(default=0, description="已累计的 LLM 调用轮次数")
+
+    def add(self, usage: LLMTokenUsage | None) -> None:
+        """把单轮 usage 累加到会话级汇总中。"""
+        if usage is None:
+            return
+        self.total_input_tokens += usage.input_tokens or 0
+        self.total_output_tokens += usage.output_tokens or 0
+        self.total_tokens += usage.total_tokens or 0
+        self.rounds += 1
+
+
 class LLMChatResult(BaseModel):
     """非流式 LLM 调用结果。"""
 
