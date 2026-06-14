@@ -1,22 +1,22 @@
-package com.ning.pm.user.converter;
+package com.ning.pm.task.converter;
 
-import com.ning.pm.auth.dto.RegisterRequest;
-import com.ning.pm.user.domain.User;
-import com.ning.pm.user.dto.UpdateUserProfileRequest;
-import com.ning.pm.user.dto.UserProfileResponse;
+import com.ning.pm.task.domain.Task;
+import com.ning.pm.task.dto.CreateTaskRequest;
+import com.ning.pm.task.dto.TaskResponse;
+import com.ning.pm.task.dto.UpdateTaskRequest;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 /**
- * UserConverter 负责用户实体与接口对象之间的字段转换。
+ * TaskConverter 负责任务实体与接口对象之间的字段转换。
  *
  * @author ning
- * @date 2026-06-08
+ * @date 2026-06-10
  */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
-public interface UserConverter {
+public interface TaskConverter {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
@@ -25,12 +25,13 @@ public interface UserConverter {
     @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", ignore = true)
-    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "requirementId", ignore = true)
+    @Mapping(target = "iterationId", ignore = true)
     @Mapping(target = "status", ignore = true)
-    @Mapping(target = "lastLoginAt", ignore = true)
-    User toEntity(RegisterRequest request);
+    @Mapping(target = "actualHours", ignore = true)
+    Task toEntity(CreateTaskRequest request);
 
-    UserProfileResponse toProfileResponse(User user);
+    TaskResponse toResponse(Task task);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
@@ -39,9 +40,9 @@ public interface UserConverter {
     @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", ignore = true)
-    @Mapping(target = "username", ignore = true)
-    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "projectId", ignore = true)
+    @Mapping(target = "requirementId", ignore = true)
+    @Mapping(target = "iterationId", ignore = true)
     @Mapping(target = "status", ignore = true)
-    @Mapping(target = "lastLoginAt", ignore = true)
-    void updateEntity(@MappingTarget User user, UpdateUserProfileRequest request);
+    void updateEntity(@MappingTarget Task task, UpdateTaskRequest request);
 }

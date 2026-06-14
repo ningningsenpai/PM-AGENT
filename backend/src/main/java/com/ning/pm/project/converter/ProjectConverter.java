@@ -1,22 +1,22 @@
-package com.ning.pm.user.converter;
+package com.ning.pm.project.converter;
 
-import com.ning.pm.auth.dto.RegisterRequest;
-import com.ning.pm.user.domain.User;
-import com.ning.pm.user.dto.UpdateUserProfileRequest;
-import com.ning.pm.user.dto.UserProfileResponse;
+import com.ning.pm.project.domain.Project;
+import com.ning.pm.project.dto.CreateProjectRequest;
+import com.ning.pm.project.dto.ProjectResponse;
+import com.ning.pm.project.dto.UpdateProjectRequest;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 /**
- * UserConverter 负责用户实体与接口对象之间的字段转换。
+ * ProjectConverter 负责项目实体与接口对象之间的字段转换。
  *
  * @author ning
- * @date 2026-06-08
+ * @date 2026-06-10
  */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
-public interface UserConverter {
+public interface ProjectConverter {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
@@ -25,12 +25,11 @@ public interface UserConverter {
     @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", ignore = true)
-    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "ownerId", ignore = true)
     @Mapping(target = "status", ignore = true)
-    @Mapping(target = "lastLoginAt", ignore = true)
-    User toEntity(RegisterRequest request);
+    Project toEntity(CreateProjectRequest request);
 
-    UserProfileResponse toProfileResponse(User user);
+    ProjectResponse toResponse(Project project);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
@@ -39,9 +38,7 @@ public interface UserConverter {
     @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", ignore = true)
-    @Mapping(target = "username", ignore = true)
-    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "ownerId", ignore = true)
     @Mapping(target = "status", ignore = true)
-    @Mapping(target = "lastLoginAt", ignore = true)
-    void updateEntity(@MappingTarget User user, UpdateUserProfileRequest request);
+    void updateEntity(@MappingTarget Project project, UpdateProjectRequest request);
 }
