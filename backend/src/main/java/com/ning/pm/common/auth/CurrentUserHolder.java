@@ -1,5 +1,6 @@
 package com.ning.pm.common.auth;
 
+import cn.dev33.satoken.exception.NotWebContextException;
 import cn.dev33.satoken.stp.StpUtil;
 import org.springframework.stereotype.Component;
 
@@ -16,10 +17,14 @@ public class CurrentUserHolder {
      * 获取当前登录用户 ID；未登录时返回 null，便于基础填充逻辑兼容匿名请求。
      */
     public Long getUserIdOrNull() {
-        if (!StpUtil.isLogin()) {
+        try {
+            if (!StpUtil.isLogin()) {
+                return null;
+            }
+            return StpUtil.getLoginIdAsLong();
+        } catch (NotWebContextException ex) {
             return null;
         }
-        return StpUtil.getLoginIdAsLong();
     }
 
     /**

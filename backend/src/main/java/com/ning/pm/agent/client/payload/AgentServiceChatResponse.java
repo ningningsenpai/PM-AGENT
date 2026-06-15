@@ -28,7 +28,8 @@ public record AgentServiceChatResponse(
             @JsonProperty("model") String model,
             @JsonProperty("conversation_id") String conversationId,
             @JsonProperty("tool_calls") List<ToolCall> toolCalls,
-            @JsonProperty("usage") TokenUsage usage
+            @JsonProperty("usage") TokenUsage usage,
+            @JsonProperty("usage_summary") TokenUsageSummary usageSummary
     ) {
     }
 
@@ -48,6 +49,16 @@ public record AgentServiceChatResponse(
             @JsonProperty("input_tokens") Integer inputTokens,
             @JsonProperty("output_tokens") Integer outputTokens,
             @JsonProperty("total_tokens") Integer totalTokens
+    ) {
+    }
+
+    /** 对齐 Python 端 LLMTokenUsageSummary。 */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record TokenUsageSummary(
+            @JsonProperty("total_input_tokens") Integer totalInputTokens,
+            @JsonProperty("total_output_tokens") Integer totalOutputTokens,
+            @JsonProperty("total_tokens") Integer totalTokens,
+            @JsonProperty("rounds") Integer rounds
     ) {
     }
 }

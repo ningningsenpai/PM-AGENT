@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ning.pm.agent.client.AgentServiceClient;
 import com.ning.pm.agent.client.payload.AgentServiceChatRequest;
-import com.ning.pm.agent.client.payload.AgentServiceChatRequest.ChatMessagePayload;
 import com.ning.pm.agent.client.payload.AgentServiceChatRequest.ConversationContextPayload;
+import com.ning.pm.agent.client.payload.AgentServiceChatRequest.ChatMessagePayload;
+import com.ning.pm.agent.client.payload.AgentServiceChatRequest.TokenUsagePayload;
+import com.ning.pm.agent.client.payload.AgentServiceChatRequest.TokenUsageSummaryPayload;
 import com.ning.pm.agent.client.payload.AgentServiceChatRequest.UserContextPayload;
 import com.ning.pm.agent.client.payload.AgentServiceChatResponse;
 import com.ning.pm.agent.client.payload.AgentServiceChatResponse.ChatData;
@@ -99,7 +101,7 @@ public class AgentChatServiceImpl implements AgentChatService {
 
         // 4. 组装发送给 agent-service 的请求体
         AgentServiceChatRequest request = buildRequest(
-                conversationId, iterationId, command, history, userId, userName);
+                conversationId, iterationId, command, history, userId, userName, historyTotalTokens);
 
         // 5. 调用 agent-service 非流式对话接口
         AgentServiceChatResponse response = agentServiceClient.chat(request);
@@ -136,7 +138,8 @@ public class AgentChatServiceImpl implements AgentChatService {
                                                  AgentChatCommand command,
                                                  List<AgentConversationMessage> history,
                                                  Long userId,
-                                                 String userName) {
+                                                 String userName,
+                                                 int historyTotalTokens) {
         List<ChatMessagePayload> messages = new ArrayList<>();
         // 历史记录已按 turn_index 升序，依次拼成 user / assistant 消息
         for (AgentConversationMessage item : history) {
@@ -153,6 +156,7 @@ public class AgentChatServiceImpl implements AgentChatService {
         ConversationContextPayload context = new ConversationContextPayload(
                 command.projectId(),
                 iterationId,
+                historyTotalTokens,
                 command.taskId());
 
         UserContextPayload user = new UserContextPayload(
@@ -166,7 +170,9 @@ public class AgentChatServiceImpl implements AgentChatService {
                 context,
                 user,
                 DEFAULT_STREAM,
-                DEFAULT_USE_TOOL_DEMO);
+                DEFAULT_USE_TOOL_DEMO,
+                buildTokenUsageRecords(history),
+                buildTokenUsageSummary(history));
     }
 
     /** 把 agent-service 的响应组装成可落库的 AgentConversationMessage。 */
@@ -201,6 +207,32 @@ public class AgentChatServiceImpl implements AgentChatService {
         record.setStatus("success");
         record.setTraceId(StringUtils.hasText(traceId) ? traceId : TraceContext.getTraceId());
         return record;
+    }
+
+    private List<TokenUsagePayload> buildTokenUsageRecords(List<AgentConversationMessage> history) {
+        List<TokenUsagePayload> records = new ArrayList<>();
+        for (AgentConversationMessage item : history) {
+            records.add(new TokenUsagePayload(
+                    "deepseek",
+                    item.getModel(),
+                    item.getTurnIndex(),
+                    item.getInputTokens(),
+                    item.getOutputTokens(),
+                    item.getTotalTokens()));
+        }
+        return records;
+    }
+
+    private TokenUsageSummaryPayload buildTokenUsageSummary(List<AgentConversationMessage> history) {
+        int totalInputTokens = 0;
+        int totalOutputTokens = 0;
+        int totalTokens = 0;
+        for (AgentConversationMessage item : history) {
+            totalInputTokens += item.getInputTokens() == null ? 0 : item.getInputTokens();
+            totalOutputTokens += item.getOutputTokens() == null ? 0 : item.getOutputTokens();
+            totalTokens += item.getTotalTokens() == null ? 0 : item.getTotalTokens();
+        }
+        return new TokenUsageSummaryPayload(totalInputTokens, totalOutputTokens, totalTokens, history.size());
     }
 
     private String serializeToolCalls(ChatData data) {
