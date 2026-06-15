@@ -27,12 +27,18 @@ class ProjectChatAgent:
         """非流式多轮对话。"""
         llm = self._resolve_llm(request)
         tool_calls = self._maybe_call_tools(request)
-        base_messages = LLMContextBuilder(request).build()
+        base_messages = LLMContextBuilder(
+            request,
+            max_context_tokens=llm.config.context_window_tokens,
+            reserved_output_tokens=llm.config.reserved_output_tokens,
+        ).build()
+        print(base_messages)
         messages = build_project_chat_messages(
             request,
             self._tool_summary(tool_calls),
             base_messages=base_messages,
         )
+        print(messages)
         result = await llm.chat_with_usage(messages)
         usage = request.record_token_usage(result.usage)
         return ChatResponse(
@@ -52,7 +58,11 @@ class ProjectChatAgent:
         for tool_call in tool_calls:
             yield {"event": StreamEventType.TOOL_CALL, "data": tool_call.model_dump()}
 
-        base_messages = LLMContextBuilder(request).build()
+        base_messages = LLMContextBuilder(
+            request,
+            max_context_tokens=llm.config.context_window_tokens,
+            reserved_output_tokens=llm.config.reserved_output_tokens,
+        ).build()
         messages = build_project_chat_messages(
             request,
             self._tool_summary(tool_calls),
