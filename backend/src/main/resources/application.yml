@@ -42,3 +42,8 @@ knife4j:
 pm:
   tenant:
     enabled: false
+  agent-service:
+    # Python Agent 服务地址，默认指向本地 FastAPI
+    base-url: ${PM_AGENT_SERVICE_BASE_URL:http://localhost:8000}
+    # 单次对话调用超时，单位毫秒
+    timeout-ms: ${PM_AGENT_SERVICE_TIMEOUT_MS:60000}
