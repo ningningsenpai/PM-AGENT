@@ -47,10 +47,7 @@ agent-service/
     │   └── clients/                # 各厂商客户端实现
     │       ├── openai_compatible.py # OpenAI Chat Completions 兼容客户端基类
     │       ├── deepseek_client.py
-    │       ├── doubao_client.py
-    │       ├── glm_client.py
-    │       ├── kimi_client.py
-    │       └── minimax_client.py
+    │       └── doubao_client.py
     ├── tools/
     │   └── demo_project_tool.py    # 工具层：提供可被 Agent 调用的业务工具（当前为演示数据）
     └── schemas/
@@ -88,5 +85,5 @@ agent-service/
 | 非流式对话 | `POST /api/v1/agent/chat`，`stream=false`，返回完整 JSON |
 | SSE 流式对话 | `POST /api/v1/agent/chat`，`stream=true`，逐 token 推送 |
 | DeepSeek 模型适配 | 默认模型 `deepseek-v4-pro`，通过 `.env` 配置 Key 和 Base URL |
-| 多模型切换 | 内置 DeepSeek / 豆包 / GLM / Kimi / MiniMax 客户端骨架；通过 `DEFAULT_LLM_PROVIDER` 或请求体 `llm_provider` 字段切换 |
+| 多模型切换 | 内置 DeepSeek / 豆包客户端；通过 `DEFAULT_LLM_PROVIDER` 或请求体 `llm_provider` 字段切换 |
 | 工具调用演示 | `demo_query_project_overview` 返回固定项目概览数据 |

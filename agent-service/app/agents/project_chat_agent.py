@@ -5,9 +5,8 @@ from app.llm.base import BaseLLMClient
 from app.llm.context.builder import LLMContextBuilder
 from app.llm.factory import get_llm_client
 from app.prompts.project_chat import build_project_chat_messages
-from app.schemas.chat import ChatResponse, ToolCallRecord
 from app.streaming import StreamEventType
-from app.streaming.payloads import AgentChatRequest
+from app.streaming.payloads import AgentChatRequest, ChatResponse, StreamDonePayload, ToolCallRecord
 from app.tools.demo_project_tool import DemoProjectTool
 
 
@@ -40,14 +39,15 @@ class ProjectChatAgent:
         )
         print(messages)
         result = await llm.chat_with_usage(messages)
-        usage = request.record_token_usage(result.usage)
+        usage = result.usage.model_copy(
+            update={"round_index": result.usage.round_index or request.current_round_index()}
+        ) if result.usage else None
         return ChatResponse(
             answer=result.content,
             model=llm.config.model,
             conversation_id=request.conversation_id,
             tool_calls=tool_calls,
             usage=usage,
-            usage_summary=request.current_token_usage_summary(),
         )
 
     async def stream_chat(self, request: AgentChatRequest) -> AsyncIterator[dict]:
@@ -73,17 +73,18 @@ class ProjectChatAgent:
             if chunk.content:
                 yield {"event": StreamEventType.TOKEN, "data": chunk.content}
             if chunk.usage:
-                usage = request.record_token_usage(chunk.usage)
+                usage = chunk.usage.model_copy(
+                    update={"round_index": chunk.usage.round_index or request.current_round_index()}
+                )
 
         yield {
             "event": StreamEventType.DONE,
-            "data": {
-                "model": llm.config.model,
-                "provider": llm.provider,
-                "conversationId": request.conversation_id,
-                "usage": usage.model_dump() if usage else None,
-                "usageSummary": request.current_token_usage_summary().model_dump(),
-            },
+            "data": StreamDonePayload(
+                model=llm.config.model,
+                provider=llm.provider,
+                conversationId=request.conversation_id,
+                usage=usage,
+            ),
         }
 
     def _maybe_call_tools(self, request: AgentChatRequest) -> list[ToolCallRecord]:

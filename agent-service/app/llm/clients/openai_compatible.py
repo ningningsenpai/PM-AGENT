@@ -1,15 +1,14 @@
 """OpenAI 兼容协议的通用客户端基类。
 
-DeepSeek、豆包（火山方舟）、智谱 GLM、Moonshot Kimi 等厂商均采用与
-OpenAI Chat Completions 高度兼容的 HTTP 协议，区别仅在于：
+DeepSeek 与豆包（火山方舟）均采用与 OpenAI Chat Completions 高度兼容的
+HTTP 协议，区别主要在于：
 - 鉴权头形式（普遍是 ``Authorization: Bearer <api_key>``）；
 - 域名与路径前缀；
 - 默认模型名 / endpoint ID；
 - 个别字段的可用性。
 
 把公共的请求体构造、HTTP 调用、SSE 流式解析放在这里，子类只需声明
-``provider`` 名即可被工厂识别。差异较大的厂商（如 MiniMax）不应继承本类，
-应当独立实现 ``BaseLLMClient``。
+``provider`` 名即可被工厂识别。
 """
 
 import json

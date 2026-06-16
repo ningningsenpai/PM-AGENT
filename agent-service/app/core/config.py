@@ -15,28 +15,6 @@ from pathlib import Path
 import os
 
 
-def _int_env(name: str, default: int) -> int:
-    """读取整数环境变量；非法值按默认值处理。"""
-    value = os.getenv(name, "")
-    if not value:
-        return default
-    try:
-        return int(value)
-    except ValueError:
-        return default
-
-
-def _optional_int_env(name: str) -> int | None:
-    """读取可选整数环境变量；缺失、空字符串、0 或非法值均视为未配置。"""
-    value = os.getenv(name, "")
-    if not value:
-        return None
-    try:
-        parsed = int(value)
-    except ValueError:
-        return None
-    return parsed or None
-
 
 @dataclass
 class LLMProviderConfig:
@@ -47,7 +25,7 @@ class LLMProviderConfig:
     - ``model``：默认模型名 / endpoint ID；
     - ``context_window_tokens``：模型最大上下文窗口，用于上下文健康判断；
     - ``reserved_output_tokens``：预留给模型输出的 token 数；
-    - ``extra``：厂商特有字段，例如 MiniMax 的 ``group_id``。
+    - ``extra``：厂商特有字段。
     """
 
     api_key: str = ""
@@ -71,6 +49,11 @@ class Settings:
     def __init__(self) -> None:
         # 默认 provider：未在请求中显式指定时使用。
         self.default_llm_provider = os.getenv("DEFAULT_LLM_PROVIDER", "deepseek")
+        supported_providers = {"deepseek", "doubao"}
+        if self.default_llm_provider not in supported_providers:
+            raise ValueError(
+                f"未支持的默认模型提供方：{self.default_llm_provider!r}，当前可选：{sorted(supported_providers)}"
+            )
 
         # 按 provider 分组配置；新增厂商时在这里新增一项即可。
         # 注意：环境变量名仅占位，正式接入时若官方文档要求其它命名再调整。
@@ -79,8 +62,8 @@ class Settings:
                 api_key=os.getenv("DEEPSEEK_API_KEY", ""),
                 base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
                 model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"),
-                context_window_tokens=_optional_int_env("DEEPSEEK_CONTEXT_WINDOW_TOKENS"),
-                reserved_output_tokens=_int_env("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 4096),
+                context_window_tokens=int(os.getenv("DEEPSEEK_CONTEXT_WINDOW_TOKENS", 126000)),
+                reserved_output_tokens=int(os.getenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 4096)),
             ),
             # 豆包（火山方舟）：OpenAI 兼容协议，model 实际为 endpoint id。
             "doubao": LLMProviderConfig(
@@ -90,28 +73,6 @@ class Settings:
                     "https://ark.cn-beijing.volces.com/api/v3",
                 ),
                 model=os.getenv("DOUBAO_MODEL", ""),  # TODO 接入时填默认 endpoint id
-            ),
-            # 智谱 GLM：OpenAI 兼容协议。
-            "glm": LLMProviderConfig(
-                api_key=os.getenv("ZHIPU_API_KEY", ""),
-                base_url=os.getenv(
-                    "GLM_BASE_URL",
-                    "https://open.bigmodel.cn/api/paas/v4",
-                ),
-                model=os.getenv("GLM_MODEL", "glm-4"),  # TODO 确认正式版本号
-            ),
-            # Moonshot Kimi：OpenAI 兼容协议。
-            "kimi": LLMProviderConfig(
-                api_key=os.getenv("MOONSHOT_API_KEY", ""),
-                base_url=os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1"),
-                model=os.getenv("KIMI_MODEL", "moonshot-v1-8k"),  # TODO 确认正式型号
-            ),
-            # MiniMax：自有协议，请求体字段与流式分隔符与 OpenAI 略有差异。
-            "minimax": LLMProviderConfig(
-                api_key=os.getenv("MINIMAX_API_KEY", ""),
-                base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1"),
-                model=os.getenv("MINIMAX_MODEL", ""),  # TODO 接入时填默认模型
-                extra={"group_id": os.getenv("MINIMAX_GROUP_ID", "")},
             ),
         }
 

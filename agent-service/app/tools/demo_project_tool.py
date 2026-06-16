@@ -1,4 +1,4 @@
-from app.schemas.chat import ToolCallRecord
+from app.streaming.payloads import ToolCallRecord
 
 
 class DemoProjectTool:

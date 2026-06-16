@@ -1,8 +1,8 @@
 """LLM 客户端统一协议。
 
-所有具体厂商客户端（DeepSeek、豆包、GLM、Kimi、MiniMax 等）都必须继承
-``BaseLLMClient`` 并实现 usage-aware 协议；旧的文本协议由基类兼容封装，
-以便上层 Agent 能按需获取 token 用量，同时保留只取文本的调用方式。
+所有具体厂商客户端（DeepSeek、豆包）都必须继承 ``BaseLLMClient`` 并实现
+usage-aware 协议；旧的文本协议由基类兼容封装，以便上层 Agent 能按需获取
+token 用量，同时保留只取文本的调用方式。
 """
 
 from abc import ABC, abstractmethod
@@ -19,7 +19,7 @@ class BaseLLMClient(ABC):
     中 ``Settings.llm`` 的 provider 名称保持一致，否则工厂无法解析配置。
     """
 
-    # 厂商标识；子类必须重写。例如："deepseek" / "doubao" / "glm" / "kimi" / "minimax"
+    # 厂商标识；子类必须重写。例如："deepseek" / "doubao"
     provider: str = ""
 
     def __init__(self, settings: Settings) -> None:

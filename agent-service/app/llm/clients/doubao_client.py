@@ -16,3 +16,5 @@ from app.llm.registry import register_llm
 @register_llm("doubao")
 class DoubaoClient(OpenAICompatibleClient):
     """豆包模型适配器；走火山方舟 OpenAI 兼容接口。"""
+
+    supports_real_usage = True
