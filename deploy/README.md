@@ -12,7 +12,7 @@ PM-Agent 严格遵守“中间件按阶段引入，不一次性堆叠”的原�
 | 第 2 阶段 | Redis 7 | 后续加入并启用 | Sa-Token 会话、缓存、限流、幂等集中校验 |
 | 第 5 阶段 | RabbitMQ | 后续加入并启用 | 异步任务、风险扫描、通知 |
 | 第 6 阶段 | MinIO | 后续加入并启用 | 文档、附件、报告文件 |
-| 第 6 阶段 | Qdrant 或 pgvector | 后续评估 | 向量检索 |
+| 小型 RAG 测试 | Qdrant | 可随本地 Compose 启动 | 向量检索链路验证 |
 
 后端 Spring Boot 工程和前端 Vite 工程在第 1 阶段都不进入容器，便于本地开发。容器化打包属于后期部署阶段的话题，不在 `deploy/` 当前职责内。
 
@@ -41,10 +41,16 @@ cp deploy/.env.example deploy/.env
 
 如需修改默认账号、密码或端口，可编辑 `deploy/.env`。
 
-### 2. 启动 MySQL
+### 2. 启动 MySQL 和 Qdrant
 
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+```
+
+如当前只需要业务数据库，也可以单独启动 MySQL：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d mysql
 ```
 
 ### 3. 查看容器状态
@@ -59,7 +65,13 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs mysql
 ```
 
-### 5. 验证连接
+### 5. 查看 Qdrant 日志
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs qdrant
+```
+
+### 6. 验证 MySQL 连接
 
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec mysql mysql -upm_agent -ppm_agent_dev pm_agent
@@ -70,6 +82,18 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec mysql my
 ```sql
 SHOW DATABASES;
 SELECT DATABASE();
+```
+
+### 7. 验证 Qdrant 连接
+
+```bash
+curl http://localhost:6333/healthz
+```
+
+Qdrant Dashboard 默认访问地址：
+
+```text
+http://localhost:6333/dashboard
 ```
 
 ## 停止服务
