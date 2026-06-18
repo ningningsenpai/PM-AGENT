@@ -34,63 +34,99 @@ export RAG_PAYLOAD_FIELDS="raw_id,global_index,project_id,project_name,turn_no,m
 export RAG_FILTER_FIELDS="project_id"
 ```
 
-## 3. 一键完成初始文件向量化
+## 3. 默认启动方式：PyCharm 直接运行脚本
 
-在仓库根目录执行：
+当前 RAG 测试默认通过 PyCharm 直接运行两个脚本：
 
-```bash
-python agent-service/eval/rag/build_qdrant_index.py \
-  --collection pm_agent_rag_eval_memory_text_v1 \
-  --embed-fields memory_text \
-  --payload-fields raw_id,global_index,project_id,project_name,turn_no,module,memory_type,business_type,status,memory_text,value_score,expected_retrieval_weight
+1. 先运行 `build_qdrant_index.py`，完成原始对话向量化并写入 Qdrant；
+2. 再运行 `run_retrieval_eval.py`，对硬编码问题列表执行检索测试。
+
+### 3.1 向量化脚本
+
+文件：`agent-service/eval/rag/build_qdrant_index.py`
+
+PyCharm Run Configuration 建议配置：
+
+| 配置项 | 推荐值 |
+|---|---|
+| Script path | `agent-service/eval/rag/build_qdrant_index.py` |
+| Working directory | `D:/Code/ning/PM-AGENT` |
+| Environment variables | `DOUBAO_EMBEDDING_URL`、`DOUBAO_API_KEY`、`DOUBAO_EMBEDDING_MODEL`、`QDRANT_URL` |
+| Parameters | 可留空，或按测试目标填写参数 |
+
+向量化脚本支持以下参数：
+
+| 参数 | 作用 | 示例 |
+|---|---|---|
+| `--collection` | 指定 Qdrant collection 名称 | `pm_agent_rag_eval_memory_text_v1` |
+| `--embed-fields` | 指定参与 embedding 的字段，多个字段用英文逗号分隔 | `memory_text` |
+| `--payload-fields` | 指定写入 Qdrant payload 的字段 | `raw_id,project_id,module,status,memory_text` |
+| `--batch-size` | 指定批量写入 Qdrant 的数量 | `32` |
+
+推荐第一轮默认参数：
+
+```text
+--collection pm_agent_rag_eval_memory_text_v1 --embed-fields memory_text
 ```
 
-该命令会：
+如果要测试“用户问题 + LLM 回答”参与向量化，可以把 Parameters 改为：
+
+```text
+--collection pm_agent_rag_eval_user_assistant_v1 --embed-fields user_message,assistant_message --payload-fields raw_id,project_id,module,business_type,status,memory_text
+```
+
+该脚本会：
 
 1. 读取 `rag_raw_dialogues_v1.csv`；
 2. 按 `--embed-fields` 指定字段拼接文本并调用豆包 Embedding API；
 3. 重建指定 Qdrant collection；
 4. 写入原始对话向量和 payload。
 
-例如：
+### 3.2 检索脚本
 
-```bash
-python agent-service/eval/rag/build_qdrant_index.py \
-  --collection pm_agent_rag_eval_user_assistant_v1 \
-  --embed-fields user_message,assistant_message \
-  --payload-fields raw_id,project_id,module,business_type,status,memory_text
-```
+文件：`agent-service/eval/rag/run_retrieval_eval.py`
 
-payload 中默认保留：
+PyCharm Run Configuration 建议配置：
 
-- `raw_id`
-- `project_id`
-- `project_name`
-- `module`
-- `status`
-- `memory_text`
+| 配置项 | 推荐值 |
+|---|---|
+| Script path | `agent-service/eval/rag/run_retrieval_eval.py` |
+| Working directory | `D:/Code/ning/PM-AGENT` |
+| Environment variables | 与向量化脚本相同 |
+| Parameters | 可留空，或按测试目标填写参数 |
 
-## 4. 一键启动指定问题检索
-
-问题列表在 `run_retrieval_eval.py` 顶部用硬编码列表控制：
+问题列表默认在 `run_retrieval_eval.py` 顶部硬编码：
 
 ```python
 DEFAULT_QUESTIONS = [46, 47, 48, 49, 50, 51, 52, 53, 54, 55]
 ```
 
-列表基于 `rag_questions_v1.csv` 的 `global_index`。也可以通过命令行临时覆盖：
+列表基于 `rag_questions_v1.csv` 的 `global_index`。如果只想在代码里固定测试问题，直接修改 `DEFAULT_QUESTIONS` 即可。
 
-```bash
-python agent-service/eval/rag/run_retrieval_eval.py \
-  --collection pm_agent_rag_eval_memory_text_v1 \
-  --top-k 5 \
-  --filter-fields project_id,module \
-  --questions 46,47,48
+检索脚本支持以下参数：
+
+| 参数 | 作用 | 示例 |
+|---|---|---|
+| `--collection` | 指定要检索的 Qdrant collection | `pm_agent_rag_eval_memory_text_v1` |
+| `--top-k` | 指定召回条数 | `5` |
+| `--filter-fields` | 指定 payload 精准筛选字段，字段值从问题数据中读取 | `project_id,module` |
+| `--questions` | 临时覆盖硬编码问题列表 | `46,47,48` |
+
+推荐第一轮默认参数：
+
+```text
+--collection pm_agent_rag_eval_memory_text_v1 --top-k 5 --filter-fields project_id
+```
+
+如果要测试模块级精准筛选，可以改为：
+
+```text
+--collection pm_agent_rag_eval_memory_text_v1 --top-k 5 --filter-fields project_id,module --questions 46,47,48
 ```
 
 `--filter-fields` 表示从问题数据中取同名字段，组成 Qdrant payload 精准筛选条件。默认只按 `project_id` 过滤。
 
-输出内容包含：
+检索脚本输出内容包含：
 
 - 问题编号；
 - 输入的问题；
@@ -128,7 +164,7 @@ python agent-service/eval/rag/run_retrieval_eval.py \
 
 注意：运行检索前需要先启动 Qdrant，并先执行一次向量化脚本。
 
-## 6. 当前测试边界
+## 5. 当前测试边界
 
 - 第一轮不调用 LLM；
 - 第一轮不做图谱；
