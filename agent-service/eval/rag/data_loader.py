@@ -19,8 +19,23 @@ class RawDialogue:
     project_name: str
     turn_no: int
     module: str
-    memory_text: str
+    memory_type: str
+    business_type: str
     status: str
+    user_message: str
+    assistant_message: str
+    memory_text: str
+    entities: str
+    facts: str
+    decisions: str
+    risks: str
+    supersedes_raw_id: str
+    value_score: str
+    expected_retrieval_weight: str
+
+    def get_field_text(self, field_name: str) -> str:
+        value = getattr(self, field_name, "")
+        return str(value or "")
 
 
 @dataclass(frozen=True)
@@ -62,8 +77,19 @@ def load_raw_dialogues() -> list[RawDialogue]:
             project_name=row["project_name"],
             turn_no=int(row["turn_no"]),
             module=row["module"],
-            memory_text=row["memory_text"],
+            memory_type=row["memory_type"],
+            business_type=row["business_type"],
             status=row["status"],
+            user_message=row["user_message"],
+            assistant_message=row["assistant_message"],
+            memory_text=row["memory_text"],
+            entities=row["entities"],
+            facts=row["facts"],
+            decisions=row["decisions"],
+            risks=row["risks"],
+            supersedes_raw_id=row["supersedes_raw_id"],
+            value_score=row["value_score"],
+            expected_retrieval_weight=row["expected_retrieval_weight"],
         )
         for row in rows
     ]

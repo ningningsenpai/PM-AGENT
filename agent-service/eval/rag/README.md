@@ -29,6 +29,9 @@ export DOUBAO_EMBEDDING_MODEL="你的豆包 embedding 模型名"
 export QDRANT_URL="http://localhost:6333"
 export QDRANT_COLLECTION="pm_agent_rag_eval_v1"
 export RAG_TOP_K="5"
+export RAG_EMBED_FIELDS="memory_text"
+export RAG_PAYLOAD_FIELDS="raw_id,global_index,project_id,project_name,turn_no,module,memory_type,business_type,status,memory_text,value_score,expected_retrieval_weight"
+export RAG_FILTER_FIELDS="project_id"
 ```
 
 ## 3. 一键完成初始文件向量化
@@ -36,17 +39,29 @@ export RAG_TOP_K="5"
 在仓库根目录执行：
 
 ```bash
-python agent-service/eval/rag/build_qdrant_index.py
+python agent-service/eval/rag/build_qdrant_index.py \
+  --collection pm_agent_rag_eval_memory_text_v1 \
+  --embed-fields memory_text \
+  --payload-fields raw_id,global_index,project_id,project_name,turn_no,module,memory_type,business_type,status,memory_text,value_score,expected_retrieval_weight
 ```
 
 该命令会：
 
 1. 读取 `rag_raw_dialogues_v1.csv`；
-2. 使用 `memory_text` 调用豆包 Embedding API；
-3. 重建 Qdrant collection；
+2. 按 `--embed-fields` 指定字段拼接文本并调用豆包 Embedding API；
+3. 重建指定 Qdrant collection；
 4. 写入原始对话向量和 payload。
 
-payload 中保留：
+例如：
+
+```bash
+python agent-service/eval/rag/build_qdrant_index.py \
+  --collection pm_agent_rag_eval_user_assistant_v1 \
+  --embed-fields user_message,assistant_message \
+  --payload-fields raw_id,project_id,module,business_type,status,memory_text
+```
+
+payload 中默认保留：
 
 - `raw_id`
 - `project_id`
@@ -55,29 +70,25 @@ payload 中保留：
 - `status`
 - `memory_text`
 
-## 4. 一键启动规定范围检索
+## 4. 一键启动指定问题检索
 
-问题范围在 `run_retrieval_eval.py` 顶部用全局变量控制：
-
-```python
-START_INDEX = 1
-END_INDEX = 10
-```
-
-范围基于 `rag_questions_v1.csv` 的 `global_index`，从 1 开始，包含结束值。
-
-例如检索第 1 到第 10 个问题，先把代码改成：
+问题列表在 `run_retrieval_eval.py` 顶部用硬编码列表控制：
 
 ```python
-START_INDEX = 1
-END_INDEX = 10
+DEFAULT_QUESTIONS = [46, 47, 48, 49, 50, 51, 52, 53, 54, 55]
 ```
 
-然后执行：
+列表基于 `rag_questions_v1.csv` 的 `global_index`。也可以通过命令行临时覆盖：
 
 ```bash
-python agent-service/eval/rag/run_retrieval_eval.py --top-k 5
+python agent-service/eval/rag/run_retrieval_eval.py \
+  --collection pm_agent_rag_eval_memory_text_v1 \
+  --top-k 5 \
+  --filter-fields project_id,module \
+  --questions 46,47,48
 ```
+
+`--filter-fields` 表示从问题数据中取同名字段，组成 Qdrant payload 精准筛选条件。默认只按 `project_id` 过滤。
 
 输出内容包含：
 
@@ -106,14 +117,14 @@ python agent-service/eval/rag/run_retrieval_eval.py --top-k 5
 - Script path：`agent-service/eval/rag/build_qdrant_index.py`
 - Working directory：项目根目录 `D:/Code/ning/PM-AGENT`
 - Environment variables：填写豆包和 Qdrant 配置，例如 `DOUBAO_EMBEDDING_URL`、`DOUBAO_API_KEY`、`DOUBAO_EMBEDDING_MODEL`、`QDRANT_URL`
-- Parameters：可留空，或填写 `--collection pm_agent_rag_eval_v1`
+- Parameters：可留空，或填写 `--collection pm_agent_rag_eval_memory_text_v1 --embed-fields memory_text`
 
 ### 5.2 检索配置
 
 - Script path：`agent-service/eval/rag/run_retrieval_eval.py`
 - Working directory：项目根目录 `D:/Code/ning/PM-AGENT`
 - Environment variables：同上
-- Parameters：例如 `--top-k 5`，问题范围在脚本顶部 `START_INDEX` 和 `END_INDEX` 中修改
+- Parameters：例如 `--collection pm_agent_rag_eval_memory_text_v1 --top-k 5 --filter-fields project_id,module --questions 46,47,48`，也可以直接修改脚本顶部 `DEFAULT_QUESTIONS`
 
 注意：运行检索前需要先启动 Qdrant，并先执行一次向量化脚本。
 

@@ -4,13 +4,23 @@ from __future__ import annotations
 
 import argparse
 
-from config import DEFAULT_TOP_K, QDRANT_COLLECTION
+from config import DEFAULT_FILTER_FIELDS, DEFAULT_TOP_K, QDRANT_COLLECTION
 from data_loader import load_gold_answers, load_questions, load_raw_dialogues
 from embedding_client import embed_text
 from qdrant_client import search_points
 
-START_INDEX = 46
-END_INDEX = 55
+DEFAULT_QUESTIONS = [
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+]
 
 
 def _lookup_raw_text(raw_map: dict[str, str], raw_id: str) -> str:
@@ -27,28 +37,57 @@ def _print_raw_items(title: str, raw_ids: list[str], raw_texts: list[str]) -> No
         print(raw_text)
 
 
+def parse_fields(fields_text: str | None, default_fields: list[str]) -> list[str]:
+    if not fields_text:
+        return default_fields
+    fields = [field.strip() for field in fields_text.split(",") if field.strip()]
+    if not fields:
+        raise RuntimeError("payload 精准筛选字段不能为空")
+    return fields
+
+
+def parse_question_indexes(indexes_text: str | None) -> list[int]:
+    if not indexes_text:
+        return DEFAULT_QUESTIONS
+    indexes = [int(index.strip()) for index in indexes_text.split(",") if index.strip()]
+    if not indexes:
+        raise RuntimeError("问题编号列表不能为空")
+    return indexes
+
+
+def build_payload_filters(question: object, filter_fields: list[str]) -> dict[str, str]:
+    filters = {}
+    for field in filter_fields:
+        value = getattr(question, field, "")
+        if value not in (None, ""):
+            filters[field] = str(value)
+    return filters
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="执行 RAG 检索测试")
     parser.add_argument("--collection", default=QDRANT_COLLECTION, help="Qdrant collection 名称")
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K, help="检索条数")
+    parser.add_argument("--filter-fields", default=",".join(DEFAULT_FILTER_FIELDS), help="payload 精准筛选字段，多个字段用英文逗号分隔")
+    parser.add_argument("--questions", default="", help="要测试的问题 global_index 列表，多个编号用英文逗号分隔；留空使用脚本中的 DEFAULT_QUESTIONS")
     args = parser.parse_args()
 
-    if START_INDEX < 1 or END_INDEX < START_INDEX:
-        raise RuntimeError("问题范围参数不合法")
-
+    filter_fields = parse_fields(args.filter_fields, DEFAULT_FILTER_FIELDS)
+    question_indexes = parse_question_indexes(args.questions)
     questions = load_questions()
     raw_dialogues = load_raw_dialogues()
     gold_answers = load_gold_answers()
     raw_map = {item.raw_id: item.memory_text for item in raw_dialogues}
 
-    selected_questions = [item for item in questions if START_INDEX <= item.global_index <= END_INDEX]
+    selected_questions = [item for item in questions if item.global_index in question_indexes]
     if not selected_questions:
-        raise RuntimeError("指定范围内没有问题数据")
+        raise RuntimeError("指定列表内没有问题数据")
 
     for question in selected_questions:
         gold = gold_answers[question.question_id]
         query_vector = embed_text(question.question_text)
-        results = search_points(args.collection, query_vector, question.project_id, args.top_k)
+        filters = build_payload_filters(question, filter_fields)
+        results = search_points(args.collection, query_vector, args.top_k, filters)
         retrieved_raw_ids = [result["payload"]["raw_id"] for result in results]
         retrieved_texts = [_lookup_raw_text(raw_map, raw_id) for raw_id in retrieved_raw_ids]
         expected_raw_texts = [_lookup_raw_text(raw_map, raw_id) for raw_id in gold.expected_raw_ids]
@@ -58,12 +97,13 @@ def main() -> None:
         print("=" * 120)
         print(f"问题编号: {question.question_id}")
         print(f"输入的问题: {question.question_text}")
+        print(f"payload 精准筛选: {filters}")
         _print_raw_items("检索结果:", retrieved_raw_ids, retrieved_texts)
         _print_raw_items("正确答案:", gold.expected_raw_ids, expected_raw_texts)
         print(f"和预计答案对比的相似度: {ratio}")
 
     print("=" * 120)
-    print(f"检索完成，问题范围: {START_INDEX}-{END_INDEX}，top_k={args.top_k}")
+    print(f"检索完成，问题列表: {question_indexes}，top_k={args.top_k}，filter_fields={filter_fields}")
 
 
 if __name__ == "__main__":

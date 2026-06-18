@@ -50,3 +50,21 @@ DOUBAO_SPARSE_EMBEDDING_ENABLED = os.getenv("DOUBAO_SPARSE_EMBEDDING_ENABLED", "
 
 DEFAULT_VECTOR_SIZE = int(os.getenv("RAG_VECTOR_SIZE", "0"))
 DEFAULT_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
+DEFAULT_EMBED_FIELDS = [
+    field.strip()
+    for field in os.getenv("RAG_EMBED_FIELDS", "memory_text").split(",")
+    if field.strip()
+]
+DEFAULT_PAYLOAD_FIELDS = [
+    field.strip()
+    for field in os.getenv(
+        "RAG_PAYLOAD_FIELDS",
+        "raw_id,global_index,project_id,project_name,turn_no,module,memory_type,business_type,status,memory_text,value_score,expected_retrieval_weight",
+    ).split(",")
+    if field.strip()
+]
+DEFAULT_FILTER_FIELDS = [
+    field.strip()
+    for field in os.getenv("RAG_FILTER_FIELDS", "project_id").split(",")
+    if field.strip()
+]

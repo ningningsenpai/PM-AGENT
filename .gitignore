@@ -42,3 +42,6 @@ agent-service/.venv/
 # 临时文件
 .tmp/
 tmp/
+
+# RAG 原始大数据集
+agent-service/eval/chat-dataset/

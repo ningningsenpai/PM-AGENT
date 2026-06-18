@@ -9,6 +9,9 @@ import httpx
 from config import QDRANT_URL
 
 
+FilterValue = str | int | float | bool
+
+
 def recreate_collection(collection_name: str, vector_size: int) -> None:
     payload = {
         "vectors": {
@@ -35,22 +38,24 @@ def upsert_points(collection_name: str, points: list[dict[str, Any]]) -> None:
 def search_points(
     collection_name: str,
     query_vector: list[float],
-    project_id: str,
     top_k: int,
+    filters: dict[str, FilterValue] | None = None,
 ) -> list[dict[str, Any]]:
-    payload = {
+    must_filters = [
+        {
+            "key": key,
+            "match": {"value": value},
+        }
+        for key, value in (filters or {}).items()
+        if value not in (None, "")
+    ]
+    payload: dict[str, Any] = {
         "vector": query_vector,
         "limit": top_k,
         "with_payload": True,
-        "filter": {
-            "must": [
-                {
-                    "key": "project_id",
-                    "match": {"value": project_id},
-                }
-            ]
-        },
     }
+    if must_filters:
+        payload["filter"] = {"must": must_filters}
     with httpx.Client(timeout=60) as client:
         response = client.post(
             f"{QDRANT_URL}/collections/{collection_name}/points/search",
