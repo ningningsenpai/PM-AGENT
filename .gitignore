@@ -45,3 +45,6 @@ tmp/
 
 # RAG 原始大数据集
 agent-service/eval/chat-dataset/
+
+# AGI-saber
+agent-service/AGI-saber
