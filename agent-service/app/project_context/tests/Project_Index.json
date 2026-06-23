@@ -1,0 +1,181 @@
+{
+  "root_path": "D:\\Code\\ning\\PM-AGENT\\agent-service\\file-tree-test",
+  "generated_at": "2026-06-23T16:19:35",
+  "nodes": [
+    {
+      "path": "rag",
+      "name": "rag",
+      "size_bytes": 0,
+      "mtime": 1782183564.3273578,
+      "depth": 1,
+      "is_dir": true,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "",
+      "content_hash": ""
+    },
+    {
+      "path": "rag/README.md",
+      "name": "README.md",
+      "size_bytes": 4378,
+      "mtime": 1782179413.1769388,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "cf267a5becd95c6d6d988e5350aaeba10584f14c",
+      "content_hash": "36d7100ad27a4cddc4947ac6b8917758b52173dc13a8fbf02f88e0c0af79ba03"
+    },
+    {
+      "path": "rag/__pycache__",
+      "name": "__pycache__",
+      "size_bytes": 0,
+      "mtime": 1782183564.3418448,
+      "depth": 2,
+      "is_dir": true,
+      "scan_status": "ignored",
+      "ignore_reason": "skip_dir:__pycache__",
+      "quick_fingerprint": "",
+      "content_hash": ""
+    },
+    {
+      "path": "rag/build_qdrant_index.py",
+      "name": "build_qdrant_index.py",
+      "size_bytes": 3799,
+      "mtime": 1781771250.130889,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "a9738f2f898d5844c8376d486b344edb5c0fe3ab",
+      "content_hash": "dbbbd8d1d639d3d773df03bb02dd39c3563ac362f8cf90725d7f897c5e3edae7"
+    },
+    {
+      "path": "rag/config.py",
+      "name": "config.py",
+      "size_bytes": 2542,
+      "mtime": 1781771134.333217,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "5575040e11aa919a714e6cae28168f6f3de2edd5",
+      "content_hash": "da456e2af56809360b9238163d123eda4548153719f11f6d94a68827aac938d1"
+    },
+    {
+      "path": "rag/data_loader.py",
+      "name": "data_loader.py",
+      "size_bytes": 3870,
+      "mtime": 1781771113.1249971,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "35e0978904c31279986aece94320f81574f09aad",
+      "content_hash": "d9a2b6728ac08470d95a895d840b4247235a97bc9ac94bb79c854c743d5387ee"
+    },
+    {
+      "path": "rag/embedding_client.py",
+      "name": "embedding_client.py",
+      "size_bytes": 2323,
+      "mtime": 1781684052.5541356,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "d7c3af434871defdcba4de9d46439fdd8e5aabb5",
+      "content_hash": "98d3ae29b0213cdd5923b847dbdbe262151689da1e231f8b001691dbf3038a5f"
+    },
+    {
+      "path": "rag/qdrant_client.py",
+      "name": "qdrant_client.py",
+      "size_bytes": 1784,
+      "mtime": 1781771160.5062246,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "9ef3219cafda645542099656d7e5b3be0c8debb4",
+      "content_hash": "35ecf3641b46a5cbbbad7d24ce96c5179030adcea942bb3ef461163e2a439db4"
+    },
+    {
+      "path": "rag/run_retrieval_eval.py",
+      "name": "run_retrieval_eval.py",
+      "size_bytes": 4239,
+      "mtime": 1781771330.6640434,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "df06636ab2f2825093c6d90b5e810e400bd12102",
+      "content_hash": "23c65108d9d2e879b23c1edb165ac51bef3a7ebd1ad9de3be5bb1df1e6584862"
+    },
+    {
+      "path": "test",
+      "name": "test",
+      "size_bytes": 0,
+      "mtime": 1782183589.291639,
+      "depth": 1,
+      "is_dir": true,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "",
+      "content_hash": ""
+    },
+    {
+      "path": "test/事件图谱与神经记忆最终实现方案.md",
+      "name": "事件图谱与神经记忆最终实现方案.md",
+      "size_bytes": 19136,
+      "mtime": 1781666380.3628006,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "f7649a95df23f8389ed4d61380000c8d2f45c31f",
+      "content_hash": "129504c32e46f52c6daf5ad53c01bce3c950847bdad8c5073df185520649a23c"
+    },
+    {
+      "path": "test/项目上下文索引与记忆系统设计.md",
+      "name": "项目上下文索引与记忆系统设计.md",
+      "size_bytes": 31414,
+      "mtime": 1782177262.8973,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "e083e962eb02c412b3bfa7bdf9d64b9f33bba802",
+      "content_hash": "f7ccd96d335f399eff2592be3f3f0ec70f250fbeccb69773e1acd2d3a3208a24"
+    },
+    {
+      "path": "事件图谱与神经记忆最终实现方案.md",
+      "name": "事件图谱与神经记忆最终实现方案.md",
+      "size_bytes": 18669,
+      "mtime": 1782202767.0718057,
+      "depth": 1,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "a10ef8325a64766f5726f1233d24b2c6ff97186a",
+      "content_hash": "aa4ede212fd9964d2df3fb8c721c15a7ad5e61323ec4a0f5cedd86f47a0bb6d2"
+    },
+    {
+      "path": "项目上下文索引与记忆系统设计.md",
+      "name": "项目上下文索引与记忆系统设计.md",
+      "size_bytes": 31414,
+      "mtime": 1782177262.8973,
+      "depth": 1,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "83bdca05368a0e15932ffb6b8923705fd5414235",
+      "content_hash": "f7ccd96d335f399eff2592be3f3f0ec70f250fbeccb69773e1acd2d3a3208a24"
+    }
+  ],
+  "summary": {
+    "total_files": 11,
+    "hashed_files": 11,
+    "ignored_dirs": 1,
+    "skipped_files": 0,
+    "total_nodes": 14
+  }
+}
