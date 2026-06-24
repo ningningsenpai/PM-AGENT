@@ -45,7 +45,7 @@ tmp/
 
 # RAG 原始大数据集
 agent-service/eval/chat-dataset/
-dataset
+dataset/PersonaMem-v2
 
 # AGI-saber
 agent-service/AGI-saber
