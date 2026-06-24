@@ -1,4 +1,4 @@
-"""项目对话 Prompt 构造。"""
+"""LLM Prompt 模块导出。"""
 from __future__ import annotations
 
 from app.llm.prompts.project_chat import build_project_chat_messages, ensure_system_prompt

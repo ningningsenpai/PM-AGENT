@@ -1,21 +1,12 @@
-from fastapi import APIRouter, Header
+"""项目上下文 API。"""
+from __future__ import annotations
 
-from app.core.logger import get_logger
-from app.project_context.schemas import ProjectInitRequest
+from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/v1/context", tags=["Project Context"])
-logger = get_logger(__name__)
+
 
 @router.post("/initProject")
-async def initProject(
-    request: ProjectInitRequest,
-    x_trace_id: str | None = Header(default=None, alias="X-Trace-Id"),
-    x_user_id: int | None = Header(default=None, alias="X-User-Id"),
-    x_tenant_id: int | None = Header(default=None, alias="X-Tenant-Id"),
-    # x_trace_id: int = Header(..., alias="X-Trace-Id"),
-    # x_user_id: int = Header(..., alias="X-User-Id"),
-    # x_tenant_id: int = Header(..., alias="X-Tenant-Id"),
-):
+async def initProject():
     """初始化项目上下文请求。"""
-    
-
+    raise NotImplementedError("项目上下文初始化接口暂未接入对外路由")

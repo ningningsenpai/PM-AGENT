@@ -705,8 +705,8 @@ curl http://127.0.0.1:8000/internal/health
 
 ## 15. 待确认问题
 
-1. 文件接口是否正式从 `/api/v1/files` 调整为 `/api/v1/project/files`，还是保留旧路径兼容一段时间；
-2. `system` 业务文件是否允许普通用户上传，还是仅允许 Java 后端或管理员调用；
-3. `training` 最终放在 `agent-service/training`，还是提升到仓库根目录 `training`；
-4. 用户习惯识别是否作为 `project/habits` 的正式业务能力，还是先放在 `llm/prompts` 中作为 Prompt 能力保留；
-5. RAG 目录本期是否只保留空包结构，还是同步迁移现有评测与数据处理脚本。
+1. 文件接口是否正式从 `/api/v1/files` 调整为 `/api/v1/project/files`，还是保留旧路径兼容一段时间；调整
+2. `system` 业务文件是否允许普通用户上传，还是仅允许 Java 后端或管理员调用；允许
+3. `training` 最终放在 `agent-service/training`，还是提升到仓库根目录 `training`；agent-service/training
+4. 用户习惯识别是否作为 `project/habits` 的正式业务能力，还是先放在 `llm/prompts` 中作为 Prompt 能力保留；作为 `project/habits` 的正式业务能力
+5. RAG 目录本期是否只保留空包结构，还是同步迁移现有评测与数据处理脚本。空包
