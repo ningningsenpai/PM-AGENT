@@ -7,10 +7,10 @@ services:
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-pm_agent_root}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456-pm-agent}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-pm_agent}
-      MYSQL_USER: ${MYSQL_USER:-pm_agent}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pm_agent_dev}
+      MYSQL_USER: ${MYSQL_USER:-pm-agent}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-123456-pm-agent}
       TZ: Asia/Shanghai
     command:
       - --character-set-server=utf8mb4
@@ -20,7 +20,7 @@ services:
       - mysql-data:/var/lib/mysql
       - ./mysql/conf.d:/etc/mysql/conf.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -34,6 +34,26 @@ services:
     volumes:
       - qdrant-data:/qdrant/storage
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pm-agent}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-123456-pm-agent}
+      TZ: Asia/Shanghai
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   mysql-data:
   qdrant-data:
+  minio-data:

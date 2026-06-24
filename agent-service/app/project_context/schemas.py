@@ -43,3 +43,13 @@ class ScanResult:
     generated_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     nodes: list[FileNode] = field(default_factory=list)
     summary: ScanSummary = field(default_factory=ScanSummary)
+
+
+@dataclass
+class ProjectInitRequest:
+    """项目初始化请求。"""
+    project_id: int
+    project_name: str
+    root_path: str
+    output_dir: str
+

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.v1.agent import router as agent_router
+from app.api.v1.files import router as files_router
 
 app = FastAPI(
     title="PM-Agent Python Agent Service",
@@ -9,6 +10,7 @@ app = FastAPI(
 )
 
 app.include_router(agent_router)
+app.include_router(files_router)
 
 
 @app.get("/internal/health")
