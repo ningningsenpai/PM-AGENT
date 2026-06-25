@@ -6,7 +6,7 @@ from urllib.parse import unquote, urlparse
 import re
 import uuid
 
-from app.core.config import MinIOConfig
+from app.core.config.storage_config import MinIOConfig
 from app.project.files.schemas import FileBusiness
 
 __all__ = ["ProjectFileStorage"]

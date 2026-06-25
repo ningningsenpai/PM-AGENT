@@ -5,7 +5,7 @@ from io import BytesIO
 
 from minio import Minio
 
-from app.core.config import MinIOConfig
+from app.core.config.storage_config import MinIOConfig
 
 __all__ = ["MinIOClient"]
 

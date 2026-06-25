@@ -1,7 +1,7 @@
 """项目文件业务服务。"""
 from __future__ import annotations
 
-from app.core.config import MinIOConfig
+from app.core.config.storage_config import MinIOConfig
 from app.infrastructure.minio_client import MinIOClient
 from app.project.files.schemas import FileBusiness
 from app.project.files.storage import ProjectFileStorage

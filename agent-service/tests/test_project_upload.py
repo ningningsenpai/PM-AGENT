@@ -1,128 +1,251 @@
-import tempfile
+"""项目文件接口单元测试 —— 覆盖上传、查询、下载、覆盖更新和删除。"""
+from __future__ import annotations
+
 import unittest
-from pathlib import Path
-from uuid import uuid4
+from unittest.mock import MagicMock
 
-import requests
+from fastapi.testclient import TestClient
+
+import app.api.v1.project_files as _pf
+from app.api.v1.project_files import get_project_file_service
+from app.main import app
+
+TEST_USER_ID = "001"
+TEST_PROJECT_ID = "0001"
+URL_PATH = f"http://localhost:9000/pm-agent/PM-AGENT/{TEST_USER_ID}/{TEST_PROJECT_ID}/project/abc-README.md"
 
 
-class ProjectUploadApiTest(unittest.TestCase):
-    """测试项目文件上传接口的完整增删改查链路。"""
+class _MockS3Error(Exception):
+    """模拟 MinIO S3Error，替换 project_files 模块中的 S3Error 引用后使 isinstance 检查通过。"""
 
-    BASE_URL = "http://127.0.0.1:8000"
-    USER_ID = "u1"
-    PROJECT_ID = "p1"
-    BUSINESS = "project"
-    TIMEOUT_SECONDS = 30
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+        self.message = args[0] if args else ""
 
-    def test_project_file_crud_flow(self) -> None:
-        """验证文件上传、查询、下载、覆盖更新和删除。"""
-        url_path: str | None = None
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            test_file = temp_path / "README.md"
-            update_file = temp_path / "update-demo.txt"
-            downloaded_file = temp_path / "downloaded-test-file"
+def _headers() -> dict[str, str]:
+    return {}
 
-            test_file.write_text("original content", encoding="utf-8")
-            update_file.write_text("new content", encoding="utf-8")
 
-            try:
-                uploaded = self._upload_file(test_file)
-                url_path = uploaded["url_path"]
+class _BaseFileTest(unittest.TestCase):
+    """文件接口测试基类，统一管理 mock service 与 TestClient。"""
 
-                file_info = self._get_file_info(url_path)
-                self.assertEqual(file_info["url_path"], url_path)
-                self.assertGreater(file_info["size"], 0)
+    def setUp(self) -> None:
+        self.service_mock = MagicMock()
+        app.dependency_overrides[get_project_file_service] = lambda: self.service_mock
+        self.client = TestClient(app)
+        # 保存原始的 S3Error 并替换为 Mock，使 isinstance 检查可通过
+        self._orig_s3_error = _pf.S3Error
+        _pf.S3Error = _MockS3Error
 
-                downloaded_file.write_bytes(self._download_file(url_path))
-                self.assertEqual(downloaded_file.read_text(encoding="utf-8"), "original content")
+    def tearDown(self) -> None:
+        app.dependency_overrides.clear()
+        _pf.S3Error = self._orig_s3_error
 
-                updated = self._replace_file(url_path, update_file)
-                self.assertEqual(updated["url_path"], url_path)
 
-                updated_content = self._download_file(url_path).decode("utf-8")
-                self.assertEqual(updated_content, "new content")
+# ---------- 上传 ----------
 
-                deleted = self._delete_file(url_path)
-                self.assertTrue(deleted["deleted"])
-            finally:
-                if url_path:
-                    self._delete_file_if_exists(url_path)
+class TestFileUpload(_BaseFileTest):
 
-    def _upload_file(self, file_path: Path) -> dict:
-        with file_path.open("rb") as file:
-            response = requests.post(
-                f"{self.BASE_URL}/api/v1/files",
-                headers={
-                    "X-User-Id": self.USER_ID,
-                    "X-Idempotency-Key": f"upload-{uuid4().hex}",
-                },
-                data={
-                    "userId": self.USER_ID,
-                    "projectId": self.PROJECT_ID,
-                    "business": self.BUSINESS,
-                },
-                files={"file": (file_path.name, file, "text/markdown")},
-                timeout=self.TIMEOUT_SECONDS,
-            )
-        response.raise_for_status()
-        return response.json()
-
-    def _get_file_info(self, url_path: str) -> dict:
-        response = requests.get(
-            f"{self.BASE_URL}/api/v1/files",
-            headers={"X-User-Id": self.USER_ID},
-            params={"urlPath": url_path},
-            timeout=self.TIMEOUT_SECONDS,
+    def test_upload_success(self) -> None:
+        self.service_mock.upload_file.return_value = {
+            "bucket": "pm-agent",
+            "object_name": f"PM-AGENT/{TEST_USER_ID}/{TEST_PROJECT_ID}/project/abc-README.md",
+            "file_name": "README.md",
+            "url_path": URL_PATH,
+            "size": 100,
+            "content_type": "text/markdown",
+        }
+        response = self.client.post(
+            "/api/v1/project/files",
+            headers=_headers(),
+            data={"projectId": TEST_PROJECT_ID, "business": "project", "userId": TEST_USER_ID},
+            files={"file": ("README.md", b"# Hello", "text/markdown")},
         )
-        response.raise_for_status()
-        return response.json()
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["file_name"], "README.md")
+        self.assertEqual(body["size"], 100)
+        self.assertIn("url_path", body)
 
-    def _download_file(self, url_path: str) -> bytes:
-        response = requests.get(
-            f"{self.BASE_URL}/api/v1/files/download",
-            headers={"X-User-Id": self.USER_ID},
-            params={"urlPath": url_path},
-            timeout=self.TIMEOUT_SECONDS,
+    def test_upload_empty_file_returns_400(self) -> None:
+        self.service_mock.upload_file.side_effect = ValueError("文件内容不能为空")
+        response = self.client.post(
+            "/api/v1/project/files",
+            headers=_headers(),
+            data={"projectId": TEST_PROJECT_ID, "business": "project", "userId": TEST_USER_ID},
+            files={"file": ("empty.txt", b"", "text/plain")},
         )
-        response.raise_for_status()
-        return response.content
+        self.assertEqual(response.status_code, 400)
 
-    def _replace_file(self, url_path: str, file_path: Path) -> dict:
-        with file_path.open("rb") as file:
-            response = requests.put(
-                f"{self.BASE_URL}/api/v1/files",
-                headers={
-                    "X-User-Id": self.USER_ID,
-                    "X-Idempotency-Key": f"update-{uuid4().hex}",
-                },
-                params={"urlPath": url_path},
-                files={"file": (file_path.name, file, "text/plain")},
-                timeout=self.TIMEOUT_SECONDS,
-            )
-        response.raise_for_status()
-        return response.json()
-
-    def _delete_file(self, url_path: str) -> dict:
-        response = requests.delete(
-            f"{self.BASE_URL}/api/v1/files",
-            headers={
-                "X-User-Id": self.USER_ID,
-                "X-Idempotency-Key": f"delete-{uuid4().hex}",
-            },
-            params={"urlPath": url_path},
-            timeout=self.TIMEOUT_SECONDS,
+    def test_upload_service_value_error_returns_400(self) -> None:
+        self.service_mock.upload_file.side_effect = ValueError("文件路径不合法")
+        response = self.client.post(
+            "/api/v1/project/files",
+            headers=_headers(),
+            data={"projectId": TEST_PROJECT_ID, "business": "project", "userId": TEST_USER_ID},
+            files={"file": ("bad.txt", b"x", "text/plain")},
         )
-        response.raise_for_status()
-        return response.json()
+        self.assertEqual(response.status_code, 400)
 
-    def _delete_file_if_exists(self, url_path: str) -> None:
-        try:
-            self._delete_file(url_path)
-        except requests.HTTPError:
-            pass
+    def test_upload_s3_error_returns_502(self) -> None:
+        self.service_mock.upload_file.side_effect = _MockS3Error("MinIO 内部错误")
+        response = self.client.post(
+            "/api/v1/project/files",
+            headers=_headers(),
+            data={"projectId": TEST_PROJECT_ID, "business": "project", "userId": TEST_USER_ID},
+            files={"file": ("test.txt", b"content", "text/plain")},
+        )
+        self.assertEqual(response.status_code, 502)
+
+
+# ---------- 查询元信息 ----------
+
+class TestGetFile(_BaseFileTest):
+
+    def test_get_file_info_success(self) -> None:
+        self.service_mock.stat_file.return_value = {
+            "bucket": "pm-agent",
+            "object_name": "PM-AGENT/u1/p1/project/abc-README.md",
+            "file_name": "README.md",
+            "url_path": URL_PATH,
+            "size": 200,
+            "content_type": "text/markdown",
+        }
+        response = self.client.get(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["file_name"], "README.md")
+        self.assertEqual(body["size"], 200)
+
+    def test_get_file_ownership_mismatch_returns_400(self) -> None:
+        self.service_mock.stat_file.side_effect = ValueError("文件路径用户与当前用户不一致")
+        response = self.client.get(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_get_file_missing_url_path_returns_422(self) -> None:
+        response = self.client.get(
+            "/api/v1/project/files",
+            headers=_headers(),
+        )
+        self.assertEqual(response.status_code, 422)
+
+
+# ---------- 下载 ----------
+
+class TestDownloadFile(_BaseFileTest):
+
+    def test_download_success(self) -> None:
+        self.service_mock.download_file.return_value = (
+            {"file_name": "README.md", "content_type": "text/markdown"},
+            b"# Hello World",
+        )
+        response = self.client.get(
+            "/api/v1/project/files/download",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"# Hello World")
+        self.assertIn("attachment", response.headers["content-disposition"])
+
+    def test_download_value_error_returns_400(self) -> None:
+        self.service_mock.download_file.side_effect = ValueError("文件路径不合法")
+        response = self.client.get(
+            "/api/v1/project/files/download",
+            headers=_headers(),
+            params={"urlPath": "invalid-path"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+
+# ---------- 覆盖更新 ----------
+
+class TestReplaceFile(_BaseFileTest):
+
+    def test_replace_success(self) -> None:
+        self.service_mock.replace_file.return_value = {
+            "bucket": "pm-agent",
+            "object_name": "PM-AGENT/u1/p1/project/abc-README.md",
+            "file_name": "README.md",
+            "url_path": URL_PATH,
+            "size": 300,
+            "content_type": "text/markdown",
+        }
+        response = self.client.put(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+            files={"file": ("README.md", b"updated content", "text/markdown")},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["size"], 300)
+        self.assertEqual(body["file_name"], "README.md")
+
+    def test_replace_ownership_mismatch_returns_400(self) -> None:
+        self.service_mock.replace_file.side_effect = ValueError("文件路径用户与当前用户不一致")
+        response = self.client.put(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+            files={"file": ("README.md", b"updated content", "text/markdown")},
+        )
+        self.assertEqual(response.status_code, 400)
+
+
+# ---------- 删除 ----------
+
+class TestDeleteFile(_BaseFileTest):
+
+    def test_delete_success(self) -> None:
+        self.service_mock.delete_file.return_value = {
+            "deleted": True,
+            "url_path": URL_PATH,
+        }
+        response = self.client.delete(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["deleted"])
+
+    def test_delete_ownership_mismatch_returns_400(self) -> None:
+        self.service_mock.delete_file.side_effect = ValueError("文件路径用户与当前用户不一致")
+        response = self.client.delete(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_service_value_error_returns_400(self) -> None:
+        self.service_mock.delete_file.side_effect = ValueError("文件路径不合法")
+        response = self.client.delete(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": "bad-path"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_s3_error_returns_502(self) -> None:
+        self.service_mock.delete_file.side_effect = _MockS3Error("对象不存在")
+        response = self.client.delete(
+            "/api/v1/project/files",
+            headers=_headers(),
+            params={"urlPath": URL_PATH},
+        )
+        self.assertEqual(response.status_code, 502)
 
 
 if __name__ == "__main__":

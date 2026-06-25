@@ -11,10 +11,11 @@
 
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
-from urllib.parse import urlparse
 import os
 
+from app.core.config.load_env_file import LoadConfig
+
+__all__ = ["get_llm_settings", "LLMProviderConfig"]
 
 @dataclass
 class LLMProviderConfig:
@@ -42,31 +43,6 @@ class LLMProviderConfig:
                 f"未配置 {provider} 的 API Key，请在 .env 文件中设置后重启服务。"
             )
 
-
-@dataclass
-class MinIOConfig:
-    """MinIO 对象存储配置。"""
-
-    endpoint: str = "localhost:9000"
-    access_key: str = "pm-agent"
-    secret_key: str = "123456-pm-agent"
-    bucket: str = "pm-agent"
-    secure: bool = False
-    public_endpoint: str = "http://localhost:9000"
-    max_file_size_mb: int = 50
-
-    @property
-    def public_base_url(self) -> str:
-        """返回去掉末尾斜杠的公开访问前缀。"""
-        return self.public_endpoint.rstrip("/")
-
-    @property
-    def public_host(self) -> str:
-        """返回公开访问地址的主机名和端口。"""
-        parsed = urlparse(self.public_base_url)
-        return parsed.netloc
-
-
 class Settings:
     """Agent 服务运行配置。"""
 
@@ -78,16 +54,6 @@ class Settings:
             raise ValueError(
                 f"未支持的默认模型提供方：{self.default_llm_provider!r}，当前可选：{sorted(supported_providers)}"
             )
-
-        self.minio = MinIOConfig(
-            endpoint=os.getenv("MINIO_ENDPOINT", "localhost:9000"),
-            access_key=os.getenv("MINIO_ROOT_USER", "pm-agent"),
-            secret_key=os.getenv("MINIO_ROOT_PASSWORD", "123456-pm-agent"),
-            bucket=os.getenv("MINIO_BUCKET", "pm-agent"),
-            secure=os.getenv("MINIO_SECURE", "false").lower() == "true",
-            public_endpoint=os.getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000"),
-            max_file_size_mb=int(os.getenv("MINIO_MAX_FILE_SIZE_MB", 50)),
-        )
 
         # 按 provider 分组配置；新增厂商时在这里新增一项即可。
         # 注意：环境变量名仅占位，正式接入时若官方文档要求其它命名再调整。
@@ -119,24 +85,10 @@ class Settings:
         return self.llm[provider]
 
 
-def load_env_file() -> None:
-    """加载本地 .env 文件；不覆盖已经存在的系统环境变量。"""
-    env_file = Path(__file__).resolve().parents[2] / ".env"
-    print(f"尝试加载环境变量文件: {env_file}")
-    if not env_file.exists():
-        print(f"环境变量文件 {env_file} 不存在，请检查文件路径是否正确！")
-        return
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        # 不覆盖已经存在的系统环境变量
-        os.environ.setdefault(key.strip(), value.strip())
-
-
 # 缓存配置实例，避免重复加载
 @lru_cache
-def get_settings() -> Settings:
-    load_env_file()
+def get_llm_settings() -> Settings:
+    LoadConfig()
     return Settings()
+
+
