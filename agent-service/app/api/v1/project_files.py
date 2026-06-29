@@ -1,122 +1,56 @@
-"""项目文件接口。"""
+"""用户 Project 文件树接口。"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse
+from typing import NoReturn
+
+from fastapi import APIRouter, Depends, HTTPException
 from minio.error import S3Error
 
-from app.core.config import get_settings
-from app.project.files import FileBusiness, FileDeleteResult, FileDownloadResult, FileUploadResult, ProjectFileService
+from app.api.internal.minio_files import get_project_file_service
+from app.project.files import FileTreeCommand, FileTreeResult, ProjectFileService
+from app.project.files.tree_service import ProjectFileTreeService
 
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api/v1/project/files", tags=["Project Files"])
 
 
+def get_project_file_tree_service(
+    file_service: ProjectFileService = Depends(get_project_file_service),
+) -> ProjectFileTreeService:
+    """获取项目文件树业务服务实例。"""
+    return ProjectFileTreeService(file_service)
 
-def get_project_file_service() -> ProjectFileService:
-    """获取项目文件业务服务实例。"""
-    config = get_settings()
-    return ProjectFileService(config.storage.minio)
 
-
-@router.post("", response_model=FileUploadResult)
-async def upload_file(
-    project_id: str = Form(..., alias="projectId"),
-    business: FileBusiness = Form(...),
-    file: UploadFile = File(...),
-    user_id: str = Form(..., alias="userId"),
-    service: ProjectFileService = Depends(get_project_file_service),
-) -> FileUploadResult:
-    """上传项目文件。"""
-    file_bytes = await file.read()
+@router.post("/build", response_model=list[FileTreeResult])
+async def build_project_file_tree(
+    command: FileTreeCommand,
+    service: ProjectFileTreeService = Depends(get_project_file_tree_service),
+) -> list[FileTreeResult]:
+    """构建项目文件树并上传符合规则的文件。"""
     try:
-        result = service.upload_file(
-            user_id=user_id,
-            project_id=project_id,
-            business=business,
-            file_name=file.filename or "file",
-            file_bytes=file_bytes,
-            content_type=file.content_type,
-        )
+        return await service.build_tree(command)
     except Exception as error:
-        _raise_file_error(error)
-    return FileUploadResult(**result)
+        _raise_file_tree_error(error)
 
 
-@router.get("", response_model=FileDownloadResult)
-def get_file(
-    url_path: str = Query(..., alias="urlPath"),
-    current_user_id: str | None = Query(default=None, alias="currentUserId"),
-    service: ProjectFileService = Depends(get_project_file_service),
-) -> FileDownloadResult:
-    """查询项目文件元信息。"""
+@router.post("/update-tree", response_model=list[FileTreeResult])
+async def update_project_file_tree(
+    command: FileTreeCommand,
+    service: ProjectFileTreeService = Depends(get_project_file_tree_service),
+) -> list[FileTreeResult]:
+    """更新项目文件树并同步 MinIO 差异。"""
     try:
-        result = service.stat_file(url_path, current_user_id)
+        return await service.update_tree(command)
     except Exception as error:
-        _raise_file_error(error)
-    return FileDownloadResult(**result)
+        _raise_file_tree_error(error)
 
 
-@router.get("/download")
-def download_file(
-    url_path: str = Query(..., alias="urlPath"),
-    current_user_id: str | None = Query(default=None, alias="currentUserId"),
-    service: ProjectFileService = Depends(get_project_file_service),
-) -> StreamingResponse:
-    """下载项目文件内容。"""
-    try:
-        meta, content = service.download_file(url_path, current_user_id)
-    except Exception as error:
-        _raise_file_error(error)
-    return StreamingResponse(
-        iter([content]),
-        media_type=meta["content_type"],
-        headers={"Content-Disposition": f'attachment; filename="{meta["file_name"]}"'},
-    )
-
-
-@router.put("", response_model=FileUploadResult)
-async def replace_file(
-    url_path: str = Query(..., alias="urlPath"),
-    file: UploadFile = File(...),
-    current_user_id: str | None = Form(default=None, alias="currentUserId"),
-    service: ProjectFileService = Depends(get_project_file_service),
-) -> FileUploadResult:
-    """覆盖更新项目文件。"""
-    file_bytes = await file.read()
-    try:
-        result = service.replace_file(
-            url_path=url_path,
-            file_bytes=file_bytes,
-            content_type=file.content_type,
-            current_user_id=current_user_id,
-        )
-    except Exception as error:
-        _raise_file_error(error)
-    return FileUploadResult(**result)
-
-
-
-@router.delete("", response_model=FileDeleteResult)
-def delete_file(
-    url_path: str = Query(..., alias="urlPath"),
-    current_user_id: str | None = Query(default=None, alias="currentUserId"),
-    service: ProjectFileService = Depends(get_project_file_service),
-) -> FileDeleteResult:
-    """删除项目文件。"""
-    try:
-        result = service.delete_file(url_path, current_user_id)
-    except Exception as error:
-        _raise_file_error(error)
-    return FileDeleteResult(**result)
-
-
-def _raise_file_error(error: Exception) -> None:
+def _raise_file_tree_error(error: Exception) -> NoReturn:
     if isinstance(error, HTTPException):
         raise error
     if isinstance(error, ValueError):
         raise HTTPException(status_code=400, detail=str(error)) from error
     if isinstance(error, S3Error):
         raise HTTPException(status_code=502, detail=f"文件存储服务异常：{error.message}") from error
-    raise HTTPException(status_code=500, detail="文件服务异常") from error
+    raise HTTPException(status_code=500, detail="文件树服务异常") from error

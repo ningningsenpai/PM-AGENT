@@ -1,6 +1,7 @@
 """项目文件业务服务。"""
 from __future__ import annotations
 
+
 from app.core.config.storage_config import MinIOConfig
 from app.infrastructure.minio_client import MinIOClient
 from app.project.files.schemas import FileBusiness
@@ -12,7 +13,10 @@ _DEFAULT_CONTENT_TYPE = "application/octet-stream"
 
 
 class ProjectFileService:
-    """ProjectFileService 编排项目文件业务规则与对象存储操作。"""
+    """
+    ProjectFileService 编排项目文件业务规则与对象存储操作。
+    文件大小限制：50MB
+    """
 
     def __init__(self, config: MinIOConfig, client: MinIOClient | None = None) -> None:
         self._config = config
@@ -90,7 +94,8 @@ class ProjectFileService:
 
     def validate_path_owner(self, url_path: str, current_user_id: str | None) -> None:
         """校验当前用户与文件路径中的用户归属一致。"""
-        if current_user_id is not None and self._storage.get_path_user_id(url_path) != current_user_id:
+        if (current_user_id is not None and
+                self._storage.get_path_user_id(url_path) != current_user_id):
             raise ValueError("文件路径用户与当前用户不一致")
 
     def _build_file_result(

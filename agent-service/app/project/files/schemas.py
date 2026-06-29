@@ -9,6 +9,8 @@ __all__ = [
     "FileBusiness",
     "FileDeleteResult",
     "FileDownloadResult",
+    "FileTreeCommand",
+    "FileTreeResult",
     "FileUploadResult",
 ]
 
@@ -30,6 +32,26 @@ class FileUploadResult(BaseModel):
     url_path: str = Field(..., description="可用于后续操作的网址路径")
     size: int = Field(..., description="文件大小，单位字节")
     content_type: str = Field(..., description="文件类型")
+
+
+class FileTreeResult(BaseModel):
+    """文件树构建或更新返回结果，用于 Java 模块批量落库。"""
+
+    original_file_name: str = Field(..., description="原始文件名")
+    original_path: str = Field(..., description="原始文件路径")
+    is_delete: bool = Field(..., alias="_is_delete", description="是否为需要删除的文件路径")
+    business: FileBusiness = Field(..., description="文件业务分类")
+    file_info: FileUploadResult = Field(..., description="文件上传或覆盖更新返回结果")
+
+
+class FileTreeCommand(BaseModel):
+    """文件树构建或更新请求。"""
+
+    root_path: str = Field(..., description="需要扫描的项目根目录")
+    output_dir: str = Field(..., description="Project_Index.json文件输出目录")
+    user_id: str = Field(..., description="用户 ID")
+    project_id: str = Field(..., description="项目 ID")
+    business: FileBusiness = Field(default=FileBusiness.PROJECT.value, description="文件业务分类")
 
 
 class FileDeleteResult(BaseModel):

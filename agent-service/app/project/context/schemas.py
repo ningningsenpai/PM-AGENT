@@ -21,6 +21,7 @@ class FileNode:
     ignore_reason: str = ""
     quick_fingerprint: str = ""
     content_hash: str = ""
+    file_info: dict | None = None
 
 
 @dataclass
