@@ -76,7 +76,8 @@ class IgnoreRules:
             return IgnoreDecision(True, f"skip_dir:{path.name}")
         return IgnoreDecision(False)
 
-    def should_skip_hash(self, path: Path, size_bytes: int, max_hash_bytes: int) -> IgnoreDecision:
+    @staticmethod
+    def should_skip_hash(path: Path, size_bytes: int, max_hash_bytes: int) -> IgnoreDecision:
         """判断文件是否只记录快速指纹而跳过内容哈希。"""
         suffix = path.suffix.lower()
         if suffix in SKIP_HASH_SUFFIXES:

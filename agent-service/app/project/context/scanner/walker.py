@@ -10,7 +10,7 @@ from app.project.context.scanner.ignore_rules import IgnoreRules
 
 __all__ = ["DEFAULT_MAX_HASH_BYTES", "walk"]
 
-DEFAULT_MAX_HASH_BYTES = 5 * 1024 * 1024
+DEFAULT_MAX_HASH_BYTES = 10 * 1024 * 1024
 
 
 def walk(

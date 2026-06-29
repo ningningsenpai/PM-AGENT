@@ -16,7 +16,8 @@ INDEX_FILE_NAME = "Project_Index.json"
 class TreeIndexWriter:
     """TreeIndexWriter 负责读取和写入文件树扫描索引。"""
 
-    def index_path(self, output_dir: str | Path) -> Path:
+    @staticmethod
+    def index_path(output_dir: str | Path) -> Path:
         """返回扫描索引文件路径。"""
         return Path(output_dir).resolve() / INDEX_FILE_NAME
 
@@ -44,7 +45,8 @@ class TreeIndexWriter:
         )
         return json_path
 
-    def _from_dict(self, data: dict[str, Any]) -> ScanResult:
+    @staticmethod
+    def _from_dict(data: dict[str, Any]) -> ScanResult:
         summary_data = data.get("summary") or {}
         nodes_data = data.get("nodes") or []
         return ScanResult(

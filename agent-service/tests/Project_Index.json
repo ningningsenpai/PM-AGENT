@@ -1,0 +1,292 @@
+{
+  "root_path": "D:\\Code\\ning\\PM-AGENT\\agent-service\\file-tree-test",
+  "generated_at": "2026-06-29T17:44:13",
+  "nodes": [
+    {
+      "path": "rag",
+      "name": "rag",
+      "size_bytes": 0,
+      "mtime": 1782354537.4674952,
+      "depth": 1,
+      "is_dir": true,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "",
+      "content_hash": "",
+      "file_info": null
+    },
+    {
+      "path": "rag/README.md",
+      "name": "README.md",
+      "size_bytes": 4378,
+      "mtime": 1782294423.1398287,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "4858092c18c3e4132a8b505f836697b1314b7d81",
+      "content_hash": "36d7100ad27a4cddc4947ac6b8917758b52173dc13a8fbf02f88e0c0af79ba03",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/8f0ebddf-README.md",
+        "file_name": "8f0ebddf-README.md",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/8f0ebddf-README.md",
+        "size": 4378,
+        "content_type": "text/markdown"
+      }
+    },
+    {
+      "path": "rag/__pycache__",
+      "name": "__pycache__",
+      "size_bytes": 0,
+      "mtime": 1782183564.3418448,
+      "depth": 2,
+      "is_dir": true,
+      "scan_status": "ignored",
+      "ignore_reason": "skip_dir:__pycache__",
+      "quick_fingerprint": "",
+      "content_hash": "",
+      "file_info": null
+    },
+    {
+      "path": "rag/build_qdrant_index.py",
+      "name": "build_qdrant_index.py",
+      "size_bytes": 3889,
+      "mtime": 1782294423.140715,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "fa06d9d7d6f3c3b03adfa4e031c70657de5fb19e",
+      "content_hash": "6987a2455ec8cdee5b2a4fb20d35863526fdc1bc05595464502a7f2f29400f4e",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/a97fd332-build_qdrant_index.py",
+        "file_name": "a97fd332-build_qdrant_index.py",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/a97fd332-build_qdrant_index.py",
+        "size": 3889,
+        "content_type": "text/x-python"
+      }
+    },
+    {
+      "path": "rag/config.py",
+      "name": "config.py",
+      "size_bytes": 2612,
+      "mtime": 1782354537.4669876,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "5648afdad49feee60b49b85bd153d708c0a2bc37",
+      "content_hash": "ff1f49691d5e838468b7e611d478ddba979eda05f2069182ffa59766a97fb848",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/6439691c-config.py",
+        "file_name": "6439691c-config.py",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/6439691c-config.py",
+        "size": 2612,
+        "content_type": "text/x-python"
+      }
+    },
+    {
+      "path": "rag/data_loader.py",
+      "name": "data_loader.py",
+      "size_bytes": 4003,
+      "mtime": 1782294423.142716,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "78246a615710cc2711f8e7cc93ef96c8f9efe2d1",
+      "content_hash": "f05e7c14732311bc2cc0f4fda79c8df6126e8287c35187e25455e7e1f6ffa692",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/e1dbbe6b-data_loader.py",
+        "file_name": "e1dbbe6b-data_loader.py",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/e1dbbe6b-data_loader.py",
+        "size": 4003,
+        "content_type": "text/x-python"
+      }
+    },
+    {
+      "path": "rag/embedding_client.py",
+      "name": "embedding_client.py",
+      "size_bytes": 2393,
+      "mtime": 1782294423.143716,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "fc34fcff566776240396283b3a884b01a9a543c1",
+      "content_hash": "7753bb4d3538003e899722a47c861e5c59365928730d9259012bc8d242c9bf4b",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/b737d00a-embedding_client.py",
+        "file_name": "b737d00a-embedding_client.py",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/b737d00a-embedding_client.py",
+        "size": 2393,
+        "content_type": "text/x-python"
+      }
+    },
+    {
+      "path": "rag/qdrant_client.py",
+      "name": "qdrant_client.py",
+      "size_bytes": 1849,
+      "mtime": 1782294423.143716,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "bf646d7fbf8798d2d53657204e3ea3ad715da05e",
+      "content_hash": "590922c4ebbb665a5857e316cb3a518a75308c008a9d8ec013aa24e08eabd9c0",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/c7a3b198-qdrant_client.py",
+        "file_name": "c7a3b198-qdrant_client.py",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/c7a3b198-qdrant_client.py",
+        "size": 1849,
+        "content_type": "text/x-python"
+      }
+    },
+    {
+      "path": "rag/run_retrieval_eval.py",
+      "name": "run_retrieval_eval.py",
+      "size_bytes": 4349,
+      "mtime": 1782294423.1447177,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "0cd27eefd509ff30bec1fa21e9048cee25dc4e21",
+      "content_hash": "aebd81534254e717137dd5fa9081d512abc5b0452160bb23e23e01b71b6da471",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/448dc755-run_retrieval_eval.py",
+        "file_name": "448dc755-run_retrieval_eval.py",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/448dc755-run_retrieval_eval.py",
+        "size": 4349,
+        "content_type": "text/x-python"
+      }
+    },
+    {
+      "path": "test",
+      "name": "test",
+      "size_bytes": 0,
+      "mtime": 1782354537.4884512,
+      "depth": 1,
+      "is_dir": true,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "",
+      "content_hash": "",
+      "file_info": null
+    },
+    {
+      "path": "test/事件图谱与神经记忆最终实现方案.md",
+      "name": "事件图谱与神经记忆最终实现方案.md",
+      "size_bytes": 19723,
+      "mtime": 1782294423.1457179,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "d2c28e7d699c410bd46d501f199b05c6e86e0d93",
+      "content_hash": "b526b1fed213271b47183932e6617266ccfc3e2d7475e6661d30f0b9dd649728",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/88b40722-事件图谱与神经记忆最终实现方案.md",
+        "file_name": "88b40722-事件图谱与神经记忆最终实现方案.md",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/88b40722-事件图谱与神经记忆最终实现方案.md",
+        "size": 19723,
+        "content_type": "text/markdown"
+      }
+    },
+    {
+      "path": "test/项目上下文索引与记忆系统设计.md",
+      "name": "项目上下文索引与记忆系统设计.md",
+      "size_bytes": 31414,
+      "mtime": 1782354537.4884512,
+      "depth": 2,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "e3eb21cd8e0005a73e550a881562c1fb89e91bea",
+      "content_hash": "f7ccd96d335f399eff2592be3f3f0ec70f250fbeccb69773e1acd2d3a3208a24",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/5cd76a36-项目上下文索引与记忆系统设计.md",
+        "file_name": "5cd76a36-项目上下文索引与记忆系统设计.md",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/5cd76a36-项目上下文索引与记忆系统设计.md",
+        "size": 31414,
+        "content_type": "text/markdown"
+      }
+    },
+    {
+      "path": "事件图谱与神经记忆最终实现方案.md",
+      "name": "事件图谱与神经记忆最终实现方案.md",
+      "size_bytes": 19249,
+      "mtime": 1782294423.147957,
+      "depth": 1,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "5ceca231391b13f055d9ac4e2acaf6cfcfd4bca3",
+      "content_hash": "9173041d42b2a53c7a269d3540ead7f42a4eb746706246c3f88257bef3eb5d2c",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/c9da71cd-事件图谱与神经记忆最终实现方案.md",
+        "file_name": "c9da71cd-事件图谱与神经记忆最终实现方案.md",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/c9da71cd-事件图谱与神经记忆最终实现方案.md",
+        "size": 19249,
+        "content_type": "text/markdown"
+      }
+    },
+    {
+      "path": "接入层开发步骤.md",
+      "name": "接入层开发步骤.md",
+      "size_bytes": 9458,
+      "mtime": 1781257801.6331203,
+      "depth": 1,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "40f52796898d1e060402e77da2e7d6d2d4b8ff6c",
+      "content_hash": "8611d0ef583bfd18a6aa8935895e1931ec148f20c2d794110ccedf8b07723a28",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/acc034eb-接入层开发步骤.md",
+        "file_name": "acc034eb-接入层开发步骤.md",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/acc034eb-接入层开发步骤.md",
+        "size": 9458,
+        "content_type": "text/markdown"
+      }
+    },
+    {
+      "path": "项目上下文索引与记忆系统设计.md",
+      "name": "项目上下文索引与记忆系统设计.md",
+      "size_bytes": 31414,
+      "mtime": 1782354537.4884512,
+      "depth": 1,
+      "is_dir": false,
+      "scan_status": "active",
+      "ignore_reason": "",
+      "quick_fingerprint": "227e78097b7f647766043d5628ef61538b77925a",
+      "content_hash": "f7ccd96d335f399eff2592be3f3f0ec70f250fbeccb69773e1acd2d3a3208a24",
+      "file_info": {
+        "bucket": "pm-agent",
+        "object_name": "PM-AGENT/001/001/project/ba11988f-项目上下文索引与记忆系统设计.md",
+        "file_name": "ba11988f-项目上下文索引与记忆系统设计.md",
+        "url_path": "http://localhost:9000/PM-AGENT/001/001/project/ba11988f-项目上下文索引与记忆系统设计.md",
+        "size": 31414,
+        "content_type": "text/markdown"
+      }
+    }
+  ],
+  "summary": {
+    "total_files": 12,
+    "hashed_files": 12,
+    "ignored_dirs": 1,
+    "skipped_files": 0,
+    "total_nodes": 15
+  }
+}
