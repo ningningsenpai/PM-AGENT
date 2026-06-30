@@ -49,7 +49,7 @@ class Settings:
     def __init__(self) -> None:
         # 默认 provider：未在请求中显式指定时使用。
         self.default_llm_provider = os.getenv("DEFAULT_LLM_PROVIDER", "deepseek")
-        supported_providers = {"deepseek", "doubao"}
+        supported_providers = {"deepseek", "doubao", "qwen"}
         if self.default_llm_provider not in supported_providers:
             raise ValueError(
                 f"未支持的默认模型提供方：{self.default_llm_provider!r}，当前可选：{sorted(supported_providers)}"
@@ -64,6 +64,17 @@ class Settings:
                 model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"),
                 context_window_tokens=int(os.getenv("DEEPSEEK_CONTEXT_WINDOW_TOKENS", 126000)),
                 reserved_output_tokens=int(os.getenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 4096)),
+            ),
+            # Qwen：当前最小实现走 Ollama/OpenAI 兼容接口，供项目上下文链路使用。
+            "qwen": LLMProviderConfig(
+                api_key=os.getenv("QWEN_API_KEY", ""),
+                base_url=os.getenv("QWEN_BASE_URL", "http://127.0.0.1:11434"),
+                model=os.getenv("QWEN_MODEL", "qwen2.5:7b-instruct"),
+                context_window_tokens=int(os.getenv("QWEN_CONTEXT_WINDOW_TOKENS", 4096)),
+                reserved_output_tokens=int(os.getenv("QWEN_RESERVED_OUTPUT_TOKENS", 1024)),
+                extra={
+                    "timeout_seconds": float(os.getenv("QWEN_TIMEOUT_SECONDS", "120.0")),
+                },
             ),
             # 豆包（火山方舟）：OpenAI 兼容协议，model 实际为 endpoint id。
             "doubao": LLMProviderConfig(
