@@ -151,16 +151,136 @@
 
 - 提示词：
 
-待写入新版 `UserHabitsPrompt` 后补充。
+当前新版 `UserHabitsPrompt.USER_HABITS`，已补充证据忠实性、历史不可改写、指代解析、变化摘要聚焦本轮变化、当前有效习惯唯一性等约束。
 
 - 对话轮次：
 
-  待测试。
+  1. 对话1：我喜欢上午喝茶，下午喝咖啡.
+
+     记录的 json 内容（`0-user_habits.json`）：
+
+     ```json
+     {
+       "user_habits": [
+         {
+           "id": "work-coffee-tea-pattern",
+           "category": "life",
+           "habit": "喜欢上午喝茶，下午喝咖啡。",
+           "status": "active",
+           "confidence": "high",
+           "evidence": [
+             {
+               "source": "new_content",
+               "quote": "我喜欢上午喝茶，下午喝咖啡."
+             }
+           ],
+           "previous_versions": []
+         }
+       ],
+       "changes": [
+         {
+           "type": "added",
+           "habit_id": "work-coffee-tea-pattern",
+           "summary": "根据 new_content 添加了当前有效的生活习惯。"
+         }
+       ],
+       "ignored_items": []
+     }
+     ```
+
+  2. 对话2：我发现下午喝咖啡容易导致晚上睡不着，于是我把上下午的习惯互换了一下。
+
+     记录的 json 内容（`2-user_habits.json`）：
+
+     ```json
+     {
+       "user_habits": [
+         {
+           "id": "work-coffee-tea-pattern",
+           "category": "life",
+           "habit": "上午喝咖啡，下午喝茶。",
+           "status": "evolved",
+           "confidence": "high",
+           "evidence": [
+             {
+               "source": "new_content",
+               "quote": "我发现下午喝咖啡容易导致晚上睡不着，于是我把上下午的习惯互换了一下。"
+             }
+           ],
+           "previous_versions": [
+             {
+               "habit": "喜欢上午喝茶，下午喝咖啡。",
+               "reason": "为了改善晚上睡眠质量而进行了调整。"
+             }
+           ]
+         }
+       ],
+       "changes": [
+         {
+           "type": "evolved",
+           "habit_id": "work-coffee-tea-pattern",
+           "summary": "根据 new_content 将上午喝茶，下午喝咖啡的习惯改为上午喝咖啡，下午喝茶。"
+         }
+       ],
+       "ignored_items": []
+     }
+     ```
+
+  3. 对话3：医生告诉我说我摄入太多的茶多酚和咖啡因，导致我晚上神经亢奋，然后第二天精神衰弱，为此我现在只喝白开水。
+
+     记录的 json 内容（`1-user_habits.json`）：
+
+     ```json
+     {
+       "user_habits": [
+         {
+           "id": "work-coffee-tea-pattern",
+           "category": "life",
+           "habit": "上午喝咖啡，下午喝茶。",
+           "status": "evolved",
+           "confidence": "high",
+           "evidence": [
+             {
+               "source": "new_content",
+               "quote": "医生告诉我说我摄入太多的茶多酚和咖啡因，导致我晚上神经亢奋，然后第二天精神衰弱，为此我现在只喝白开水。"
+             }
+           ],
+           "previous_versions": [
+             {
+               "habit": "上午喝咖啡，下午喝茶。",
+               "reason": "根据 new_content 中医生的建议进行调整。"
+             },
+             {
+               "habit": "喜欢上午喝茶，下午喝咖啡。",
+               "reason": "为了改善晚上睡眠质量而进行了调整。"
+             }
+           ]
+         }
+       ],
+       "changes": [
+         {
+           "type": "evolved",
+           "habit_id": "work-coffee-tea-pattern",
+           "summary": "根据 new_content 中医生的建议，将上午喝咖啡，下午喝茶的习惯改为只喝白开水。"
+         }
+       ],
+       "ignored_items": []
+     }
+     ```
 
 - 问题总结：
 
-  待测试。
+  1. 第 2 轮“上下午互换”推导正确，当前习惯从“上午喝茶，下午喝咖啡”变为“上午喝咖啡，下午喝茶”，未再凭空引入“晚上”。
+  2. 证据引用明显改善，`evidence.quote` 基本保持对 `new_content` 的原文摘录，没有再拼接旧习惯与新结论。
+  3. 第 3 轮存在关键错误：`changes.summary` 已写出“改为只喝白开水”，但 `user_habits[0].habit` 仍保留为“上午喝咖啡，下午喝茶”，当前有效习惯没有更新。
+  4. 第 3 轮 `previous_versions` 把“上午喝咖啡，下午喝茶”作为基于医生建议调整后的历史版本，原因不准确；它应是第 2 轮旧版本，而不是第 3 轮变化结果。
+  5. `changes.summary` 使用了 `new_content` 这类来源标识，表达偏技术化，可读性不如直接描述“根据本轮输入”。
+  6. 输出文件命名与对话顺序不一致：`1-user_habits.json` 对应第 3 轮，`2-user_habits.json` 对应第 2 轮，后续测试记录需要按内容重新排序核对。
 
 - 改进方向：
 
-  待测试。
+  1. 增加“变化结果一致性”规则：当 `changes.summary` 描述当前习惯已变更时，`user_habits[].habit` 必须同步写入变更后的当前有效习惯。
+  2. 强化“当前习惯优先”规则：遇到“现在只……”“以后只……”“不再……”等明确覆盖表达时，应直接覆盖当前 `habit`，旧习惯进入 `previous_versions`。
+  3. 调整 `previous_versions.reason` 生成规则：原因应说明旧版本为何被替换，不能把本轮新原因写成旧版本自身的形成原因。
+  4. 约束 `changes.summary` 面向人类阅读，避免暴露 `new_content`、`existing_habits_json` 等内部字段名。
+  5. 检查测试脚本的结果文件写入顺序，确保文件序号与对话轮次一致，避免人工复盘时误判。
