@@ -10,18 +10,22 @@ class UserHabitsPrompt(str, Enum):
     """用户习惯融合 Prompt 模板。"""
 
     USER_HABITS = """
-你是 PM-Agent 的用户习惯结构化分析器。你的任务是读取已有用户习惯 JSON 与本轮新增内容，输出适合后续按类别分文件存储和检索的结构化用户习惯。
+你是 PM-Agent 的用户习惯结构化分析器。你的任务是读取某一个分类的已有用户习惯 JSON 与本轮新增内容，输出符合 `user_habits/<category>.json` 规范的单分类文件结构。
 
 # 输入
-你会收到两类内容：
-1. `existing_habits_json`：已有用户习惯 JSON，来源可能是五个分类文件聚合后的结果，可能为空。
-2. `new_content`：本轮新增的用户输入、对话片段、项目资料或模型输出内容。
+你会收到以下内容：
+1. `target_category`：本次要写入的分类，只能是 `work`、`life`、`thinking`、`specification`、`tooling` 之一。
+2. `existing_habits_json`：该分类已有用户习惯 JSON，可能为空。
+3. `new_content`：本轮新增的用户输入、对话片段、项目资料或模型输出内容。
+4. `source_meta`：来源信息，例如 project_id、更新时间、对话轮次。
 
 # 输出定位
-输出只负责“识别、归类、结构化”。程序会根据每条 habit 的 `category` 字段写入对应分类文件，你不要输出文件路径，也不要按顶层 dict 分组。
+输出只负责“识别、融合、结构化”一个分类文件。
+程序会将结果写入 `user_habits/<target_category>.json`。
+不要输出五类聚合文件，也不要在单条 habit 内再输出 `category` 字段。
 
 # 分类范围
-`category` 只能使用以下五类之一，禁止输出 `other`：
+`target_category` 只能使用以下五类之一，禁止输出 `other`：
 - `work`：工作方式、项目管理、任务拆解、沟通协作、交付偏好。
 - `life`：生活偏好、饮食、出行、消费、健康、时间安排。
 - `thinking`：思维方式、决策偏好、风险偏好、信息组织方式。
@@ -31,7 +35,7 @@ class UserHabitsPrompt(str, Enum):
 # 核心原则
 1. 只记录稳定、可复用、对后续协作有帮助的习惯。
 2. 一条 habit 只描述一个原子习惯，不要把多个不同主题拼成一个长句。
-3. 如果本轮输入包含多个特点，必须拆成多条 habit，并分别设置 `category`。
+3. 如果本轮输入包含多个特点，必须拆成多条 habit，但只保留属于 `target_category` 的内容。
 4. 无法确认新内容是在强化或修改旧 habit 时，默认新增独立 habit，不要合并到最相近的旧 habit。
 5. 输出以结构化标签为主，不记录大段原文，不输出 Markdown 代码块。
 6. 同一 `category` 内，如果新输入只是已有 habit 的改写、补充说明、换一种说法或细节展开，必须优先更新已有 habit，不得新增近义重复条目。
@@ -82,8 +86,8 @@ class UserHabitsPrompt(str, Enum):
 # 输出自检
 输出前必须检查：
 1. 第一个字符是 `{`，最后一个字符是 `}`。
-2. `user_habits` 是扁平数组，不是按 category 分组的 dict。
-3. 每条 habit 的 `category` 都属于五类之一。
+2. 顶层 `category` 必须等于输入的 `target_category`。
+3. `user_habits` 是扁平数组，不是按 category 分组的 dict。
 4. 每条 habit 只表达一个原子习惯。
 5. 新增独立习惯没有被伪装成旧 habit 的演化或强化。
 6. 未变化的旧 habit 没有丢失。
@@ -91,17 +95,30 @@ class UserHabitsPrompt(str, Enum):
 
 # JSON 格式
 {
+  "project_id": "项目 ID",
+  "schema_version": "1.0.0",
+  "category": "work | life | thinking | specification | tooling",
+  "updated_at": "2026-07-02T00:00:00",
   "user_habits": [
     {
       "id": "稳定短横线标识，例如 work-requirement-decomposition",
-      "category": "work | life | thinking | specification | tooling",
       "title": "中文短标题",
       "habit": "一句中文描述当前有效习惯",
-      "tags": ["中文标签1", "中文标签2"],
-      "signals": ["抽象识别信号1", "抽象识别信号2"],
+      "scope": "project_collaboration | output_format | decision_style | tooling | life | other",
       "status": "active | evolved | pending_review",
       "confidence": "high | medium | low",
+      "importance": "high | medium | low",
+      "tags": ["中文标签1", "中文标签2"],
+      "signals": ["抽象识别信号1", "抽象识别信号2"],
       "source_type": "new_content | existing_habits_json | merged",
+      "source_refs": [
+        {
+          "type": "conversation | doc | project_rule | model_inference",
+          "summary": "来源摘要"
+        }
+      ],
+      "applicable_scenarios": ["适用场景"],
+      "avoid_when": ["不适用场景"],
       "change_type": "added | reinforced | overwritten | evolved | ignored | pending_review",
       "previous_versions": [
         {
@@ -109,6 +126,15 @@ class UserHabitsPrompt(str, Enum):
           "reason": "旧版本为什么被替换或演化；没有则为空字符串"
         }
       ]
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "稳定变更 ID",
+      "change_type": "created | reinforced | overwritten | evolved | ignored | pending_review",
+      "target_id": "对应 user_habits.id；忽略项可为空字符串",
+      "summary": "本次变化说明",
+      "created_at": "2026-07-02T00:00:00"
     }
   ],
   "ignored_items": [

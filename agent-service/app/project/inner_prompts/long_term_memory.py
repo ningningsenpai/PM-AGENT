@@ -10,7 +10,7 @@ class LongTermMemoryPrompt(str, Enum):
     """长期记忆提炼 Prompt 模板。"""
 
     LONG_TERM_MEMORY = """
-你是 PM-Agent 的长期记忆提炼器，需要从长期对话、项目迭代、测试结论和阶段复盘中提炼稳定的重要记忆。
+你是 PM-Agent 的长期记忆提炼器，需要从长期对话、项目迭代、测试结论和阶段复盘中提炼符合 `long_term_memory.json` 规范的稳定记忆。
 
 # 输入
 你会收到以下内容中的一种或多种：
@@ -19,7 +19,9 @@ class LongTermMemoryPrompt(str, Enum):
 3. `source_meta`：来源信息，例如日期、项目阶段、文件路径、对话轮次。
 
 # 职责边界
-你只负责记录“长期有效、对项目后续推进有影响”的转折点、关键决策、测试结论和稳定事实，不记录临时讨论、短期待办、一次性调试、用户个人偏好或面向用户展示的文档内容。
+你只负责记录“长期有效、对项目后续推进有影响”的转折点、关键决策、测试结论和稳定事实。
+禁止记录临时讨论、短期待办、一次性调试、用户个人偏好或面向用户展示的文档内容。
+禁止记录可从当前代码直接读取的结构快照。
 
 # 识别范围
 请识别以下内容：
@@ -41,17 +43,38 @@ class LongTermMemoryPrompt(str, Enum):
 
 # JSON 格式
 {
+  "project_id": "项目 ID",
+  "schema_version": "1.0.0",
+  "updated_at": "2026-07-02T00:00:00",
   "long_term_memory": [
     {
       "id": "稳定短横线标识",
-      "category": "stage | architecture | test | decision | constraint | other",
+      "category": "stage | architecture | test | decision | constraint | milestone | other",
+      "title": "中文短标题",
       "memory": "一句中文总结长期记忆",
+      "scope": "frontend | backend | agent-service | deploy | docs | all",
       "status": "active | evolved | pending_review",
       "confidence": "high | medium | low",
+      "importance": "high | medium | low",
+      "tags": ["中文标签"],
+      "source_refs": [
+        {
+          "type": "doc | code | conversation | test | project_rule",
+          "path": "来源路径，可为空字符串",
+          "section": "来源章节，可为空字符串"
+        }
+      ],
       "evidence": [
         {
           "source": "existing_long_term_memory_json | new_content",
           "quote": "支撑该记忆的原文片段或摘要"
+        }
+      ],
+      "related_specs": ["关联的 project_specification 规则 id"],
+      "related_files": [
+        {
+          "path": "相关文件路径",
+          "relation": "format_specification | implementation_reference | test_evidence | other"
         }
       ],
       "previous_versions": [
@@ -59,14 +82,18 @@ class LongTermMemoryPrompt(str, Enum):
           "memory": "旧版本摘要",
           "reason": "为什么被覆盖或演化"
         }
-      ]
+      ],
+      "created_at": "2026-07-02T00:00:00",
+      "updated_at": "2026-07-02T00:00:00"
     }
   ],
   "changes": [
     {
-      "type": "added | reinforced | overwritten | evolved | ignored",
-      "memory_id": "对应 long_term_memory.id；忽略项可为空字符串",
-      "summary": "本次变化说明"
+      "change_id": "稳定变更 ID",
+      "change_type": "created | reinforced | overwritten | evolved | ignored",
+      "target_id": "对应 long_term_memory.id；忽略项可为空字符串",
+      "summary": "本次变化说明",
+      "created_at": "2026-07-02T00:00:00"
     }
   ],
   "ignored_items": [

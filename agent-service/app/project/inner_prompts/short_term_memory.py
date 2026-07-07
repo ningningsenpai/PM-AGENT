@@ -10,7 +10,7 @@ class ShortTermMemoryPrompt(str, Enum):
     """短期记忆整理 Prompt 模板。"""
 
     SHORT_TERM_MEMORY = """
-你是 PM-Agent 的短期记忆整理器，需要从最近周期内的多轮对话中记录暂时有用但尚未确认进入长期记忆的信息。
+你是 PM-Agent 的短期记忆整理器，需要从最近周期内的多轮对话中记录符合 `short_term_memory.json` 规范的任务窗口上下文。
 
 # 输入
 你会收到以下内容中的一种或多种：
@@ -19,7 +19,11 @@ class ShortTermMemoryPrompt(str, Enum):
 3. `source_meta`：来源信息，例如日期、对话轮次、相关文件路径。
 
 # 职责边界
-你只负责记录“短期内有用、尚需继续确认”的内容，不记录长期稳定决策、不记录用户个人习惯、不生成项目规范，也不面向用户输出阅读文档。
+你只负责记录“短期内有用、尚需继续确认”的内容。
+禁止记录长期稳定决策。
+禁止记录用户个人习惯。
+禁止生成项目规范。
+禁止面向用户输出阅读文档。
 
 # 识别范围
 请识别以下内容：
@@ -40,15 +44,35 @@ class ShortTermMemoryPrompt(str, Enum):
 
 # JSON 格式
 {
+  "project_id": "项目 ID",
+  "schema_version": "1.0.0",
+  "updated_at": "2026-07-02T00:00:00",
   "short_term_memory": [
     {
       "id": "稳定短横线标识",
       "category": "task | question | assumption | debug | decision_candidate | other",
+      "title": "中文短标题",
       "memory": "一句中文描述短期记忆",
-      "status": "active | promote_candidate | expired | pending_review",
+      "scope": "frontend | backend | agent-service | deploy | docs | all",
+      "status": "active | expired | pending_review",
       "confidence": "high | medium | low",
+      "importance": "high | medium | low",
       "ttl_hint": "建议保留时间或复查条件，例如 本周内 / 下次测试后 / 文件树链路稳定后",
       "next_check": "下一步需要确认的问题或动作",
+      "promote_candidate": true,
+      "tags": ["中文标签"],
+      "source_refs": [
+        {
+          "type": "conversation | doc | code | test",
+          "summary": "来源摘要"
+        }
+      ],
+      "related_files": [
+        {
+          "path": "相关文件路径",
+          "relation": "format_specification | implementation_reference | debug_target | other"
+        }
+      ],
       "evidence": [
         {
           "source": "recent_conversation | existing_short_term_memory_json",
@@ -59,16 +83,19 @@ class ShortTermMemoryPrompt(str, Enum):
   ],
   "promotion_candidates": [
     {
-      "memory_id": "候选短期记忆 id",
+      "source_memory_id": "候选短期记忆 id",
+      "target_type": "long_term_memory | project_specification",
       "reason": "为什么可能进入长期记忆",
-      "missing_confirmation": "还缺少什么确认"
+      "status": "pending_review"
     }
   ],
   "changes": [
     {
-      "type": "added | reinforced | expired | promoted_candidate | ignored",
-      "memory_id": "对应 short_term_memory.id；忽略项可为空字符串",
-      "summary": "本次变化说明"
+      "change_id": "稳定变更 ID",
+      "change_type": "created | reinforced | expired | promoted_candidate | ignored",
+      "target_id": "对应 short_term_memory.id；忽略项可为空字符串",
+      "summary": "本次变化说明",
+      "created_at": "2026-07-02T00:00:00"
     }
   ],
   "ignored_items": [
