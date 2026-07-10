@@ -1,0 +1,54 @@
+{
+  "version": "2026-07-09-demo",
+  "description": "PM-Agent Aho-Corasick 词库匹配第一步实验词库",
+  "entries": [
+    {
+      "canonical": "认证鉴权",
+      "aliases": ["认证鉴权", "登录校验", "权限校验", "鉴权", "token校验", "Sa-Token认证", "JWT认证"],
+      "category": "backend",
+      "tags": ["auth", "security", "api"]
+    },
+    {
+      "canonical": "登录接口",
+      "aliases": ["登录接口", "登录API", "登录接口地址", "/api/v1/auth/login"],
+      "category": "backend",
+      "tags": ["auth", "api"]
+    },
+    {
+      "canonical": "逾期任务",
+      "aliases": ["逾期任务", "延期任务", "超期任务", "过期任务", "overdue task"],
+      "category": "task",
+      "tags": ["task", "schedule", "risk"]
+    },
+    {
+      "canonical": "风险分析",
+      "aliases": ["风险分析", "风险识别", "风险候选", "风险提示", "风险线索"],
+      "category": "risk",
+      "tags": ["risk", "agent"]
+    },
+    {
+      "canonical": "Agent Trace",
+      "aliases": ["Agent Trace", "Trace", "链路追踪", "执行链路", "agent_trace"],
+      "category": "agent",
+      "tags": ["agent", "trace", "debug"]
+    },
+    {
+      "canonical": "工具调用",
+      "aliases": ["工具调用", "tool call", "tool_call", "工具API", "Java工具API"],
+      "category": "agent",
+      "tags": ["agent", "tool"]
+    },
+    {
+      "canonical": "需求拆解",
+      "aliases": ["需求拆解", "拆解需求", "需求转任务", "需求分解"],
+      "category": "requirement",
+      "tags": ["requirement", "task", "agent"]
+    },
+    {
+      "canonical": "任务草稿",
+      "aliases": ["任务草稿", "任务候选", "待确认任务", "任务建议"],
+      "category": "task",
+      "tags": ["task", "draft", "confirmation"]
+    }
+  ]
+}

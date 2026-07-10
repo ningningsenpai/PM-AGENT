@@ -40,6 +40,8 @@ agent-service/
 │   │   ├── context/                  # 项目文件树扫描、索引、模型相关
 │   │   └── habits/                   # 用户习惯识别业务
 │   │
+│   ├── normalization/                # 内容归一化、词库、匹配、映射和版本缓存
+│   │
 │   ├── rag/                          # 第 6 阶段 RAG 预留位置
 │   │
 │   ├── memory/                       # 记忆相关预留位置
@@ -67,6 +69,7 @@ agent-service/
 | 基础设施层 | `app/infrastructure` | MinIO、HTTP、向量库等底层客户端 | 不写项目业务规则 |
 | LLM 层 | `app/llm` | 模型客户端、Prompt、工具注册、Agent 编排 | 不直接处理项目文件路径或业务状态 |
 | 项目业务层 | `app/project` | 项目文件、文件树、上下文、用户习惯等业务能力 | 不直接初始化底层 SDK |
+| 内容归一化层 | `app/normalization` | 词库加载、校验、合并、匹配、术语映射和版本缓存 | 不负责 BM25F 召回、SimHash 去重或直接修改业务数据 |
 | 流式层 | `app/streaming` | SSE 事件、流式 payload、token 统计 | 不写业务规则 |
 | RAG 层 | `app/rag` | 文档摄取、切片、向量化、检索 | 当前阶段只保留扩展位置 |
 | 记忆层 | `app/memory` | 记忆抽取、检索、存储 | 当前阶段只保留扩展位置 |

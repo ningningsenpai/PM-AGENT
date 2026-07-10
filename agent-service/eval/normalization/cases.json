@@ -1,0 +1,52 @@
+[
+  {
+    "id": "case-auth-risk",
+    "text": "帮我看看登录接口是不是少了权限校验，逾期任务会不会带来风险提示",
+    "expected_canonical": ["登录接口", "认证鉴权", "逾期任务", "风险分析"]
+  },
+  {
+    "id": "case-agent-trace",
+    "text": "Agent执行链路要写入Trace，并记录每次工具调用",
+    "expected_canonical": ["Agent Trace", "工具调用"]
+  },
+  {
+    "id": "case-requirement-task",
+    "text": "需求拆解之后先生成任务草稿，等我确认后再落库",
+    "expected_canonical": ["需求拆解", "任务草稿"]
+  },
+  {
+    "id": "case-alias-mix",
+    "text": "登录API的JWT认证失败后，是否应该生成风险候选",
+    "expected_canonical": ["登录接口", "认证鉴权", "风险分析"]
+  },
+  {
+    "id": "case-english-casefold",
+    "text": "这个SPRINT还有三个TODO没有完成",
+    "expected_canonical": ["迭代", "任务"]
+  },
+  {
+    "id": "case-longest-overlap",
+    "text": "逾期任务需要重新排期",
+    "expected_canonical": ["逾期任务"]
+  },
+  {
+    "id": "case-report-draft",
+    "text": "先生成周报草稿，不要直接发布",
+    "expected_canonical": ["报告草稿"]
+  },
+  {
+    "id": "case-api-path",
+    "text": "请检查/api/v1/auth/login是否执行token校验",
+    "expected_canonical": ["登录接口", "认证鉴权"]
+  },
+  {
+    "id": "case-no-match",
+    "text": "今天天气不错，下午记得喝水",
+    "expected_canonical": []
+  },
+  {
+    "id": "case-core-domain",
+    "text": "这个工程项目的业务需求需要进入下一次开发阶段，并检查风险点",
+    "expected_canonical": ["项目", "需求", "迭代", "风险"]
+  }
+]
