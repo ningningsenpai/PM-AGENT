@@ -8,8 +8,8 @@ import com.ning.pm.user.dto.UpdateUserProfileRequest;
 import com.ning.pm.user.dto.UserProfileResponse;
 import com.ning.pm.user.service.UserService;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,25 +24,22 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/users")
+@Slf4j
+@RequiredArgsConstructor
 public class UserController {
-
-    private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     private final UserService userService;
     private final CurrentUserHolder currentUserHolder;
-
-    public UserController(UserService userService, CurrentUserHolder currentUserHolder) {
-        this.userService = userService;
-        this.currentUserHolder = currentUserHolder;
-    }
 
     /** 查询当前登录用户的账户资料。 */
     @SaCheckLogin
     @GetMapping("/me")
     public R<UserProfileResponse> me() {
         Long userId = currentUserHolder.requireUserId();
-        log.info("查询当前账户信息 userId={}", userId);
-        return R.success(userService.getCurrentUserProfile());
+        log.info("开始查询当前账户信息 userId={}", userId);
+        UserProfileResponse response = userService.getCurrentUserProfile();
+        log.info("查询当前账户信息成功 userId={}", userId);
+        return R.success(response);
     }
 
     /** 修改当前登录用户的账户资料。 */
@@ -50,8 +47,10 @@ public class UserController {
     @PutMapping("/me")
     public R<UserProfileResponse> updateMe(@Valid @RequestBody UpdateUserProfileRequest request) {
         Long userId = currentUserHolder.requireUserId();
-        log.info("修改当前账户信息 userId={}", userId);
-        return R.success(userService.updateCurrentUserProfile(request));
+        log.info("开始修改当前账户信息 userId={}", userId);
+        UserProfileResponse response = userService.updateCurrentUserProfile(request);
+        log.info("修改当前账户信息成功 userId={}", userId);
+        return R.success(response);
     }
 
     /** 修改当前登录用户的密码。 */
@@ -59,8 +58,9 @@ public class UserController {
     @PutMapping("/me/password")
     public R<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         Long userId = currentUserHolder.requireUserId();
-        log.info("修改当前账户密码 userId={}", userId);
+        log.info("开始修改当前账户密码 userId={}", userId);
         userService.changeCurrentUserPassword(request);
+        log.info("修改当前账户密码成功 userId={}", userId);
         return R.success(null);
     }
 }

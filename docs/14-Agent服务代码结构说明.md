@@ -87,7 +87,6 @@ agent-service/
 | `X-Trace-Id` | 链路追踪 | 缺失时自动生成 |
 | `X-User-Id` | 当前用户 | 不自动生成 |
 | `X-Tenant-Id` | 当前租户 | 不自动生成 |
-| `X-Idempotency-Key` | 写接口幂等键 | 不自动生成，写接口单独校验 |
 
 上下文由 `app/core/middleware.py` 中的中间件统一读取并写入 `app/core/request_context.py`，业务层通过 `get_request_context()` 获取。接口层不再重复声明 `X-Trace-Id` / `X-User-Id` / `X-Tenant-Id` 参数。
 

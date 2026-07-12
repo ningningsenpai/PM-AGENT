@@ -16,18 +16,12 @@ public record RegisterRequest(
         String username,
 
         @NotBlank(message = "密码不能为空")
-        @Size(min = 8, max = 64, message = "密码长度必须在 8 到 64 个字符之间")
+        @Size(min = 6, max = 64, message = "密码长度必须在 6 到 64 个字符之间")
         String password,
 
-        @NotBlank(message = "展示名称不能为空")
-        @Size(max = 64, message = "展示名称长度不能超过 64 个字符")
-        String displayName,
-
+        @NotBlank(message = "邮箱不能为空")
         @Email(message = "邮箱格式不正确")
         @Size(max = 128, message = "邮箱长度不能超过 128 个字符")
-        String email,
-
-        @Size(max = 32, message = "手机号长度不能超过 32 个字符")
-        String mobile
-) {
+        String email
+){
 }

@@ -1,5 +1,7 @@
 package com.ning.pm.user.dto;
 
+import com.ning.pm.user.domain.UserStatus;
+
 import java.time.LocalDateTime;
 
 /**
@@ -10,12 +12,9 @@ import java.time.LocalDateTime;
  */
 public record UserProfileResponse(
         Long id,
-        Long tenantId,
         String username,
-        String displayName,
         String email,
-        String mobile,
-        String status,
+        UserStatus status,
         LocalDateTime lastLoginAt
 ) {
 }

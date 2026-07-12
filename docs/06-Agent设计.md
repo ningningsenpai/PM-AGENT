@@ -49,7 +49,7 @@ PM-Agent 的核心价值不只是项目管理 CRUD，而是通过 Agent 自动�
    │ /api/v1/agent/chat
    ▼
 Java 后端
-   │  鉴权、项目权限、traceId、幂等、工具 API
+   │  鉴权、项目权限、traceId、工具 API
    │
    ├── 查询/写入业务表
    │
@@ -68,7 +68,7 @@ Python FastAPI Agent 服务
 | 层 | 职责 |
 |---|---|
 | 前端 | 对话、流式展示、工具调用步骤、人工确认动作卡片 |
-| Java 后端 | 业务数据、权限、幂等、工具 API、业务状态日志 |
+| Java 后端 | 业务数据、权限、工具 API、业务状态日志 |
 | Python Agent | Prompt、模型调用、工具选择、流式输出、Trace 协作 |
 | LLM | 意图识别、总结、拆解、解释、报告生成 |
 
@@ -168,7 +168,6 @@ Python FastAPI Agent 服务
 | `permission` | 调用所需权限 |
 | `write_operation` | 是否写业务 |
 | `requires_confirmation` | 是否需要人工确认 |
-| `idempotent` | 是否需要幂等键 |
 
 ### 7.2 首批工具
 

@@ -16,9 +16,9 @@ import java.time.LocalDateTime;
  */
 public interface UserService {
 
-    User createUser(RegisterRequest request, String username, String passwordHash);
+    User createUser(RegisterRequest request, String username, String email, String passwordHash, LocalDateTime lastLoginAt);
 
-    User findActiveUserByUsername(String username);
+    User findByEmail(String email);
 
     UserProfileResponse getCurrentUserProfile();
 

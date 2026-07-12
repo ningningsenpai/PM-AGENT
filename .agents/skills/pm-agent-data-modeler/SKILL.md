@@ -36,10 +36,10 @@ Help Codex design a stable, extensible, low-rework data model for PM-Agent. The 
 |---|---|
 | Primary database | MySQL 8 |
 | ORM | MyBatis Plus |
-| Deletion strategy | Logical deletion by default; some large tables may later be archived by date or physically cleaned |
+| Deletion strategy | Do not reserve logical-delete fields by default; choose explicit lifecycle rules per table |
 | ID strategy | Use auto-increment for performance-first tables; use Snowflake IDs for sensitive or distribution-sensitive tables; do not use UUID except for traceId |
 | State enums | Store string codes in the database, not numbers |
-| Multi-tenancy | Reserve `tenant_id BIGINT NOT NULL DEFAULT 0` on all business tables |
+| Account scope | Multiple users in one deployment; do not add tenant fields or tenant-aware indexes |
 | Agent Trace retention | 3 months, no archive for now |
 | Data dictionary | Required for unified management |
 
@@ -65,12 +65,8 @@ All business tables include these fields by default:
 | Field | Type | Description |
 |---|---|---|
 | `id` | BIGINT | Primary key; auto-increment or Snowflake depending on table strategy |
-| `tenant_id` | BIGINT NOT NULL DEFAULT 0 | Multi-tenant reservation; fixed to 0 in Phase 1 |
-| `created_by` | BIGINT NULL | Creator |
 | `created_at` | DATETIME NOT NULL | Creation time |
-| `updated_by` | BIGINT NULL | Updater |
 | `updated_at` | DATETIME NOT NULL | Update time |
-| `deleted` | TINYINT NOT NULL DEFAULT 0 | Logical deletion flag |
 
 ### 3.2 Naming conventions
 
@@ -113,9 +109,9 @@ sys_dict_type       Dictionary category: task_status / risk_level / project_prio
 sys_dict_item       Dictionary item: pending / high / p0, etc.
 ```
 
-Suggested fields for `sys_dict_type`: `id`, `dict_type`, `dict_name`, `system_builtin`, `enabled`, `remark`, `tenant_id`, `created_at`, `updated_at`, `deleted`.
+Suggested fields for `sys_dict_type`: `id`, `dict_type`, `dict_name`, `system_builtin`, `enabled`, `remark`, `created_at`, `updated_at`.
 
-Suggested fields for `sys_dict_item`: `id`, `dict_type`, `dict_code`, `dict_label`, `sort_order`, `color`, `extra_json`, `enabled`, `remark`, `tenant_id`, `created_at`, `updated_at`, `deleted`.
+Suggested fields for `sys_dict_item`: `id`, `dict_type`, `dict_code`, `dict_label`, `sort_order`, `color`, `extra_json`, `enabled`, `remark`, `created_at`, `updated_at`.
 
 Usage rules:
 
@@ -182,7 +178,7 @@ When designing a data model, use this structure:
 （说明查询场景，不只列索引名）
 
 ## 数据约束
-（唯一约束、逻辑删除、多租户过滤、软外键策略）
+（唯一约束、删除策略、全局用户边界、软外键策略）
 
 ## 日志与追踪
 （状态日志、Agent Trace、审计预留）
@@ -200,7 +196,7 @@ Keep output headings and user-facing content in Chinese according to project lan
 
 Ask the user before doing any of the following:
 
-- Not reserving `tenant_id`;
+- Introducing multi-tenant fields, indexes, filters, or request headers;
 - Using UUID as an ordinary business primary key;
 - Implementing the full RAG document/vector chain in Phases 1-3;
 - Changing the primary “迭代 / iteration” term to sprint or phase;

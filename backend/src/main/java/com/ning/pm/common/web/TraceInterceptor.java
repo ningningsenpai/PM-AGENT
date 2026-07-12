@@ -1,20 +1,28 @@
 package com.ning.pm.common.web;
 
-import cn.dev33.satoken.stp.StpUtil;
+import com.ning.pm.common.auth.CurrentUserHolder;
 import com.ning.pm.common.trace.TraceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * 请求链路追踪拦截器，负责写入 traceId 等日志字段。
+ * TraceInterceptor 负责初始化请求链路字段并输出统一访问日志。
+ *
+ * @author ning
+ * @date 2026-07-12
  */
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class TraceInterceptor implements HandlerInterceptor {
 
     private static final String TRACE_HEADER = "X-Trace-Id";
+    private final CurrentUserHolder currentUserHolder;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -23,9 +31,9 @@ public class TraceInterceptor implements HandlerInterceptor {
             traceId = TraceContext.getTraceId();
         }
         MDC.put(TraceContext.TRACE_ID, traceId);
-        MDC.put(TraceContext.TENANT_ID, "0");
         MDC.put(TraceContext.ACTION, request.getMethod() + " " + request.getRequestURI());
-        MDC.put(TraceContext.USER_ID, StpUtil.isLogin() ? String.valueOf(StpUtil.getLoginIdAsLong()) : "-");
+        Long userId = currentUserHolder.getUserIdOrNull();
+        MDC.put(TraceContext.USER_ID, userId == null ? "-" : String.valueOf(userId));
         request.setAttribute("startMs", System.currentTimeMillis());
         response.setHeader(TRACE_HEADER, traceId);
         return true;
@@ -34,9 +42,13 @@ public class TraceInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         Object startMs = request.getAttribute("startMs");
-        if (startMs instanceof Long start) {
-            MDC.put(TraceContext.COST_MS, String.valueOf(System.currentTimeMillis() - start));
+        long costMs = startMs instanceof Long start ? System.currentTimeMillis() - start : 0L;
+        MDC.put(TraceContext.COST_MS, String.valueOf(costMs));
+        try {
+            log.info("请求处理完成 method={} path={} status={} costMs={}",
+                    request.getMethod(), request.getRequestURI(), response.getStatus(), costMs);
+        } finally {
+            TraceContext.clear();
         }
-        TraceContext.clear();
     }
 }

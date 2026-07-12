@@ -92,14 +92,14 @@ Vue 3 前端 -> Spring Boot 业务后端 -> FastAPI Agent 服务 -> LLM / 工具
 
 - API 路径使用 `/api/v1/<module>/<resource>`，健康检查和 Knife4j 等非业务接口除外。
 - 统一响应结构为 `R<T>`：`code`、`message`、`data`、`traceId`；错误码集中在 `common.errorcode.ErrorCode`。
-- 写接口（`POST`、`PUT`、`PATCH`、`DELETE`）必须携带 `X-Idempotency-Key`；`TraceInterceptor` 负责 `X-Trace-Id` 生成与透传。
+- `TraceInterceptor` 负责 `X-Trace-Id` 生成与透传。
 - 登录认证使用 Sa-Token + JWT；Controller 使用登录或权限注解，Service 不手写绕过式鉴权。
 - MyBatis Plus 实体继承通用基础字段时遵循现有 `BaseEntity` 和自动填充配置；数据库表名使用小写下划线业务前缀。
 - 新增或调整数据库结构必须新增 Flyway migration，不直接修改已应用的历史迁移。
 
 ## 前端约定
 
-- HTTP 调用统一走 `src/api/http.ts` 的 `request<T>`，它会自动注入 `Authorization`、`X-Trace-Id` 和写接口幂等键。
+- HTTP 调用统一走 `src/api/http.ts` 的 `request<T>`，它会自动注入 `Authorization` 和 `X-Trace-Id`。
 - 业务代码按模块放入 `src/modules/<module>/`，通常包含 `api.ts`、`types.ts`、`store.ts`、`mock.ts` 和 `pages/`。
 - 路由守卫依赖 `useAuthStore()` 加载当前用户；新增受保护页面默认放在非 `meta.public` 路由下。
 - 组件库使用 Naive UI；前端文件名使用 kebab-case，组件名使用大驼峰。

@@ -22,13 +22,9 @@ public class User extends BaseEntity {
 
     private String passwordHash;
 
-    private String displayName;
-
     private String email;
 
-    private String mobile;
-
-    private String status;
+    private UserStatus status;
 
     private LocalDateTime lastLoginAt;
 }

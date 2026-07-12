@@ -3,9 +3,9 @@ package com.ning.pm.user.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ning.pm.common.auth.CurrentUserHolder;
 import com.ning.pm.common.web.GlobalExceptionHandler;
-import com.ning.pm.common.web.IdempotencyInterceptor;
 import com.ning.pm.user.dto.UpdateUserProfileRequest;
 import com.ning.pm.user.dto.UserProfileResponse;
+import com.ning.pm.user.domain.UserStatus;
 import com.ning.pm.user.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UserControllerTest 验证当前用户资料写接口响应结构与幂等键校验。
+ * UserControllerTest 验证当前用户资料写接口的统一响应结构。
  *
  * @author ning
  * @date 2026-06-10
@@ -41,35 +41,26 @@ class UserControllerTest {
         when(currentUserHolder.requireUserId()).thenReturn(1L);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new UserController(userService, currentUserHolder))
-                .addInterceptors(new IdempotencyInterceptor())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
-    void updateMeShouldRequireIdempotencyKey() throws Exception {
-        mockMvc.perform(put("/api/v1/users/me")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdateUserProfileRequest("开发用户", null, null))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(10002))
-                .andExpect(jsonPath("$.message").value("缺少幂等键"))
-                .andExpect(jsonPath("$.traceId", notNullValue()));
-    }
-
-    @Test
     void updateMeShouldReturnUnifiedSuccessResponse() throws Exception {
-        UserProfileResponse response = new UserProfileResponse(1L, 0L, "dev_user", "开发用户", "dev@example.com", null, "enabled", null);
+        UserProfileResponse response = new UserProfileResponse(
+                1L, "dev_user", "dev@example.com", UserStatus.ENABLED, null
+        );
         when(userService.updateCurrentUserProfile(any())).thenReturn(response);
 
         mockMvc.perform(put("/api/v1/users/me")
-                        .header("X-Idempotency-Key", "idem-user-001")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdateUserProfileRequest("开发用户", "dev@example.com", null))))
+                        .content(objectMapper.writeValueAsString(new UpdateUserProfileRequest("dev_user", "dev@example.com"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.message").value("成功"))
-                .andExpect(jsonPath("$.data.displayName").value("开发用户"))
+                .andExpect(jsonPath("$.data.username").value("dev_user"))
+                .andExpect(jsonPath("$.data.email").value("dev@example.com"))
+                .andExpect(jsonPath("$.data.status").value("enabled"))
                 .andExpect(jsonPath("$.traceId", notNullValue()));
 
         verify(userService).updateCurrentUserProfile(any());

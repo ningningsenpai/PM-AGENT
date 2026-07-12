@@ -9,9 +9,9 @@ PM-Agent 严格遵守“中间件按阶段引入，不一次性堆叠”的原�
 | 阶段 | 中间件 | Compose 状态 | 用途 |
 |---|---|---|---|
 | 第 1 阶段 | MySQL 8 | 默认启用 | 业务数据库 |
-| 第 2 阶段 | Redis 7 | 后续加入并启用 | Sa-Token 会话、缓存、限流、幂等集中校验 |
-| 第 5 阶段 | RabbitMQ | 后续加入并启用 | 异步任务、风险扫描、通知 |
-| 第 6 阶段 | MinIO | 后续加入并启用 | 文档、附件、报告文件 |
+| 第 2 阶段 | Redis 7 | 后续加入并启用 | Sa-Token 会话、缓存和限流 |
+| 文件可靠上传专项 | MinIO | 已启用 | 项目文件对象存储与只读地址 |
+| 可选服务 | RabbitMQ | Compose已配置，当前Java文件模块不依赖 | 后续异步能力预留 |
 | 小型 RAG 测试 | Qdrant | 可随本地 Compose 启动 | 向量检索链路验证 |
 
 后端 Spring Boot 工程和前端 Vite 工程在第 1 阶段都不进入容器，便于本地开发。容器化打包属于后期部署阶段的话题，不在 `deploy/` 当前职责内。
@@ -41,7 +41,7 @@ cp deploy/.env.example deploy/.env
 
 如需修改默认账号、密码或端口，可编辑 `deploy/.env`。
 
-### 2. 启动 MySQL 和 Qdrant
+### 2. 启动本地中间件
 
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
@@ -51,6 +51,12 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d mysql
+```
+
+项目文件联调至少需要：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d mysql minio
 ```
 
 ### 3. 查看容器状态
@@ -70,6 +76,8 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs mysql
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs qdrant
 ```
+
+MinIO 控制台默认地址为 `http://localhost:9001`，账号密码读取 `deploy/.env`，默认为`pm-agent / 123456-pm-agent`。
 
 ### 6. 验证 MySQL 连接
 
@@ -142,9 +150,9 @@ spring:
 
 ## 常见问题
 
-### 1. 为什么第 1 阶段不启动 Redis、RabbitMQ 等？
+### 1. 为什么启用MinIO？
 
-第 1 阶段只要求登录、项目和任务最小闭环。Sa-Token JWT 可先以单体应用配置运行，幂等先完成请求头必填校验。Redis、RabbitMQ、MinIO、向量库按阶段加入，避免第 1 阶段中间件过多。
+项目文件模块使用MinIO保存当前文件对象。当前覆盖写失败由文件状态和上传明细保留修复依据，不依赖RabbitMQ；Redis、完整异步分析、RAG和向量链路仍按原阶段控制。
 
 ### 2. 为什么后端和前端不放进 Docker？
 
@@ -160,4 +168,5 @@ MySQL 初始化目录只在容器首次启动时执行一次脚本，不适合�
 - 健康检查通过；
 - 后端本机可以连接 MySQL 容器；
 - 后端启动后 Flyway 能自动执行迁移脚本；
-- 第 1 阶段只启动 MySQL，不提前启动 Redis、RabbitMQ、MinIO、向量库。
+- 项目文件联调时MySQL和MinIO健康检查通过；
+- MinIO 中可查看 `pm-agent` Bucket 内的项目文件对象。

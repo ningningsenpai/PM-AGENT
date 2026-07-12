@@ -162,14 +162,13 @@ All business logs use SLF4J + Logback. Every log line's MDC must include the fol
 |---|---|---|
 | `traceId` | Request header or backend UUID fallback | Full-chain unique ID |
 | `userId` | `StpUtil.getLoginIdAsLong()` | `-` when unauthenticated |
-| `tenantId` | `BaseEntity.tenantId` or request header | Fixed to `0` in Phase 1 |
 | `action` | Controller annotation or interceptor parsing | e.g. `task.create` |
 | `costMs` | Calculated by interceptor during response | API duration |
 
 ### 4.2 Log format
 
 ```text
-%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] [%X{userId}] [%X{tenantId}] [%X{action}] %logger{36} - %msg costMs=%X{costMs}%n
+%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] [%X{userId}] [%X{action}] %logger{36} - %msg costMs=%X{costMs}%n
 ```
 
 ### 4.3 Log level rules
@@ -200,13 +199,13 @@ Project docs under `docs/` are governed stylistically by `pm-agent-doc-writer`; 
 
 ---
 
-## 6. Multi-tenancy reservation (not enabled in Phase 1)
+## 6. Non-tenant account boundary
 
-1. All business tables should include `tenant_id BIGINT NOT NULL DEFAULT 0` from Phase 1 table design onward.
-2. `BaseEntity` includes `tenantId`, defaulting to `0`.
-3. Configure MyBatis Plus `TenantLineInnerInterceptor`, but disable it with `pm.tenant.enabled=false`.
-4. When SaaS is launched later, enable the switch, add tenant resolution from JWT or subdomain, and backfill tenant ownership. No SQL or Mapper rewrite should be needed.
-5. Document this convention at the top of `docs/04-数据模型.md` so future tables do not miss it.
+1. The current Java backend supports multiple users in one deployment without tenant isolation.
+2. Do not add `tenant_id`, tenant interceptors, tenant headers, or tenant-aware indexes.
+3. `BaseEntity` contains only `id`, `createdAt`, and `updatedAt`.
+4. Email is the login identifier and must be normalized to lowercase and uniquely indexed.
+5. Introducing multi-tenant isolation is a separate product redesign and requires explicit user confirmation before schema or API work.
 
 ---
 
@@ -223,7 +222,7 @@ Project docs under `docs/` are governed stylistically by `pm-agent-doc-writer`; 
 ### 7.2 Invocation rules
 
 1. Java must wrap a unified `AgentClient` based on WebClient or Spring `RestClient`; business Services must not directly create HTTP clients.
-2. Every call must include `X-Trace-Id`, `X-User-Id`, and `X-Tenant-Id`, even when tenant is 0.
+2. If Java-to-Python collaboration is reintroduced, every call must include `X-Trace-Id` and `X-User-Id`; do not introduce a tenant header.
 3. Timeouts and retries: default HTTP connect timeout 2s / read timeout 30s, except streaming APIs. Do not auto-retry failures; let business logic decide.
 4. Failure handling: non-2xx Agent service responses throw `AgentException` in the 4xxxx error-code range. Agent failures must not affect the main business transaction; transaction boundaries must stay outside Agent calls.
 5. Structured input/output: Java-to-Python calls must use strongly typed DTOs. Do not use `Map<String, Object>`.

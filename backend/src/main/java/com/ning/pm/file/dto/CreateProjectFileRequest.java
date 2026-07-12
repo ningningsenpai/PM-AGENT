@@ -1,0 +1,36 @@
+package com.ning.pm.file.dto;
+
+import com.ning.pm.file.enums.FileBusinessType;
+import com.ning.pm.file.enums.FileUploadSource;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
+
+/**
+ * CreateProjectFileRequest 定义单个项目文件上传参数。
+ *
+ * @author ning
+ * @date 2026-07-12
+ */
+@Getter
+@Setter
+public class CreateProjectFileRequest {
+
+    @NotNull(message = "文件业务类型不能为空")
+    private FileBusinessType businessCode;
+
+    @NotBlank(message = "文件相对路径不能为空")
+    private String relativePath;
+
+    @NotNull(message = "源文件修改时间不能为空")
+    @PositiveOrZero(message = "源文件修改时间不能小于0")
+    private Long sourceMtimeMs;
+
+    private FileUploadSource source = FileUploadSource.FRONTEND;
+
+    @NotNull(message = "上传文件不能为空")
+    private MultipartFile file;
+}

@@ -5,8 +5,8 @@ import com.ning.pm.auth.dto.LoginResponse;
 import com.ning.pm.auth.service.AuthService;
 import com.ning.pm.common.auth.CurrentUserHolder;
 import com.ning.pm.common.web.GlobalExceptionHandler;
-import com.ning.pm.common.web.IdempotencyInterceptor;
 import com.ning.pm.user.dto.UserProfileResponse;
+import com.ning.pm.user.domain.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * AuthControllerTest 验证认证接口响应结构与幂等键校验。
+ * AuthControllerTest 验证认证接口的统一响应结构。
  *
  * @author ning
  * @date 2026-06-08
@@ -40,42 +40,32 @@ class AuthControllerTest {
         CurrentUserHolder currentUserHolder = mock(CurrentUserHolder.class);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AuthController(authService, currentUserHolder))
-                .addInterceptors(new IdempotencyInterceptor())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
-    void registerShouldRequireIdempotencyKey() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"dev_user\",\"password\":\"Dev123456\",\"displayName\":\"开发用户\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(10002))
-                .andExpect(jsonPath("$.message").value("缺少幂等键"))
-                .andExpect(jsonPath("$.traceId", notNullValue()));
-    }
-
-    @Test
     void loginShouldReturnUnifiedSuccessResponse() throws Exception {
-        UserProfileResponse user = new UserProfileResponse(1L, 0L, "dev_user", "开发用户", null, null, "enabled", null);
+        UserProfileResponse user = new UserProfileResponse(
+                1L, "dev_user", "dev@example.com", UserStatus.ENABLED, null
+        );
         when(authService.login(any())).thenReturn(new LoginResponse("Authorization", "mock-token", user));
 
         mockMvc.perform(post("/api/v1/auth/login")
-                        .header("X-Idempotency-Key", "idem-login-001")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new LoginPayload("dev_user", "Dev123456"))))
+                        .content(objectMapper.writeValueAsString(new LoginPayload("dev@example.com", "Dev123456"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.message").value("成功"))
                 .andExpect(jsonPath("$.data.tokenValue").value("mock-token"))
                 .andExpect(jsonPath("$.data.user.username").value("dev_user"))
+                .andExpect(jsonPath("$.data.user.status").value("enabled"))
                 .andExpect(jsonPath("$.data.user.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.traceId", notNullValue()));
 
         verify(authService).login(any());
     }
 
-    private record LoginPayload(String username, String password) {
+    private record LoginPayload(String email, String password) {
     }
 }

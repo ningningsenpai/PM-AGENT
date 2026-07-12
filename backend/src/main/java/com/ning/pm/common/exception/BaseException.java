@@ -4,7 +4,10 @@ import com.ning.pm.common.errorcode.ErrorCode;
 import lombok.Getter;
 
 /**
- * 业务异常基类，携带统一错误码。
+ * BaseException 是携带统一错误码的异常基类。
+ *
+ * @author ning
+ * @date 2026-07-12
  */
 @Getter
 public class BaseException extends RuntimeException {
@@ -18,6 +21,11 @@ public class BaseException extends RuntimeException {
 
     public BaseException(ErrorCode errorCode, String message) {
         super(message);
+        this.errorCode = errorCode;
+    }
+
+    public BaseException(ErrorCode errorCode, String message, Throwable cause) {
+        super(message, cause);
         this.errorCode = errorCode;
     }
 

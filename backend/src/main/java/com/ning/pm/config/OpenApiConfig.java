@@ -20,6 +20,6 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("PM-Agent 后端接口")
                         .version("v1")
-                        .description("PM-Agent 智能项目管理平台第 1 阶段后端接口"));
+                        .description("PM-Agent 用户认证、项目归属和文件存储接口"));
     }
 }
