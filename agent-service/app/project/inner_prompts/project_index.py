@@ -17,8 +17,7 @@ class ProjectIndexPrompt(str, Enum):
 1. `existing_index_json`：已有 `index.json`，可能为空。
 2. `scan_result_json`：文件树扫描结果，包括 path、name、size_bytes、quick_fingerprint、content_hash、scan_status 等。
 3. `file_detail_summaries`：已生成的 `file_details` 摘要列表。
-4. `storage_meta`：存储信息，包括 provider、bucket、business、object_prefix、logical_root。
-5. `source_meta`：来源信息，例如 project_id、generated_at。
+4. `source_meta`：来源信息，例如 project_id、generated_at。
 
 # 职责边界
 你只负责生成轻量总索引。
@@ -56,13 +55,6 @@ class ProjectIndexPrompt(str, Enum):
   "project_id": "项目 ID",
   "schema_version": "1.0.0",
   "generated_at": "2026-07-02T00:00:00",
-  "storage": {
-    "provider": "minio",
-    "bucket": "pm-agent",
-    "business": "project",
-    "object_prefix": "PM-AGENT/u001/local-pm-agent-001/project/context/",
-    "logical_root": "context/"
-  },
   "summary": {
     "total_nodes": 0,
     "active_files": 0,

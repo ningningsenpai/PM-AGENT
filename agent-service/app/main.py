@@ -4,8 +4,6 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.api.v1.agent import router as agent_router
-from app.api.v1.minio_files import router as minio_files_router
-from app.api.v1.project_files import router as project_files_router
 
 app = FastAPI(
     title="PM-Agent Python Agent Service",
@@ -14,8 +12,6 @@ app = FastAPI(
 )
 
 app.include_router(agent_router)
-app.include_router(minio_files_router)
-app.include_router(project_files_router)
 
 
 @app.get("/internal/health")
