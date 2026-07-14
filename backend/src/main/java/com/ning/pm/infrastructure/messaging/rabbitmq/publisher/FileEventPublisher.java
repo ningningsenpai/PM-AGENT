@@ -17,11 +17,7 @@ public class FileEventPublisher {
 
     public void publishParsing(Long projectId, Long fileId, String traceId) {
         FileParsingEvent event = new FileParsingEvent(
-                UUID.randomUUID().toString(),
-                traceId,
-                projectId,
-                fileId,
-                LocalDateTime.now()
+                UUID.randomUUID().toString()
         );
 
         rabbitTemplate.convertAndSend(

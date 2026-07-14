@@ -1,14 +1,45 @@
-CREATE TABLE pm_project (
-    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-    owner_user_id BIGINT NOT NULL COMMENT '项目所属用户 ID',
-    project_name VARCHAR(128) NOT NULL COMMENT '项目名称',
-    status VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT '项目状态',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    KEY idx_project_owner_status (owner_user_id, status),
-    CONSTRAINT ck_project_status CHECK (status IN ('active', 'disabled'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='项目基础信息表';
+ALTER TABLE pm_user
+    DROP INDEX uk_user_username;
+
+UPDATE pm_user
+SET email = CONCAT('user-', id, '@pm-agent.local')
+WHERE email IS NULL OR TRIM(email) = '';
+
+ALTER TABLE pm_user
+    MODIFY COLUMN username VARCHAR(64) NOT NULL COMMENT '用户名',
+    MODIFY COLUMN email VARCHAR(128) NOT NULL COMMENT '登录邮箱',
+    MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'enabled' COMMENT '账户状态',
+    DROP COLUMN tenant_id,
+    DROP COLUMN display_name,
+    DROP COLUMN mobile,
+    DROP COLUMN created_by,
+    DROP COLUMN updated_by,
+    DROP COLUMN deleted,
+    ADD UNIQUE KEY uk_user_username (username),
+    ADD UNIQUE KEY uk_user_email (email),
+    ADD CONSTRAINT ck_user_status CHECK (status IN ('enabled', 'disabled'));
+
+ALTER TABLE pm_project
+    DROP INDEX idx_project_owner,
+    DROP INDEX idx_project_status;
+
+UPDATE pm_project
+SET status = CASE WHEN status = 'disabled' THEN 'disabled' ELSE 'active' END;
+
+ALTER TABLE pm_project
+    CHANGE COLUMN name project_name VARCHAR(128) NOT NULL COMMENT '项目名称',
+    CHANGE COLUMN owner_id owner_user_id BIGINT NOT NULL COMMENT '项目所属用户 ID',
+    MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT '项目状态',
+    DROP COLUMN tenant_id,
+    DROP COLUMN code,
+    DROP COLUMN description,
+    DROP COLUMN start_date,
+    DROP COLUMN end_date,
+    DROP COLUMN created_by,
+    DROP COLUMN updated_by,
+    DROP COLUMN deleted,
+    ADD KEY idx_project_owner_status (owner_user_id, status),
+    ADD CONSTRAINT ck_project_status CHECK (status IN ('active', 'disabled'));
 
 CREATE TABLE pm_project_file (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
@@ -72,7 +103,7 @@ CREATE TABLE pm_project_file_upload_item (
     quick_fingerprint CHAR(64) NOT NULL COMMENT '本次快速指纹',
     content_hash CHAR(64) NOT NULL COMMENT '本次内容 SHA-256',
     size_bytes BIGINT NOT NULL COMMENT '本次文件大小',
-    content_type VARCHAR(128) NOT NULL COMMENT '本次 MIME 类型',
+    content_type VARCHAR(128) NOT NULL COMMENT 'MIME 类型',
     source_mtime_ms BIGINT NOT NULL COMMENT '本次源文件修改时间戳',
     action VARCHAR(32) NOT NULL COMMENT '文件变更动作',
     status VARCHAR(32) NOT NULL COMMENT '处理状态',
