@@ -1,6 +1,5 @@
 package com.ning.pm.file.dto;
 
-import com.ning.pm.file.enums.FileUploadSource;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
@@ -24,8 +23,6 @@ public class OverwriteProjectFileRequest {
     @NotNull(message = "乐观锁版本不能为空")
     @PositiveOrZero(message = "乐观锁版本不能小于0")
     private Integer lockVersion;
-
-    private FileUploadSource source = FileUploadSource.FRONTEND;
 
     @NotNull(message = "上传文件不能为空")
     private MultipartFile file;

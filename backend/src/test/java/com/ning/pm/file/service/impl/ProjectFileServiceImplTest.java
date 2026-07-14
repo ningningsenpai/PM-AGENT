@@ -5,19 +5,17 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.ning.pm.file.converter.ProjectFileConverter;
 import com.ning.pm.file.domain.ProjectFile;
-import com.ning.pm.file.domain.ProjectFileUpload;
-import com.ning.pm.file.domain.ProjectFileUploadItem;
 import com.ning.pm.file.dto.CreateProjectFileRequest;
 import com.ning.pm.file.dto.OverwriteProjectFileRequest;
 import com.ning.pm.file.dto.ProjectFileResponse;
 import com.ning.pm.file.dto.UpdateProjectFilePathRequest;
 import com.ning.pm.file.enums.FileBusinessType;
-import com.ning.pm.file.enums.FileUploadSource;
 import com.ning.pm.file.enums.ProjectFileStatus;
 import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
 import com.ning.pm.file.service.FileObjectKeyFactory;
-import com.ning.pm.file.service.FileUploadTracker;
+import com.ning.pm.file.service.ProjectFileUploadValidator;
+import com.ning.pm.infrastructure.redis.RedisIdempotencyGuard;
 import com.ning.pm.infrastructure.storage.MinioProperties;
 import com.ning.pm.infrastructure.storage.ObjectStorageService;
 import com.ning.pm.project.domain.Project;
@@ -36,10 +34,12 @@ import org.springframework.mock.web.MockMultipartFile;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,11 +72,13 @@ class ProjectFileServiceImplTest {
     @Spy
     private FileObjectKeyFactory objectKeyFactory = new FileObjectKeyFactory();
     @Mock
+    private ProjectFileUploadValidator fileUploadValidator;
+    @Mock
     private ObjectStorageService objectStorageService;
     @Mock
     private MinioProperties minioProperties;
     @Mock
-    private FileUploadTracker uploadTracker;
+    private RedisIdempotencyGuard idempotencyGuard;
 
     @InjectMocks
     private ProjectFileServiceImpl service;
@@ -87,7 +89,9 @@ class ProjectFileServiceImplTest {
         project.setId(20L);
         project.setOwnerUserId(10L);
         when(projectService.requireOwnedProject(20L)).thenReturn(project);
-        when(fileConverter.toResponse(any(ProjectFile.class)))
+        lenient().when(fileUploadValidator.detectAndValidateMimeType(any(byte[].class)))
+                .thenReturn("text/plain");
+        lenient().when(fileConverter.toResponse(any(ProjectFile.class)))
                 .thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
     }
 
@@ -102,7 +106,7 @@ class ProjectFileServiceImplTest {
             file.setId(30L);
             return 1;
         }).when(fileMapper).insert(any(ProjectFile.class));
-        stubTracking();
+        stubIdempotency();
 
         ProjectFileResponse response = service.createFile(20L, "create-key", request);
 
@@ -110,8 +114,26 @@ class ProjectFileServiceImplTest {
         verify(objectStorageService).putObject(
                 "PM-AGENT/10/20/project/30",
                 "first-content".getBytes(StandardCharsets.UTF_8),
-                "text/x-java-source"
+                "text/plain"
         );
+    }
+
+    @Test
+    void duplicateCreateShouldBeRejectedByRedis() {
+        stubMaxFileSize();
+        CreateProjectFileRequest request = createRequest("src/App.java", "first-content", 1000L);
+        when(fileMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
+        when(idempotencyGuard.tryAcquire(
+                10L,
+                "file:create:20:project",
+                "create-key"
+        )).thenReturn(false);
+
+        assertThatThrownBy(() -> service.createFile(20L, "create-key", request))
+                .isInstanceOf(com.ning.pm.common.exception.BizException.class)
+                .hasMessage("相同文件请求已在2分钟内提交");
+
+        verify(objectStorageService, never()).putObject(anyString(), any(byte[].class), anyString());
     }
 
     @Test
@@ -120,7 +142,7 @@ class ProjectFileServiceImplTest {
         ProjectFile existing = existingFile("old-content");
         when(fileMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
         when(fileMapper.update(isNull(), any())).thenReturn(1);
-        stubTracking();
+        stubIdempotency();
         OverwriteProjectFileRequest request = overwriteRequest("new-content", 2000L);
 
         ProjectFileResponse response = service.overwriteContent(20L, 30L, "overwrite-key", request);
@@ -128,7 +150,7 @@ class ProjectFileServiceImplTest {
         verify(objectStorageService).putObject(
                 "PM-AGENT/10/20/project/30",
                 "new-content".getBytes(StandardCharsets.UTF_8),
-                "text/x-java-source"
+                "text/plain"
         );
         assertThat(response.status()).isEqualTo(ProjectFileStatus.ACTIVE);
         assertThat(response.lockVersion()).isEqualTo(1);
@@ -140,7 +162,7 @@ class ProjectFileServiceImplTest {
         ProjectFile existing = existingFile("same-content");
         when(fileMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
         when(fileMapper.update(isNull(), any())).thenReturn(1);
-        stubTracking();
+        stubIdempotency();
         OverwriteProjectFileRequest request = overwriteRequest("same-content", 2000L);
 
         ProjectFileResponse response = service.overwriteContent(20L, 30L, "metadata-key", request);
@@ -157,7 +179,7 @@ class ProjectFileServiceImplTest {
         existing.setStatus(ProjectFileStatus.VERIFY_REQUIRED);
         when(fileMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
         when(fileMapper.update(isNull(), any())).thenReturn(1);
-        stubTracking();
+        stubIdempotency();
         OverwriteProjectFileRequest request = overwriteRequest("same-content", 2000L);
 
         service.overwriteContent(20L, 30L, "repair-key", request);
@@ -165,7 +187,7 @@ class ProjectFileServiceImplTest {
         verify(objectStorageService).putObject(
                 "PM-AGENT/10/20/project/30",
                 "same-content".getBytes(StandardCharsets.UTF_8),
-                "text/x-java-source"
+                "text/plain"
         );
     }
 
@@ -188,11 +210,8 @@ class ProjectFileServiceImplTest {
         assertThat(existing.getObjectKey()).isEqualTo("PM-AGENT/10/20/project/30");
     }
 
-    private void stubTracking() {
-        ProjectFileUpload upload = new ProjectFileUpload();
-        upload.setId(40L);
-        when(uploadTracker.startUpload(any(), any(), any(), anyString())).thenReturn(upload);
-        when(uploadTracker.startItem(any(), any(), any(), any())).thenReturn(new ProjectFileUploadItem());
+    private void stubIdempotency() {
+        when(idempotencyGuard.tryAcquire(any(), anyString(), anyString())).thenReturn(true);
     }
 
     private void stubMaxFileSize() {
@@ -204,7 +223,6 @@ class ProjectFileServiceImplTest {
         request.setBusinessCode(FileBusinessType.PROJECT);
         request.setRelativePath(path);
         request.setSourceMtimeMs(mtime);
-        request.setSource(FileUploadSource.FRONTEND);
         request.setFile(new MockMultipartFile(
                 "file",
                 "App.java",
@@ -218,7 +236,6 @@ class ProjectFileServiceImplTest {
         OverwriteProjectFileRequest request = new OverwriteProjectFileRequest();
         request.setSourceMtimeMs(mtime);
         request.setLockVersion(0);
-        request.setSource(FileUploadSource.FRONTEND);
         request.setFile(new MockMultipartFile(
                 "file",
                 "App.java",

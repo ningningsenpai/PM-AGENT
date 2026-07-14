@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: pm-agent-backend
+  config:
+    import: classpath:config/rabbitmq.yml
   profiles:
     active: dev
   datasource:
@@ -15,6 +17,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: false
+  data:
+    redis:
+      host: ${PM_AGENT_REDIS_HOST:localhost}
+      port: ${PM_AGENT_REDIS_PORT:6379}
+      password: ${PM_AGENT_REDIS_PASSWORD:pm-agent-dev}
+      database: ${PM_AGENT_REDIS_DATABASE:1}
+      connect-timeout: 3s
+      timeout: 3s
+      client-type: lettuce
   servlet:
     multipart:
       max-file-size: 50MB
@@ -39,6 +50,69 @@ knife4j:
   enable: true
 
 pm-agent:
+  file:
+    validation:
+      # 按完整目录名精确匹配，不会把 contest 误判为 test
+      ignored-directory-names:
+        - .git
+        - .svn
+        - .hg
+        - .idea
+        - .vscode
+        - target
+        - build
+        - dist
+        - out
+        - coverage
+        - test
+        - tests
+        - module
+        - node_modules
+        - .gradle
+        - .venv
+        - venv
+        - __pycache__
+        - .pytest_cache
+        - .mypy_cache
+        - .ruff_cache
+        - .next
+        - .nuxt
+        - .vite
+      ignored-file-names:
+        - .DS_Store
+        - Thumbs.db
+        - desktop.ini
+        - .project
+        - .classpath
+        - .env
+        - .env.local
+        - .env.development
+        - .env.production
+        - .env.test
+      # 为空时关闭白名单限制；配置后只允许名单内扩展名
+      allowed-extensions: []
+      blocked-extensions:
+        - exe
+        - dll
+        - com
+        - msi
+        - scr
+        - iml
+        - ipr
+        - iws
+        - class
+        - jar
+        - war
+        - ear
+        - log
+        - tmp
+        - cache
+      blocked-mime-types:
+        - application/x-msdownload
+        - application/x-dosexec
+        - application/x-executable
+        - application/x-sharedlib
+        - application/vnd.microsoft.portable-executable
   storage:
     minio:
       endpoint: ${MINIO_ENDPOINT:http://localhost:9000}

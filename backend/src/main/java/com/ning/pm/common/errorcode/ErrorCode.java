@@ -28,6 +28,9 @@ public enum ErrorCode {
     FILE_STATUS_INVALID(30012, "文件当前状态不允许执行该操作"),
     FILE_BUSY(30013, "文件正在被其他请求处理"),
     FILE_TOO_LARGE(30014, "文件大小超出限制"),
+    FILE_EXTENSION_NOT_ALLOWED(30015, "文件扩展名不允许上传"),
+    FILE_MIME_TYPE_BLOCKED(30016, "文件内容类型不允许上传"),
+    FILE_PATH_IGNORED(30017, "文件路径不允许上传"),
     FILE_STORAGE_ERROR(50001, "文件存储服务异常"),
     SYSTEM_ERROR(90001, "系统异常");
 

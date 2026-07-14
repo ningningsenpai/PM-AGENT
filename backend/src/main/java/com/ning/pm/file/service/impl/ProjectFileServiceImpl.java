@@ -7,23 +7,17 @@ import com.ning.pm.common.exception.BizException;
 import com.ning.pm.common.exception.SystemException;
 import com.ning.pm.file.converter.ProjectFileConverter;
 import com.ning.pm.file.domain.ProjectFile;
-import com.ning.pm.file.domain.ProjectFileUpload;
-import com.ning.pm.file.domain.ProjectFileUploadItem;
-import com.ning.pm.file.dto.CreateProjectFileRequest;
-import com.ning.pm.file.dto.FileReadUrlResponse;
-import com.ning.pm.file.dto.OverwriteProjectFileRequest;
-import com.ning.pm.file.dto.ProjectFileResponse;
-import com.ning.pm.file.dto.UpdateProjectFilePathRequest;
+import com.ning.pm.file.dto.*;
 import com.ning.pm.file.enums.FileBusinessType;
-import com.ning.pm.file.enums.FileChangeAction;
-import com.ning.pm.file.enums.FileUploadSource;
 import com.ning.pm.file.enums.ProjectFileStatus;
 import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
 import com.ning.pm.file.service.FileObjectKeyFactory;
 import com.ning.pm.file.service.FileOperationMetadata;
-import com.ning.pm.file.service.FileUploadTracker;
+import com.ning.pm.file.service.ProjectFileUploadValidator;
 import com.ning.pm.file.service.ProjectFileService;
+import com.ning.pm.infrastructure.messaging.rabbitmq.publisher.FileEventPublisher;
+import com.ning.pm.infrastructure.redis.RedisIdempotencyGuard;
 import com.ning.pm.infrastructure.storage.MinioProperties;
 import com.ning.pm.infrastructure.storage.ObjectStorageService;
 import com.ning.pm.project.domain.Project;
@@ -47,16 +41,18 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProjectFileServiceImpl implements ProjectFileService {
 
-    private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
-
     private final ProjectFileMapper fileMapper;
     private final ProjectFileConverter fileConverter;
     private final ProjectService projectService;
     private final FileFingerprintService fingerprintService;
+    private final ProjectFileUploadValidator fileUploadValidator;
     private final FileObjectKeyFactory objectKeyFactory;
     private final ObjectStorageService objectStorageService;
     private final MinioProperties minioProperties;
-    private final FileUploadTracker uploadTracker;
+    private final RedisIdempotencyGuard idempotencyGuard;
+    private final FileEventPublisher fileEventPublisher;
+
+
 
     /** 首次上传先创建文件记录，再按文件ID生成稳定对象键。 */
     @Override
@@ -73,8 +69,12 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         );
         ensurePathAvailable(projectId, request.getBusinessCode(), metadata.pathHash(), null);
 
-        FileUploadSource source = defaultSource(request.getSource());
-        ProjectFileUpload upload = startUpload(projectId, request.getBusinessCode(), source, idempotencyKey);
+        String normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
+        requireIdempotency(
+                project.getOwnerUserId(),
+                "file:create:" + projectId + ":" + request.getBusinessCode().value(),
+                normalizedIdempotencyKey
+        );
         ProjectFile file = fileConverter.toEntity(request);
         applyMetadata(file, metadata);
         file.setProjectId(projectId);
@@ -93,22 +93,15 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         ));
         fileMapper.updateById(file);
 
-        ProjectFileUploadItem item = uploadTracker.startItem(
-                upload.getId(),
-                file.getId(),
-                metadata,
-                FileChangeAction.CREATE
-        );
         try {
             objectStorageService.putObject(file.getObjectKey(), metadata.content(), metadata.contentType());
             file.setStatus(ProjectFileStatus.ACTIVE);
             fileMapper.updateById(file);
-            uploadTracker.complete(upload, item, true);
+            publishParsingEvent(file);
             return fileConverter.toResponse(file);
         } catch (RuntimeException exception) {
             file.setStatus(ProjectFileStatus.UPLOAD_FAILED);
             fileMapper.updateById(file);
-            uploadTracker.fail(upload, item, exception.getMessage());
             throw exception;
         }
     }
@@ -121,7 +114,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
             String idempotencyKey,
             OverwriteProjectFileRequest request
     ) {
-        projectService.requireOwnedProject(projectId);
+        Project project = projectService.requireOwnedProject(projectId);
         ProjectFile file = requireFile(projectId, fileId);
         requireWritableAndVersion(file, request.getLockVersion());
         FileOperationMetadata metadata = prepareMetadata(
@@ -130,21 +123,16 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 request.getFile()
         );
 
-        FileChangeAction action = file.getStatus() == ProjectFileStatus.ACTIVE
-                && file.getContentHash().equals(metadata.contentHash())
-                ? metadataAction(file, metadata)
-                : FileChangeAction.CONTENT_OVERWRITE;
-        ProjectFileUpload upload = startUpload(
-                projectId,
-                file.getBusinessCode(),
-                defaultSource(request.getSource()),
-                idempotencyKey
+        boolean contentOverwriteRequired = file.getStatus() != ProjectFileStatus.ACTIVE
+                || !file.getContentHash().equals(metadata.contentHash());
+        String normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
+        requireIdempotency(
+                project.getOwnerUserId(),
+                "file:content:" + projectId + ":" + fileId,
+                normalizedIdempotencyKey
         );
-        ProjectFileUploadItem item = uploadTracker.startItem(upload.getId(), fileId, metadata, action);
-
-        if (action != FileChangeAction.CONTENT_OVERWRITE) {
+        if (!contentOverwriteRequired) {
             updateMetadataWithoutContent(file, metadata, request.getLockVersion());
-            uploadTracker.complete(upload, item, false);
             return fileConverter.toResponse(file);
         }
 
@@ -152,11 +140,9 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         try {
             objectStorageService.putObject(file.getObjectKey(), metadata.content(), metadata.contentType());
             finalizeOverwrite(file, metadata, claimedVersion);
-            uploadTracker.complete(upload, item, true);
             return fileConverter.toResponse(file);
         } catch (RuntimeException exception) {
             markVerifyRequired(file.getId(), claimedVersion);
-            uploadTracker.fail(upload, item, exception.getMessage());
             throw exception;
         }
     }
@@ -172,10 +158,12 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         ProjectFile file = requireFile(projectId, fileId);
         requireActiveAndVersion(file, request.lockVersion());
         String relativePath = fingerprintService.normalizeRelativePath(request.relativePath());
+        String fileName = fingerprintService.fileName(relativePath);
+        fileUploadValidator.validateRelativePath(relativePath);
+        fileUploadValidator.validateExtension(fingerprintService.extension(fileName));
         String pathHash = fingerprintService.pathHash(relativePath);
         ensurePathAvailable(projectId, file.getBusinessCode(), pathHash, fileId);
 
-        String fileName = fingerprintService.fileName(relativePath);
         String quickFingerprint = fingerprintService.quickFingerprint(
                 relativePath,
                 file.getSizeBytes(),
@@ -257,24 +245,21 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         }
     }
 
-    private ProjectFileUpload startUpload(
-            Long projectId,
-            FileBusinessType businessCode,
-            FileUploadSource source,
-            String idempotencyKey
-    ) {
-        try {
-            return uploadTracker.startUpload(
-                    projectId,
-                    businessCode,
-                    source,
-                    normalizeIdempotencyKey(idempotencyKey)
-            );
-        } catch (DuplicateKeyException exception) {
-            throw new BizException(ErrorCode.RESOURCE_CONFLICT, "相同文件请求已经提交");
+    /** Redis在两分钟窗口内拒绝同一用户、同一文件操作范围的重复请求。 */
+    private void requireIdempotency(Long userId, String operationScope, String idempotencyKey) {
+        if (!idempotencyGuard.tryAcquire(userId, operationScope, idempotencyKey)) {
+            throw new BizException(ErrorCode.RESOURCE_CONFLICT, "相同文件请求已在2分钟内提交");
         }
     }
 
+    /**
+     * 准备元数据
+     *
+     * @param relativePath  相对路径
+     * @param sourceMtimeMs 源mtime ms
+     * @param multipartFile 多部分文件
+     * @return FileOperationMetadata保存一次上传判定所需的规范化文件元信息。
+     */
     private FileOperationMetadata prepareMetadata(
             String relativePath,
             long sourceMtimeMs,
@@ -286,18 +271,19 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         if (multipartFile.getSize() > minioProperties.getMaxFileSizeBytes()) {
             throw new BizException(ErrorCode.FILE_TOO_LARGE);
         }
+        String normalizedPath = fingerprintService.normalizeRelativePath(relativePath);
+        String fileName = fingerprintService.fileName(normalizedPath);
+        String extension = fingerprintService.extension(fileName);
+        fileUploadValidator.validateRelativePath(normalizedPath);
+        fileUploadValidator.validateExtension(extension);
         try {
             byte[] content = multipartFile.getBytes();
-            String normalizedPath = fingerprintService.normalizeRelativePath(relativePath);
-            String fileName = fingerprintService.fileName(normalizedPath);
-            String contentType = multipartFile.getContentType() == null
-                    ? DEFAULT_CONTENT_TYPE
-                    : multipartFile.getContentType();
+            String contentType = fileUploadValidator.detectAndValidateMimeType(content);
             return new FileOperationMetadata(
                     normalizedPath,
                     fingerprintService.pathHash(normalizedPath),
                     fileName,
-                    fingerprintService.extension(fileName),
+                    extension,
                     contentType,
                     content.length,
                     sourceMtimeMs,
@@ -440,12 +426,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setLockVersion(lockVersion + 1);
     }
 
-    private FileChangeAction metadataAction(ProjectFile file, FileOperationMetadata metadata) {
-        return file.getQuickFingerprint().equals(metadata.quickFingerprint())
-                ? FileChangeAction.UNCHANGED
-                : FileChangeAction.METADATA_UPDATE;
-    }
-
     private void applyMetadata(ProjectFile file, FileOperationMetadata metadata) {
         file.setRelativePath(metadata.relativePath());
         file.setPathHash(metadata.pathHash());
@@ -458,14 +438,20 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setContentHash(metadata.contentHash());
     }
 
-    private FileUploadSource defaultSource(FileUploadSource source) {
-        return source == null ? FileUploadSource.FRONTEND : source;
-    }
-
     private String normalizeIdempotencyKey(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 64) {
             throw new BizException(ErrorCode.PARAM_INVALID, "X-Idempotency-Key长度必须为1到64个字符");
         }
         return idempotencyKey.trim();
+    }
+
+
+    /**
+     * 发布文件解析事件
+     *
+     * @param file 文件
+     */
+    private void publishParsingEvent(ProjectFile file) {
+
     }
 }

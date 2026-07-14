@@ -1,7 +1,6 @@
 package com.ning.pm.file.dto;
 
 import com.ning.pm.file.enums.FileBusinessType;
-import com.ning.pm.file.enums.FileUploadSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -28,8 +27,6 @@ public class CreateProjectFileRequest {
     @NotNull(message = "源文件修改时间不能为空")
     @PositiveOrZero(message = "源文件修改时间不能小于0")
     private Long sourceMtimeMs;
-
-    private FileUploadSource source = FileUploadSource.FRONTEND;
 
     @NotNull(message = "上传文件不能为空")
     private MultipartFile file;

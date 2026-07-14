@@ -194,21 +194,19 @@ LLM 输出变更时必须带目标 id，由程序按 id 合并。
   "storage": {
     "provider": "minio",
     "bucket": "pm-agent",
-    "business": "project",
-    "object_prefix": "PM-AGENT/u001/local-pm-agent-001/project/context/",
+    "minio_object_prefix": "PM-AGENT/1/1/",
     "logical_root": "context/"
   },
   "summary": {
     "total_nodes": 1200,
-    "active_files": 430,
+    "active_files": 500,
     "ignored_files": 700,
-    "deleted_files": 3,
-    "detail_files": 180
   },
-  "entries": [
+  "project": [
     {
-      "id": "file-backend-auth-controller",
-      "path": "backend/src/main/java/com/ning/pm/auth/controller/AuthController.java",
+      "id": "AuthController-UUID",
+      "logical_path": "backend/src/main/java/com/ning/pm/auth/controller/AuthController.java",
+      "minio_path": "project/AuthController-UUID"
       "module": "backend-auth",
       "kind": "backend_code",
       "language": "java",
@@ -218,17 +216,22 @@ LLM 输出变更时必须带目标 id，由程序按 id 合并。
       "content_hash": "sha256:xxx",
       "summary": "认证接口控制器",
       "keywords": ["认证", "登录", "注册", "Sa-Token"],
-      "detail_ref": "file_details/backend/auth/file-backend-auth-controller.json",
+      "detail_ref": "system/file_details/AuthController-UUID.json",
       "updated_at": "2026-07-02T00:00:00"
     }
   ],
-  "refs": {
-    "file_details": "file_details/",
-    "project_specification": "project_specification.json",
-    "long_term_memory": "long_term_memory.json",
-    "short_term_memory": "short_term_memory.json",
-    "user_habits": "user_habits/",
-    "update_journal": "update_journal.jsonl"
+  "user":[
+      {
+          
+      }
+  ],
+  "system": {
+    "file_details": "system/file_details/",
+    "project_specification": "system/project_specification.json",
+    "long_term_memory": "system/long_term_memory.json",
+    "short_term_memory": "system/short_term_memory.json",
+    "user_habits": "system/user_habits/",
+    "update_journal": "system/update_journal.jsonl"
   }
 }
 ```

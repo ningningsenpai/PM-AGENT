@@ -7,7 +7,7 @@ Java模块是无租户隔离的多用户后端基座，在账户认证之上加�
 ## 2. 目标
 
 1. 保留common、auth、user、最小project、file、infrastructure和必要配置；
-2. 数据库保留用户、最小项目、项目文件和上传追踪表；
+2. 数据库保留用户、最小项目和项目文件表；
 3. 支持多个用户使用唯一邮箱登录；
 4. 删除租户、逻辑删除、文件版本和未使用中间件；
 5. 保持统一响应、异常、日志和 traceId；
@@ -29,12 +29,12 @@ Java模块是无租户隔离的多用户后端基座，在账户认证之上加�
 
 ## 4. 数据库规则
 
-- MySQL包含`pm_user`、`pm_project`、`pm_project_file`和上传追踪表；
+- MySQL包含`pm_user`、`pm_project`和`pm_project_file`，不维护文件上传记录及明细表；
 - 用户名和邮箱分别全局唯一；
 - 邮箱是登录标识；
 - 不限制用户数量；
 - 不保留 `single_account_key`、`display_name`、`mobile`、`tenant_id`、`deleted`、`created_by` 或 `updated_by`；
-- Flyway使用V1创建用户表，V2创建项目文件表。
+- Flyway使用V1创建用户表、V2创建项目文件表，并使用V4删除历史上传记录及明细表。
 
 ## 5. 编码规则
 

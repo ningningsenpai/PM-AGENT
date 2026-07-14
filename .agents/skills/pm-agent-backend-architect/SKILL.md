@@ -245,7 +245,7 @@ Project docs under `docs/` are governed stylistically by `pm-agent-doc-writer`; 
 
 1. All write APIs (`POST` / `PUT` / `PATCH` / `DELETE`) must carry `X-Idempotency-Key`. If missing, return `10002` for missing parameter.
 2. The frontend should generate a UUID when entering the form or triggering the action, then reuse it until submission succeeds, including retries.
-3. The backend interceptor uses `userId + API path + Idempotency-Key` as the Redis key with 10-minute TTL:
+3. The backend uses `userId + operation scope + Idempotency-Key` as the Redis key with a 2-minute TTL:
    - First request: pass through and cache the response after processing;
    - Hit: return the previous response directly without running business logic again.
 4. When Agent calls business APIs, `AgentClient` automatically generates a UUID as the Idempotency-Key; business Services do not need to know.
