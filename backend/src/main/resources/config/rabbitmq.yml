@@ -1,6 +1,6 @@
 spring:
   rabbitmq:
-    host: ${PM_AGENT_RABBITMQ_HOST:localhost}
+    host: ${PM_AGENT_RABBITMQ_HOST:10.144.48.123}
     port: ${PM_AGENT_RABBITMQ_PORT:5672}
     username: ${PM_AGENT_RABBITMQ_USERNAME:pm-agent}
     password: ${PM_AGENT_RABBITMQ_PASSWORD:pm-agent-dev}

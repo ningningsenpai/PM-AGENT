@@ -192,36 +192,14 @@ Test-NetConnection 10.144.48.123 -Port 9000
 
 ### 4. 从笔记本启动后端
 
-后端通过项目级环境变量连接远程中间件，前端和 Python Agent 仍在笔记本本机运行：
+开发配置已将 `10.144.48.123` 设为默认中间件主机。确认前述端口连通后，无需在终端重复设置环境变量，直接启动后端：
 
 ```powershell
-$middlewareHost = "10.144.48.123"
-
-$env:PM_AGENT_DB_HOST = $middlewareHost
-$env:PM_AGENT_DB_PORT = "3306"
-$env:PM_AGENT_DB_NAME = "pm_agent"
-$env:PM_AGENT_DB_USERNAME = "pm_agent"
-$env:PM_AGENT_DB_PASSWORD = "pm_agent_dev"
-
-$env:PM_AGENT_REDIS_HOST = $middlewareHost
-$env:PM_AGENT_REDIS_PORT = "6379"
-$env:PM_AGENT_REDIS_PASSWORD = "pm-agent-dev"
-
-$env:PM_AGENT_RABBITMQ_HOST = $middlewareHost
-$env:PM_AGENT_RABBITMQ_PORT = "5672"
-$env:PM_AGENT_RABBITMQ_USERNAME = "pm-agent"
-$env:PM_AGENT_RABBITMQ_PASSWORD = "pm-agent-dev"
-$env:PM_AGENT_RABBITMQ_VHOST = "pm-agent"
-
-$env:MINIO_ENDPOINT = "http://${middlewareHost}:9000"
-$env:MINIO_ROOT_USER = "pm-agent"
-$env:MINIO_ROOT_PASSWORD = "123456-pm-agent"
-
-cd backend
+cd D:\Code\ning\PM-AGENT\backend
 mvn spring-boot:run
 ```
 
-这些变量只在当前 PowerShell 进程中生效。前端继续连接笔记本的 `http://localhost:8080`，后端继续连接笔记本的 `http://localhost:8000` Agent 服务。
+前端继续连接笔记本的 `http://localhost:8080`，后端继续连接笔记本的 `http://localhost:8000` Agent 服务。若台式机的 ZeroTier IP 发生变化，可以修改配置文件中的默认值，或者临时使用 `PM_AGENT_DB_HOST`、`PM_AGENT_REDIS_HOST`、`PM_AGENT_RABBITMQ_HOST` 和 `MINIO_ENDPOINT` 覆盖。
 
 ## 停止服务
 
@@ -241,14 +219,14 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml down -v
 
 ## 后端连接配置
 
-后端本机运行时默认通过 `localhost` 连接中间件，也支持通过环境变量切换到 ZeroTier 远程中间件：
+后端开发环境默认通过 ZeroTier 连接台式机中间件，也支持通过环境变量覆盖各服务地址：
 
 | 中间件 | 地址变量 | 端口变量 | 默认值 |
 |---|---|---|---|
-| MySQL | `PM_AGENT_DB_HOST` | `PM_AGENT_DB_PORT` | `localhost:3306` |
-| Redis | `PM_AGENT_REDIS_HOST` | `PM_AGENT_REDIS_PORT` | `localhost:6379` |
-| RabbitMQ | `PM_AGENT_RABBITMQ_HOST` | `PM_AGENT_RABBITMQ_PORT` | `localhost:5672` |
-| MinIO | `MINIO_ENDPOINT` | 地址中包含端口 | `http://localhost:9000` |
+| MySQL | `PM_AGENT_DB_HOST` | `PM_AGENT_DB_PORT` | `10.144.48.123:3306` |
+| Redis | `PM_AGENT_REDIS_HOST` | `PM_AGENT_REDIS_PORT` | `10.144.48.123:6379` |
+| RabbitMQ | `PM_AGENT_RABBITMQ_HOST` | `PM_AGENT_RABBITMQ_PORT` | `10.144.48.123:5672` |
+| MinIO | `MINIO_ENDPOINT` | 地址中包含端口 | `http://10.144.48.123:9000` |
 
 MySQL 数据库名通过 `PM_AGENT_DB_NAME` 配置，默认值为 `pm_agent`。完整示例见 `backend/.env.example`；Spring Boot 不会自动读取该文件，使用 Maven 启动时需要在当前终端或 VS Code 启动配置中注入这些变量。
 
