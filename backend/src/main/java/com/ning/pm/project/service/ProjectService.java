@@ -13,4 +13,6 @@ public interface ProjectService {
     List<ProjectResponse> listCurrentUserProjects();
 
     Project requireOwnedProject(Long projectId);
+
+    void deleteProject(Long projectId);
 }

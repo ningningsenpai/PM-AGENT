@@ -3,6 +3,7 @@ package com.ning.pm.file.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ning.pm.common.errorcode.ErrorCode;
+import com.ning.pm.common.exception.BaseException;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.common.exception.SystemException;
 import com.ning.pm.file.converter.ProjectFileConverter;
@@ -12,7 +13,7 @@ import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
 import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
-import com.ning.pm.file.service.FileObjectKeyFactory;
+import com.ning.pm.file.service.FileStorageLocationFactory;
 import com.ning.pm.file.service.FileOperationMetadata;
 import com.ning.pm.file.service.ProjectFileUploadValidator;
 import com.ning.pm.file.service.ProjectFileService;
@@ -20,9 +21,12 @@ import com.ning.pm.infrastructure.messaging.rabbitmq.publisher.FileEventPublishe
 import com.ning.pm.infrastructure.redis.RedisIdempotencyGuard;
 import com.ning.pm.infrastructure.storage.MinioProperties;
 import com.ning.pm.infrastructure.storage.ObjectStorageService;
+import com.ning.pm.infrastructure.storage.StorageLocation;
+import com.ning.pm.project.context.ProjectIndexService;
 import com.ning.pm.project.domain.Project;
 import com.ning.pm.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,36 +36,40 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * ProjectFileServiceImpl 编排文件元信息、覆盖写状态和MinIO对象操作。
+ * ProjectFileServiceImpl 编排文件元信息、有限重试、对象迁移和项目索引更新。
  *
  * @author ning
  * @date 2026-07-12
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ProjectFileServiceImpl implements ProjectFileService {
+
+    private static final int MAX_UPLOAD_ATTEMPTS = 3;
 
     private final ProjectFileMapper fileMapper;
     private final ProjectFileConverter fileConverter;
     private final ProjectService projectService;
     private final FileFingerprintService fingerprintService;
     private final ProjectFileUploadValidator fileUploadValidator;
-    private final FileObjectKeyFactory objectKeyFactory;
+    private final FileStorageLocationFactory locationFactory;
     private final ObjectStorageService objectStorageService;
     private final MinioProperties minioProperties;
     private final RedisIdempotencyGuard idempotencyGuard;
     private final FileEventPublisher fileEventPublisher;
+    private final ProjectIndexService projectIndexService;
 
-
-
-    /** 首次上传先创建文件记录，再按文件ID生成稳定对象键。 */
+    /** 首次上传持久化稳定存储标识，并在累计三次失败后保留失败记录。 */
     @Override
     public ProjectFileResponse createFile(
             Long projectId,
             String idempotencyKey,
             CreateProjectFileRequest request
     ) {
+        // 文件信息以及位置初步校验
         Project project = projectService.requireOwnedProject(projectId);
+        requirePublicBusiness(request.getBusinessCode());
         FileOperationMetadata metadata = prepareMetadata(
                 request.getRelativePath(),
                 request.getSourceMtimeMs(),
@@ -69,6 +77,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         );
         ensurePathAvailable(projectId, request.getBusinessCode(), metadata.pathHash(), null);
 
+        // 文件上传接口 Redis 幂等判断
         String normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
         requireIdempotency(
                 project.getOwnerUserId(),
@@ -78,30 +87,33 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         ProjectFile file = fileConverter.toEntity(request);
         applyMetadata(file, metadata);
         file.setProjectId(projectId);
+        file.setStorageUuid(locationFactory.createStorageUuid());
+        // locationFactory 返回的为 StorageLocation对象，使用 .objectKey() 获取 objectKey 对象
+        file.setObjectKey(locationFactory.buildRegularFile(
+                project.getOwnerUserId(),
+                projectId,
+                request.getBusinessCode(),
+                metadata.fileName(),
+                file.getStorageUuid()
+        ).objectKey());
         file.setStatus(ProjectFileStatus.UPLOADING);
+        file.setUploadAttempts(0);
         file.setLockVersion(0);
         try {
             fileMapper.insert(file);
         } catch (DuplicateKeyException exception) {
             throw new BizException(ErrorCode.FILE_PATH_CONFLICT);
         }
-        file.setObjectKey(objectKeyFactory.build(
-                project.getOwnerUserId(),
-                projectId,
-                request.getBusinessCode(),
-                file.getId()
-        ));
-        fileMapper.updateById(file);
-
         try {
-            objectStorageService.putObject(file.getObjectKey(), metadata.content(), metadata.contentType());
-            file.setStatus(ProjectFileStatus.ACTIVE);
-            fileMapper.updateById(file);
+            uploadNewFileWithRetry(file, metadata);
             publishParsingEvent(file);
+            projectIndexService.rebuild(project);
             return fileConverter.toResponse(file);
         } catch (RuntimeException exception) {
-            file.setStatus(ProjectFileStatus.UPLOAD_FAILED);
-            fileMapper.updateById(file);
+            if (file.getStatus() == ProjectFileStatus.UPLOAD_FAILED
+                    || file.getStatus() == ProjectFileStatus.VERIFY_REQUIRED) {
+                rebuildIndexPreservingFailure(project, exception);
+            }
             throw exception;
         }
     }
@@ -116,6 +128,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
     ) {
         Project project = projectService.requireOwnedProject(projectId);
         ProjectFile file = requireFile(projectId, fileId);
+        requirePublicFile(file);
         requireWritableAndVersion(file, request.getLockVersion());
         FileOperationMetadata metadata = prepareMetadata(
                 file.getRelativePath(),
@@ -133,29 +146,52 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         );
         if (!contentOverwriteRequired) {
             updateMetadataWithoutContent(file, metadata, request.getLockVersion());
+            projectIndexService.rebuild(project);
             return fileConverter.toResponse(file);
         }
 
         int claimedVersion = claimForOverwrite(file, request.getLockVersion());
-        try {
-            objectStorageService.putObject(file.getObjectKey(), metadata.content(), metadata.contentType());
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
+            markOverwriteAttempt(file, claimedVersion, attempt);
+            try {
+                objectStorageService.putObject(
+                        locationOf(file),
+                        metadata.content(),
+                        metadata.contentType()
+                );
+            } catch (RuntimeException exception) {
+                lastException = exception;
+                ProjectFileStatus failureStatus = attempt < MAX_UPLOAD_ATTEMPTS
+                        ? ProjectFileStatus.VERIFY_REQUIRED
+                        : ProjectFileStatus.UPLOAD_FAILED;
+                markUploadFailure(file, claimedVersion, attempt, failureStatus, exception);
+                continue;
+            }
             finalizeOverwrite(file, metadata, claimedVersion);
+            projectIndexService.rebuild(project);
             return fileConverter.toResponse(file);
-        } catch (RuntimeException exception) {
-            markVerifyRequired(file.getId(), claimedVersion);
-            throw exception;
         }
+        cleanupExpectedObject(file, lastException);
+        SystemException exhausted = new SystemException(
+                ErrorCode.FILE_UPLOAD_RETRY_EXHAUSTED,
+                "文件内容连续三次上传失败",
+                lastException
+        );
+        rebuildIndexPreservingFailure(project, exhausted);
+        throw exhausted;
     }
 
-    /** 路径变化只修改逻辑元信息，不复制或移动MinIO对象。 */
+    /** 目录变化只改逻辑元信息；文件名变化时复制新对象并补偿清理。 */
     @Override
     public ProjectFileResponse updatePath(
             Long projectId,
             Long fileId,
             UpdateProjectFilePathRequest request
     ) {
-        projectService.requireOwnedProject(projectId);
+        Project project = projectService.requireOwnedProject(projectId);
         ProjectFile file = requireFile(projectId, fileId);
+        requirePublicFile(file);
         requireActiveAndVersion(file, request.lockVersion());
         String relativePath = fingerprintService.normalizeRelativePath(request.relativePath());
         String fileName = fingerprintService.fileName(relativePath);
@@ -169,9 +205,173 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 file.getSizeBytes(),
                 request.sourceMtimeMs()
         );
+        if (file.getFileName().equals(fileName)) {
+            updateLogicalPath(file, relativePath, fileName, pathHash, quickFingerprint, request);
+            projectIndexService.rebuild(project);
+            return fileConverter.toResponse(file);
+        }
+
+        StorageLocation source = locationOf(file);
+        StorageLocation target = locationFactory.buildRegularFile(
+                project.getOwnerUserId(),
+                projectId,
+                file.getBusinessCode(),
+                fileName,
+                file.getStorageUuid()
+        );
+        int claimedVersion = claimForRename(file, request.lockVersion());
+        try {
+            objectStorageService.copyObject(source, target);
+        } catch (RuntimeException exception) {
+            restoreActiveAfterRenameFailure(fileId, claimedVersion);
+            throw new SystemException(ErrorCode.FILE_RENAME_FAILED, "复制重命名对象失败", exception);
+        }
+
         int updated = fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
                 .eq(ProjectFile::getId, fileId)
                 .eq(ProjectFile::getProjectId, projectId)
+                .eq(ProjectFile::getStatus, ProjectFileStatus.UPDATING)
+                .eq(ProjectFile::getLockVersion, claimedVersion)
+                .set(ProjectFile::getRelativePath, relativePath)
+                .set(ProjectFile::getPathHash, pathHash)
+                .set(ProjectFile::getFileName, fileName)
+                .set(ProjectFile::getExtension, fingerprintService.extension(fileName))
+                .set(ProjectFile::getObjectKey, target.objectKey())
+                .set(ProjectFile::getSourceMtimeMs, request.sourceMtimeMs())
+                .set(ProjectFile::getQuickFingerprint, quickFingerprint)
+                .set(ProjectFile::getStatus, ProjectFileStatus.ACTIVE));
+        if (updated == 0) {
+            compensateRenameTarget(target);
+            restoreActiveAfterRenameFailure(fileId, claimedVersion);
+            throw new SystemException(ErrorCode.FILE_RENAME_FAILED, "文件重命名结果落库失败");
+        }
+        file.setRelativePath(relativePath);
+        file.setPathHash(pathHash);
+        file.setFileName(fileName);
+        file.setExtension(fingerprintService.extension(fileName));
+        file.setObjectKey(target.objectKey());
+        file.setSourceMtimeMs(request.sourceMtimeMs());
+        file.setQuickFingerprint(quickFingerprint);
+        file.setLockVersion(claimedVersion);
+        file.setStatus(ProjectFileStatus.ACTIVE);
+        try {
+            objectStorageService.removeObject(source);
+        } catch (RuntimeException exception) {
+            markVerifyRequired(file.getId(), claimedVersion);
+            file.setStatus(ProjectFileStatus.VERIFY_REQUIRED);
+            SystemException renameException = new SystemException(
+                    ErrorCode.FILE_RENAME_FAILED,
+                    "新对象已生效，但旧对象清理失败",
+                    exception
+            );
+            rebuildIndexPreservingFailure(project, renameException);
+            throw renameException;
+        }
+        projectIndexService.rebuild(project);
+        return fileConverter.toResponse(file);
+    }
+
+    @Override
+    public List<ProjectFileResponse> listFiles(Long projectId, FileBusinessType businessCode) {
+        projectService.requireOwnedProject(projectId);
+        requirePublicBusinessFilter(businessCode);
+        return fileMapper.selectList(new LambdaQueryWrapper<ProjectFile>()
+                        .eq(ProjectFile::getProjectId, projectId)
+                        .eq(businessCode != null, ProjectFile::getBusinessCode, businessCode)
+                        .ne(businessCode == null, ProjectFile::getBusinessCode, FileBusinessType.SYSTEM)
+                        .orderByAsc(ProjectFile::getRelativePath))
+                .stream()
+                .map(fileConverter::toResponse)
+                .toList();
+    }
+
+    @Override
+    public FileReadUrlResponse createReadUrl(Long projectId, Long fileId) {
+        projectService.requireOwnedProject(projectId);
+        ProjectFile file = requireFile(projectId, fileId);
+        requirePublicFile(file);
+        if (file.getStatus() != ProjectFileStatus.ACTIVE) {
+            throw new BizException(ErrorCode.FILE_STATUS_INVALID);
+        }
+        return new FileReadUrlResponse(
+                file.getId(),
+                file.getFileName(),
+                objectStorageService.createReadUrl(locationOf(file)),
+                LocalDateTime.now().plusSeconds(minioProperties.getReadUrlExpirySeconds())
+        );
+    }
+
+    @Override
+    public void deleteFile(Long projectId, Long fileId, Integer lockVersion) {
+        Project project = projectService.requireOwnedProject(projectId);
+        ProjectFile file = requireFile(projectId, fileId);
+        requirePublicFile(file);
+        requireActiveAndVersion(file, lockVersion);
+        int claimedVersion = claimForDelete(file, lockVersion);
+        try {
+            objectStorageService.removeObject(locationOf(file));
+            int deleted = fileMapper.delete(new LambdaQueryWrapper<ProjectFile>()
+                    .eq(ProjectFile::getId, fileId)
+                    .eq(ProjectFile::getStatus, ProjectFileStatus.DELETING)
+                    .eq(ProjectFile::getLockVersion, claimedVersion));
+            if (deleted == 0) {
+                throw new SystemException(ErrorCode.SYSTEM_ERROR, "文件删除状态落库失败");
+            }
+            projectIndexService.rebuild(project);
+        } catch (RuntimeException exception) {
+            fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
+                    .eq(ProjectFile::getId, fileId)
+                    .eq(ProjectFile::getLockVersion, claimedVersion)
+                    .set(ProjectFile::getStatus, ProjectFileStatus.DELETE_FAILED));
+            throw exception;
+        }
+    }
+
+    private void uploadNewFileWithRetry(ProjectFile file, FileOperationMetadata metadata) {
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
+            file.setStatus(ProjectFileStatus.UPLOADING);
+            file.setUploadAttempts(attempt);
+            fileMapper.updateById(file);
+            try {
+                objectStorageService.putObject(
+                        locationOf(file),
+                        metadata.content(),
+                        metadata.contentType()
+                );
+                file.setStatus(ProjectFileStatus.ACTIVE);
+                clearUploadFailure(file);
+                fileMapper.updateById(file);
+                return;
+            } catch (RuntimeException exception) {
+                lastException = exception;
+                file.setStatus(attempt < MAX_UPLOAD_ATTEMPTS
+                        ? ProjectFileStatus.VERIFY_REQUIRED
+                        : ProjectFileStatus.UPLOAD_FAILED);
+                applyUploadFailure(file, attempt, exception);
+                fileMapper.updateById(file);
+            }
+        }
+        // 清除上传成功但是因为其他原因返回失败的 MinIo 对象，避免产生孤岛数据，方便后续进行上传重试
+        cleanupExpectedObject(file, lastException);
+        throw new SystemException(
+                ErrorCode.FILE_UPLOAD_RETRY_EXHAUSTED,
+                "文件连续三次上传失败",
+                lastException
+        );
+    }
+
+    private void updateLogicalPath(
+            ProjectFile file,
+            String relativePath,
+            String fileName,
+            String pathHash,
+            String quickFingerprint,
+            UpdateProjectFilePathRequest request
+    ) {
+        int updated = fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
+                .eq(ProjectFile::getId, file.getId())
+                .eq(ProjectFile::getProjectId, file.getProjectId())
                 .eq(ProjectFile::getStatus, ProjectFileStatus.ACTIVE)
                 .eq(ProjectFile::getLockVersion, request.lockVersion())
                 .set(ProjectFile::getRelativePath, relativePath)
@@ -191,58 +391,147 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setSourceMtimeMs(request.sourceMtimeMs());
         file.setQuickFingerprint(quickFingerprint);
         file.setLockVersion(request.lockVersion() + 1);
-        return fileConverter.toResponse(file);
     }
 
-    @Override
-    public List<ProjectFileResponse> listFiles(Long projectId, FileBusinessType businessCode) {
-        projectService.requireOwnedProject(projectId);
-        return fileMapper.selectList(new LambdaQueryWrapper<ProjectFile>()
-                        .eq(ProjectFile::getProjectId, projectId)
-                        .eq(businessCode != null, ProjectFile::getBusinessCode, businessCode)
-                        .orderByAsc(ProjectFile::getRelativePath))
-                .stream()
-                .map(fileConverter::toResponse)
-                .toList();
-    }
-
-    @Override
-    public FileReadUrlResponse createReadUrl(Long projectId, Long fileId) {
-        projectService.requireOwnedProject(projectId);
-        ProjectFile file = requireFile(projectId, fileId);
-        if (file.getStatus() != ProjectFileStatus.ACTIVE) {
-            throw new BizException(ErrorCode.FILE_STATUS_INVALID);
+    private int claimForRename(ProjectFile file, int lockVersion) {
+        int claimedVersion = lockVersion + 1;
+        int updated = fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
+                .eq(ProjectFile::getId, file.getId())
+                .eq(ProjectFile::getStatus, ProjectFileStatus.ACTIVE)
+                .eq(ProjectFile::getLockVersion, lockVersion)
+                .set(ProjectFile::getStatus, ProjectFileStatus.UPDATING)
+                .set(ProjectFile::getLockVersion, claimedVersion));
+        if (updated == 0) {
+            throw new BizException(ErrorCode.FILE_BUSY);
         }
-        return new FileReadUrlResponse(
-                file.getId(),
-                file.getFileName(),
-                objectStorageService.createReadUrl(file.getObjectKey()),
-                LocalDateTime.now().plusSeconds(minioProperties.getReadUrlExpirySeconds())
-        );
+        file.setStatus(ProjectFileStatus.UPDATING);
+        file.setLockVersion(claimedVersion);
+        return claimedVersion;
     }
 
-    @Override
-    public void deleteFile(Long projectId, Long fileId, Integer lockVersion) {
-        projectService.requireOwnedProject(projectId);
-        ProjectFile file = requireFile(projectId, fileId);
-        requireActiveAndVersion(file, lockVersion);
-        int claimedVersion = claimForDelete(file, lockVersion);
+    private void restoreActiveAfterRenameFailure(Long fileId, int claimedVersion) {
+        fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
+                .eq(ProjectFile::getId, fileId)
+                .eq(ProjectFile::getStatus, ProjectFileStatus.UPDATING)
+                .eq(ProjectFile::getLockVersion, claimedVersion)
+                .set(ProjectFile::getStatus, ProjectFileStatus.ACTIVE));
+    }
+
+    private void compensateRenameTarget(StorageLocation target) {
         try {
-            objectStorageService.removeObject(file.getObjectKey());
-            int deleted = fileMapper.delete(new LambdaQueryWrapper<ProjectFile>()
-                    .eq(ProjectFile::getId, fileId)
-                    .eq(ProjectFile::getStatus, ProjectFileStatus.DELETING)
-                    .eq(ProjectFile::getLockVersion, claimedVersion));
-            if (deleted == 0) {
-                throw new SystemException(ErrorCode.SYSTEM_ERROR, "文件删除状态落库失败");
-            }
+            objectStorageService.removeObject(target);
         } catch (RuntimeException exception) {
-            fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
-                    .eq(ProjectFile::getId, fileId)
-                    .eq(ProjectFile::getLockVersion, claimedVersion)
-                    .set(ProjectFile::getStatus, ProjectFileStatus.DELETE_FAILED));
-            throw exception;
+            log.error("文件重命名落库失败后清理新对象失败 objectKey={}", target.objectKey(), exception);
         }
+    }
+
+    private void markOverwriteAttempt(ProjectFile file, int claimedVersion, int attempt) {
+        int updated = fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
+                .eq(ProjectFile::getId, file.getId())
+                .eq(ProjectFile::getLockVersion, claimedVersion)
+                .in(ProjectFile::getStatus,
+                        ProjectFileStatus.UPDATING,
+                        ProjectFileStatus.VERIFY_REQUIRED)
+                .set(ProjectFile::getStatus, ProjectFileStatus.UPDATING)
+                .set(ProjectFile::getUploadAttempts, attempt));
+        if (updated == 0) {
+            throw new BizException(ErrorCode.FILE_BUSY);
+        }
+        file.setStatus(ProjectFileStatus.UPDATING);
+        file.setUploadAttempts(attempt);
+    }
+
+    private void markUploadFailure(
+            ProjectFile file,
+            int claimedVersion,
+            int attempt,
+            ProjectFileStatus status,
+            RuntimeException exception
+    ) {
+        LocalDateTime failedAt = LocalDateTime.now();
+        String errorCode = errorCode(exception);
+        String errorMessage = errorMessage(exception);
+        fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
+                .eq(ProjectFile::getId, file.getId())
+                .eq(ProjectFile::getLockVersion, claimedVersion)
+                .set(ProjectFile::getStatus, status)
+                .set(ProjectFile::getUploadAttempts, attempt)
+                .set(ProjectFile::getLastErrorCode, errorCode)
+                .set(ProjectFile::getLastErrorMessage, errorMessage)
+                .set(ProjectFile::getLastFailedAt, failedAt));
+        file.setStatus(status);
+        file.setUploadAttempts(attempt);
+        file.setLastErrorCode(errorCode);
+        file.setLastErrorMessage(errorMessage);
+        file.setLastFailedAt(failedAt);
+    }
+
+    private void applyUploadFailure(ProjectFile file, int attempt, RuntimeException exception) {
+        file.setUploadAttempts(attempt);
+        file.setLastErrorCode(errorCode(exception));
+        file.setLastErrorMessage(errorMessage(exception));
+        file.setLastFailedAt(LocalDateTime.now());
+    }
+
+    private void clearUploadFailure(ProjectFile file) {
+        file.setLastErrorCode(null);
+        file.setLastErrorMessage(null);
+        file.setLastFailedAt(null);
+    }
+
+    private void cleanupExpectedObject(ProjectFile file, RuntimeException primaryException) {
+        try {
+            objectStorageService.removeObject(locationOf(file));
+        } catch (RuntimeException cleanupException) {
+            if (primaryException != null) {
+                primaryException.addSuppressed(cleanupException);
+            }
+            log.error("文件上传最终失败后清理预期对象失败 fileId={} objectKey={}",
+                    file.getId(), file.getObjectKey(), cleanupException);
+        }
+    }
+
+    private void rebuildIndexPreservingFailure(Project project, RuntimeException primaryException) {
+        try {
+            projectIndexService.rebuild(project);
+        } catch (RuntimeException indexException) {
+            primaryException.addSuppressed(indexException);
+        }
+    }
+
+    private StorageLocation locationOf(ProjectFile file) {
+        return new StorageLocation(StorageLocation.PROJECT_BUCKET, file.getObjectKey());
+    }
+
+    private String errorCode(RuntimeException exception) {
+        if (exception instanceof BaseException baseException) {
+            return baseException.getErrorCode().name();
+        }
+        return ErrorCode.SYSTEM_ERROR.name();
+    }
+
+    private String errorMessage(RuntimeException exception) {
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            message = "文件存储调用失败";
+        }
+        return message.length() <= 500 ? message : message.substring(0, 500);
+    }
+
+    private void requirePublicBusiness(FileBusinessType businessType) {
+        if (businessType == FileBusinessType.SYSTEM) {
+            throw new BizException(ErrorCode.SYSTEM_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private void requirePublicBusinessFilter(FileBusinessType businessType) {
+        if (businessType != null) {
+            requirePublicBusiness(businessType);
+        }
+    }
+
+    private void requirePublicFile(ProjectFile file) {
+        requirePublicBusiness(file.getBusinessCode());
     }
 
     /** Redis在两分钟窗口内拒绝同一用户、同一文件操作范围的重复请求。 */
@@ -373,12 +662,16 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .set(ProjectFile::getSourceMtimeMs, metadata.sourceMtimeMs())
                 .set(ProjectFile::getQuickFingerprint, metadata.quickFingerprint())
                 .set(ProjectFile::getContentHash, metadata.contentHash())
+                .set(ProjectFile::getLastErrorCode, null)
+                .set(ProjectFile::getLastErrorMessage, null)
+                .set(ProjectFile::getLastFailedAt, null)
                 .set(ProjectFile::getStatus, ProjectFileStatus.ACTIVE));
         if (updated == 0) {
             throw new SystemException(ErrorCode.SYSTEM_ERROR, "文件覆盖结果落库失败");
         }
         applyMetadata(file, metadata);
         file.setStatus(ProjectFileStatus.ACTIVE);
+        clearUploadFailure(file);
     }
 
     private void markVerifyRequired(Long fileId, int claimedVersion) {

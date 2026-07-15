@@ -1,6 +1,7 @@
 package com.ning.pm.file.config;
 
 import com.ning.pm.file.enums.FileBusinessType;
+import org.jspecify.annotations.NonNull;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class StringToFileBusinessTypeConverter implements Converter<String, FileBusinessType> {
 
     @Override
-    public FileBusinessType convert(String source) {
+    public FileBusinessType convert(@NonNull String source) {
         return FileBusinessType.fromCode(source);
     }
 }

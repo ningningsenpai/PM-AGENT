@@ -64,8 +64,9 @@ class ProjectFileUploadValidatorTest {
                 .hasMessage("文件名命中忽略规则：.ds_store");
         assertThatThrownBy(() -> validator.validateRelativePath(".env"))
                 .isInstanceOf(BizException.class);
-        assertThatCode(() -> validator.validateRelativePath("docs/.env.example"))
-                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> validator.validateRelativePath("docs/.env.example"))
+                .isInstanceOf(BizException.class)
+                .hasMessageContaining("忽略规则");
     }
 
     @Test

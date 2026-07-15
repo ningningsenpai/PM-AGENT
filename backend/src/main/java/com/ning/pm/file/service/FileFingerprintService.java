@@ -6,6 +6,7 @@ import com.ning.pm.common.exception.BizException;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.Arrays;
 
 /**
@@ -26,7 +27,10 @@ public class FileFingerprintService {
         if (relativePath == null) {
             throw new BizException(ErrorCode.PARAM_INVALID, "文件相对路径不能为空");
         }
-        String normalized = relativePath.trim().replace('\\', '/');
+        String normalized = Normalizer.normalize(
+                relativePath.trim().replace('\\', '/'),
+                Normalizer.Form.NFC
+        );
         while (normalized.startsWith("./")) {
             normalized = normalized.substring(2);
         }

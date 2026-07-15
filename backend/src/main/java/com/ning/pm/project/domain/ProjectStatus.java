@@ -19,7 +19,9 @@ import java.util.Arrays;
 public enum ProjectStatus {
 
     ACTIVE("active", "启用"),
-    DISABLED("disabled", "停用");
+    DISABLED("disabled", "停用"),
+    DELETING("deleting", "删除中"),
+    DELETE_FAILED("delete_failed", "删除失败");
 
     @EnumValue
     private final String code;

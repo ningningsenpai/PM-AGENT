@@ -16,6 +16,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # 未知的非空数据库必须先备份并重建，禁止自动基线掩盖结构偏差
     baseline-on-migrate: false
   data:
     redis:
@@ -107,6 +108,10 @@ pm-agent:
         - log
         - tmp
         - cache
+        - pem
+        - key
+        - p12
+        - jks
       blocked-mime-types:
         - application/x-msdownload
         - application/x-dosexec
@@ -118,6 +123,8 @@ pm-agent:
       endpoint: ${MINIO_ENDPOINT:http://10.144.48.123:9000}
       access-key: ${MINIO_ROOT_USER:pm-agent}
       secret-key: ${MINIO_ROOT_PASSWORD:123456-pm-agent}
-      bucket: ${MINIO_BUCKET:pm-agent}
       max-file-size-bytes: ${MINIO_MAX_FILE_SIZE_BYTES:52428800}
       read-url-expiry-seconds: ${MINIO_READ_URL_EXPIRY_SECONDS:300}
+      connect-timeout-seconds: ${MINIO_CONNECT_TIMEOUT_SECONDS:2}
+      read-timeout-seconds: ${MINIO_READ_TIMEOUT_SECONDS:10}
+      write-timeout-seconds: ${MINIO_WRITE_TIMEOUT_SECONDS:10}

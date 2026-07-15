@@ -21,8 +21,8 @@
 - `X-Trace-Id` 生成、透传和 MDC 日志；
 - 用户注册、邮箱登录和退出；
 - 当前账户资料查询、修改和密码修改；
-- 最小项目文件空间创建与查询；
-- 项目文件上传、同对象键覆盖、路径修改、只读地址和删除；
+- 项目文件空间创建、初始 `system/index.json` 写入、查询和硬删除；
+- 项目文件三次重试上传、同对象键覆盖、文件重命名迁移、只读地址和删除；
 - 快速指纹、内容SHA-256、路径目录过滤、固定文件名过滤、扩展名黑白名单、内容MIME识别与文件失败状态；
 - 内部健康检查。
 
@@ -30,9 +30,11 @@
 
 ## 数据库
 
-Flyway创建`pm_user`、最小`pm_project`和项目文件表，并通过后续迁移删除历史上传记录及明细表。用户名和邮箱分别使用唯一索引，邮箱是登录标识。
+Flyway 创建 `pm_user`、最小 `pm_project` 和 `pm_project_file`，并通过后续迁移删除历史上传记录、明细表以及当前阶段未使用的成员和任务旧表。用户名和邮箱分别使用唯一索引，邮箱是登录标识。
 
-本次迁移历史已经重写。已有本地数据库必须在确认不再需要旧数据后重置，再启动后端执行新的 `V1__init_phase1_schema.sql`。
+迁移历史按增量方式保留，已执行过的 V1–V6 不直接改写，旧结构由后续迁移收敛。已有完整 `flyway_schema_history` 的数据库可以直接增量执行最新迁移；只有“数据库非空但缺少 Flyway 历史表”的开发库才需要在确认数据可丢弃后重建。
+
+如果启动日志提示数据库非空但不存在 `flyway_schema_history`，不要启用 `baseline-on-migrate` 绕过检查。该状态无法证明现有表对应哪个迁移版本；开发环境应先备份需要的数据，再重建空数据库或 MySQL 数据卷，让 Flyway 完整执行 V1–V7。
 
 ## 本地启动
 
@@ -47,7 +49,7 @@ mvn spring-boot:run
 - `PM_AGENT_JWT_SECRET`，生产环境必须显式配置
 - `MINIO_ENDPOINT`，默认 `http://localhost:9000`
 - `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`
-- `MINIO_BUCKET`，默认 `pm-agent`
+- MinIO Bucket 固定为 `pm-agent`
 
 ## 验证命令
 
@@ -67,8 +69,9 @@ mvn package
 | `GET` | `/api/v1/users/me` | 查询当前账户资料 |
 | `PUT` | `/api/v1/users/me` | 修改当前账户资料 |
 | `PUT` | `/api/v1/users/me/password` | 修改当前账户密码 |
-| `POST` | `/api/v1/projects` | 创建项目文件空间 |
+| `POST` | `/api/v1/projects` | 创建项目文件空间并初始化索引 |
 | `GET` | `/api/v1/projects` | 查询项目文件空间 |
+| `DELETE` | `/api/v1/projects/{projectId}` | 硬删除项目及根前缀全部对象 |
 | `POST` | `/api/v1/projects/{projectId}/files` | 上传单个文件 |
 | `PUT` | `/api/v1/projects/{projectId}/files/{fileId}/content` | 覆盖文件内容 |
 | `PATCH` | `/api/v1/projects/{projectId}/files/{fileId}/path` | 修改逻辑路径 |

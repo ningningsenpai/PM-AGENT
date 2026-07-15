@@ -6,6 +6,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 - 所有对话、项目文档、错误提示使用中文；代码注释也使用中文。
 - 修改文件前必须先读取相关文件；涉及多模块改动时先列出计划再执行。
+- 除非用户明确要求，不得新增、删除、改写、格式化或统一处理本次代码修改范围之外的注释。
 - 不主动替换既定技术选型：前端 Vue 3 + Naive UI，后端 Spring Boot 3 + Sa-Token + MyBatis Plus，Agent 服务 FastAPI。
 - 中间件按阶段引入，不提前加入未确认的 Redis、RabbitMQ、MinIO、向量库等运行依赖。
 - 优先使用 `.Codex/skills/` 下的正式英文 Skill；`BaseSkill-CN/` 只作为中文参考，不作为正式开发调用来源。

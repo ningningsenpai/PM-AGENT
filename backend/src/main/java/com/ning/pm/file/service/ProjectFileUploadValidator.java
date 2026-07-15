@@ -37,7 +37,10 @@ public class ProjectFileUploadValidator {
         }
 
         String fileName = pathSegments[pathSegments.length - 1];
-        if (containsIgnoreCase(properties.getIgnoredFileNames(), fileName)) {
+        String normalizedFileName = fileName.toLowerCase(Locale.ROOT);
+        boolean sensitiveEnvironmentFile = normalizedFileName.startsWith(".env.");
+        if (sensitiveEnvironmentFile
+                || containsIgnoreCase(properties.getIgnoredFileNames(), fileName)) {
             throw new BizException(
                     ErrorCode.FILE_PATH_IGNORED,
                     "文件名命中忽略规则：" + fileName

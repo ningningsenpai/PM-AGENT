@@ -77,7 +77,7 @@ public class ProjectFileController {
         return R.success(response);
     }
 
-    /** 修改文件逻辑路径，不移动MinIO对象。 */
+    /** 修改文件逻辑路径，文件名变化时同步迁移 MinIO 对象。 */
     @SaCheckLogin
     @PatchMapping("/{fileId}/path")
     public R<ProjectFileResponse> updatePath(
@@ -119,7 +119,7 @@ public class ProjectFileController {
         return R.success(response);
     }
 
-    /** 删除文件记录及其唯一MinIO对象。 */
+    /** 删除文件记录并重建项目上下文索引。 */
     @SaCheckLogin
     @DeleteMapping("/{fileId}")
     public R<Void> delete(

@@ -13,35 +13,41 @@ import java.util.Arrays;
  */
 public enum SystemFilePath {
 
-    FILE_DETAILS("file_details"),
-    USER_HABITS("user_habits");
+    INDEX("index.json", false),
+    FILE_DETAILS("file_details", true),
+    PROJECT_SPECIFICATION("project_specification.json", false),
+    LONG_TERM_MEMORY("long_term_memory.json", false),
+    SHORT_TERM_MEMORY("short_term_memory.json", false),
+    USER_HABITS("user_habits", true),
+    UPDATE_JOURNAL("update_journal.jsonl", false);
 
     private static final int MAX_RELATIVE_PATH_LENGTH = 512;
 
-    private final String directory;
+    private final String path;
+    private final boolean directory;
 
-    SystemFilePath(String directory) {
+    SystemFilePath(String path, boolean directory) {
+        this.path = path;
         this.directory = directory;
     }
 
-    /**
-     * 按项目、用户和系统目录生成完整对象键，并校验传入的相对路径。
-     *
-     * @param projectId 项目 ID
-     * @param ownerUserId 项目所属用户 ID
-     * @param relativePath 系统目录内的相对路径
-     * @return 可用于对象存储的完整对象键
-     */
-    public String build(Long projectId, Long ownerUserId, String relativePath) {
-        validateId(projectId, "项目ID");
-        validateId(ownerUserId, "用户ID");
-        String normalizedPath = normalizeRelativePath(relativePath);
-        return "PM-AGENT/%d/%d/project/context/%s/%s".formatted(
-                ownerUserId,
-                projectId,
-                directory,
-                normalizedPath
-        );
+    public String fixedPath() {
+        if (directory) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "系统目录必须指定相对路径");
+        }
+        return path;
+    }
+
+    public String directoryPath() {
+        return path + "/";
+    }
+
+    /** 仅允许在预定义系统目录下拼接受校验的相对路径。 */
+    public String resolve(String relativePath) {
+        if (!directory) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "固定系统文件不接受相对路径");
+        }
+        return path + "/" + normalizeRelativePath(relativePath);
     }
 
     private String normalizeRelativePath(String relativePath) {
@@ -62,12 +68,6 @@ public enum SystemFilePath {
             throw invalidRelativePath();
         }
         return normalized;
-    }
-
-    private void validateId(Long id, String fieldName) {
-        if (id == null || id <= 0) {
-            throw new BizException(ErrorCode.PARAM_INVALID, fieldName + "必须大于0");
-        }
     }
 
     private BizException invalidRelativePath() {

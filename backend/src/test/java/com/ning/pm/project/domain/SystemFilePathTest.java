@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * SystemFilePathTest 验证系统文件对象键的目录组成和相对路径约束。
+ * SystemFilePathTest 验证固定系统文件与受控系统目录的路径约束。
  *
  * @author ning
  * @date 2026-07-13
@@ -15,35 +15,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class SystemFilePathTest {
 
     @Test
-    void fileDetailsShouldBuildCompleteObjectKey() {
-        String objectKey = SystemFilePath.FILE_DETAILS.build(
-                20L,
-                10L,
-                "backend/auth/controller.json"
-        );
+    void fileDetailsShouldResolveControlledRelativePath() {
+        String path = SystemFilePath.FILE_DETAILS.resolve("backend/auth/controller.json");
 
-        assertThat(objectKey).isEqualTo(
-                "PM-AGENT/10/20/project/context/file_details/backend/auth/controller.json"
-        );
+        assertThat(path).isEqualTo("file_details/backend/auth/controller.json");
     }
 
     @Test
     void windowsSeparatorShouldBeNormalized() {
-        String objectKey = SystemFilePath.USER_HABITS.build(
-                20L,
-                10L,
-                "work\\daily.json"
-        );
+        String path = SystemFilePath.USER_HABITS.resolve("work\\daily.json");
 
-        assertThat(objectKey).isEqualTo(
-                "PM-AGENT/10/20/project/context/user_habits/work/daily.json"
-        );
+        assertThat(path).isEqualTo("user_habits/work/daily.json");
     }
 
     @Test
     void traversalPathShouldBeRejected() {
-        assertThatThrownBy(() -> SystemFilePath.FILE_DETAILS.build(20L, 10L, "../secret.json"))
+        assertThatThrownBy(() -> SystemFilePath.FILE_DETAILS.resolve("../secret.json"))
                 .isInstanceOf(BizException.class)
                 .hasMessageContaining("合法相对路径");
+    }
+
+    @Test
+    void indexShouldExposeFixedPath() {
+        assertThat(SystemFilePath.INDEX.fixedPath()).isEqualTo("index.json");
     }
 }

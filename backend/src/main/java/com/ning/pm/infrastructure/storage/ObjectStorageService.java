@@ -2,9 +2,13 @@ package com.ning.pm.infrastructure.storage;
 
 public interface ObjectStorageService {
 
-    void putObject(String objectKey, byte[] content, String contentType);
+    void putObject(StorageLocation location, byte[] content, String contentType);
 
-    void removeObject(String objectKey);
+    void copyObject(StorageLocation source, StorageLocation target);
 
-    String createReadUrl(String objectKey);
+    void removeObject(StorageLocation location);
+
+    void removeByPrefix(StorageLocation prefix);
+
+    String createReadUrl(StorageLocation location);
 }

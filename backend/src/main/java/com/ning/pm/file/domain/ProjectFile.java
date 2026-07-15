@@ -24,6 +24,7 @@ public class ProjectFile extends BaseEntity {
     private String pathHash;
     private String fileName;
     private String extension;
+    private String storageUuid;
     private String objectKey;
     private String contentType;
     private Long sizeBytes;
@@ -31,5 +32,9 @@ public class ProjectFile extends BaseEntity {
     private String quickFingerprint;
     private String contentHash;
     private ProjectFileStatus status;
+    private Integer uploadAttempts;
+    private String lastErrorCode;
+    private String lastErrorMessage;
+    private java.time.LocalDateTime lastFailedAt;
     private Integer lockVersion;
 }
