@@ -45,7 +45,7 @@ deploy/
 cp deploy/.env.example deploy/.env
 ```
 
-如需修改默认账号、密码或端口，可编辑 `deploy/.env`。
+如需修改默认账号、密码或端口，可编辑 `deploy/.env`。`MIDDLEWARE_BIND_ADDRESS` 默认值为 `127.0.0.1`，表示中间件端口只允许 Docker 主机访问；只有在明确需要通过 ZeroTier 远程访问时，才将它改为 Docker 主机的固定 ZeroTier IP。
 
 ### 2. 启动本地中间件
 
@@ -137,6 +137,92 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec redis re
 
 预期返回 `PONG`。如果修改了 `deploy/.env` 中的 `REDIS_PASSWORD`，命令中的密码也需要同步修改。
 
+## 通过 ZeroTier 使用远程 Docker Desktop
+
+该模式适用于“笔记本运行 VS Code、前端、Java 后端和 Python Agent，台式机只运行 Docker Desktop 中间件”的开发方式。两台计算机必须加入同一个 ZeroTier 网络，台式机需要保持开机且 Docker Desktop 正常运行。
+
+### 1. 配置台式机端口绑定
+
+在台式机不提交的 `deploy/.env` 中，将绑定地址改为台式机的固定 ZeroTier IP：
+
+```dotenv
+MIDDLEWARE_BIND_ADDRESS=10.144.48.123
+```
+
+其中 `10.144.48.123` 仅为示例，实际配置以 ZeroTier Central 分配给台式机的地址为准。修改后重建容器，命名数据卷不会因此删除：
+
+```powershell
+docker compose `
+  --env-file deploy/.env `
+  -f deploy/docker-compose.yml `
+  up -d --force-recreate
+```
+
+禁止使用 `0.0.0.0` 代替 ZeroTier IP，否则中间件端口可能同时暴露到物理局域网或其他主机网络接口。
+
+### 2. 限制 Windows 防火墙来源
+
+在台式机管理员 PowerShell 中创建入站规则，只允许笔记本的固定 ZeroTier IP 访问中间件：
+
+```powershell
+New-NetFirewallRule `
+  -DisplayName "PM-Agent Docker via ZeroTier" `
+  -Direction Inbound `
+  -Action Allow `
+  -Protocol TCP `
+  -LocalAddress 10.144.48.123 `
+  -RemoteAddress 10.144.48.4 `
+  -LocalPort 3306,6379,5672,6333,6334,9000,9001,15672 `
+  -Profile Any
+```
+
+命令中的 `10.144.48.123` 和 `10.144.48.4` 分别替换为台式机和笔记本的实际 ZeroTier IP。不需要为该模式配置 SSH、Gateway 或 Windows 端口转发。
+
+### 3. 从笔记本验证连通性
+
+```powershell
+Test-NetConnection 10.144.48.123 -Port 3306
+Test-NetConnection 10.144.48.123 -Port 6379
+Test-NetConnection 10.144.48.123 -Port 5672
+Test-NetConnection 10.144.48.123 -Port 6333
+Test-NetConnection 10.144.48.123 -Port 9000
+```
+
+所有必要端口均应返回 `TcpTestSucceeded : True`。如绑定 ZeroTier IP 时 Docker Desktop 报“无法分配请求的地址”，先确认 ZeroTier 已在线、IP 未变化，再重启 Docker Desktop 后重建容器。
+
+### 4. 从笔记本启动后端
+
+后端通过项目级环境变量连接远程中间件，前端和 Python Agent 仍在笔记本本机运行：
+
+```powershell
+$middlewareHost = "10.144.48.123"
+
+$env:PM_AGENT_DB_HOST = $middlewareHost
+$env:PM_AGENT_DB_PORT = "3306"
+$env:PM_AGENT_DB_NAME = "pm_agent"
+$env:PM_AGENT_DB_USERNAME = "pm_agent"
+$env:PM_AGENT_DB_PASSWORD = "pm_agent_dev"
+
+$env:PM_AGENT_REDIS_HOST = $middlewareHost
+$env:PM_AGENT_REDIS_PORT = "6379"
+$env:PM_AGENT_REDIS_PASSWORD = "pm-agent-dev"
+
+$env:PM_AGENT_RABBITMQ_HOST = $middlewareHost
+$env:PM_AGENT_RABBITMQ_PORT = "5672"
+$env:PM_AGENT_RABBITMQ_USERNAME = "pm-agent"
+$env:PM_AGENT_RABBITMQ_PASSWORD = "pm-agent-dev"
+$env:PM_AGENT_RABBITMQ_VHOST = "pm-agent"
+
+$env:MINIO_ENDPOINT = "http://${middlewareHost}:9000"
+$env:MINIO_ROOT_USER = "pm-agent"
+$env:MINIO_ROOT_PASSWORD = "123456-pm-agent"
+
+cd backend
+mvn spring-boot:run
+```
+
+这些变量只在当前 PowerShell 进程中生效。前端继续连接笔记本的 `http://localhost:8080`，后端继续连接笔记本的 `http://localhost:8000` Agent 服务。
+
 ## 停止服务
 
 ```bash
@@ -155,24 +241,16 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml down -v
 
 ## 后端连接配置
 
-后端本机运行时通过本地端口连接 MySQL 容器：
+后端本机运行时默认通过 `localhost` 连接中间件，也支持通过环境变量切换到 ZeroTier 远程中间件：
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/pm_agent?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: pm_agent
-    password: pm_agent_dev
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: pm-agent-dev
-      database: 0
-```
+| 中间件 | 地址变量 | 端口变量 | 默认值 |
+|---|---|---|---|
+| MySQL | `PM_AGENT_DB_HOST` | `PM_AGENT_DB_PORT` | `localhost:3306` |
+| Redis | `PM_AGENT_REDIS_HOST` | `PM_AGENT_REDIS_PORT` | `localhost:6379` |
+| RabbitMQ | `PM_AGENT_RABBITMQ_HOST` | `PM_AGENT_RABBITMQ_PORT` | `localhost:5672` |
+| MinIO | `MINIO_ENDPOINT` | 地址中包含端口 | `http://localhost:9000` |
+
+MySQL 数据库名通过 `PM_AGENT_DB_NAME` 配置，默认值为 `pm_agent`。完整示例见 `backend/.env.example`；Spring Boot 不会自动读取该文件，使用 Maven 启动时需要在当前终端或 VS Code 启动配置中注入这些变量。
 
 Sa-Token 使用 Redis 保存登录会话。文件上传和覆盖使用 Redis 原子占位校验2分钟内的重复请求。项目自管 Redis 键的名称前缀和过期时间集中定义在 `RedisKeyDefinition`，Sa-Token 内部键名及其有效期仍由框架和 `sa-token.timeout` 管理。
 
@@ -216,3 +294,4 @@ MySQL 初始化目录只在容器首次启动时执行一次脚本，不适合�
 - 后端能够加载RabbitMQ连接和JSON转换配置，但不自动创建业务交换机或队列；
 - 项目文件联调时MySQL和MinIO健康检查通过；
 - MinIO 中可查看 `pm-agent` Bucket 内的项目文件对象。
+- 将 `MIDDLEWARE_BIND_ADDRESS` 设置为 Docker 主机的 ZeroTier IP 后，授权笔记本可通过 ZeroTier 访问必要的中间件端口，其他来源不在防火墙允许范围内。

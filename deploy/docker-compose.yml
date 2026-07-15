@@ -5,7 +5,7 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${MYSQL_PORT:-3306}:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456-pm-agent}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-pm_agent}
@@ -29,8 +29,8 @@ services:
     image: qdrant/qdrant:latest
     restart: unless-stopped
     ports:
-      - "${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${QDRANT_HTTP_PORT:-6333}:6333"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${QDRANT_GRPC_PORT:-6334}:6334"
     volumes:
       - qdrant-data:/qdrant/storage
 
@@ -38,8 +38,8 @@ services:
     image: minio/minio:latest
     restart: unless-stopped
     ports:
-      - "${MINIO_API_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${MINIO_API_PORT:-9000}:9000"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pm-agent}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-123456-pm-agent}
@@ -57,7 +57,7 @@ services:
     image: redis:7.4-alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-pm-agent-dev}
       TZ: Asia/Shanghai
@@ -79,8 +79,8 @@ services:
     image: rabbitmq:4-management
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
-      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_PORT:-5672}:5672"
+      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-pm-agent}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-pm-agent-dev}

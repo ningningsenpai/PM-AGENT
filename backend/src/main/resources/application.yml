@@ -10,7 +10,7 @@ spring:
     active: dev
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/pm_agent?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${PM_AGENT_DB_HOST:localhost}:${PM_AGENT_DB_PORT:3306}/${PM_AGENT_DB_NAME:pm_agent}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${PM_AGENT_DB_USERNAME:pm_agent}
     password: ${PM_AGENT_DB_PASSWORD:pm_agent_dev}
   flyway:
