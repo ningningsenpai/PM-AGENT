@@ -1,24 +1,19 @@
 package com.ning.pm.project.dto;
 
-import java.time.LocalDate;
+import com.ning.pm.project.domain.ProjectStatus;
+
 import java.time.LocalDateTime;
 
 /**
- * ProjectResponse 表示项目接口统一响应对象。
+ * ProjectResponse 返回项目文件归属空间的基础信息。
  *
  * @author ning
- * @date 2026-06-10
+ * @date 2026-07-12
  */
 public record ProjectResponse(
         Long id,
-        Long tenantId,
-        String name,
-        String code,
-        String description,
-        Long ownerId,
-        String status,
-        LocalDate startDate,
-        LocalDate endDate,
+        String projectName,
+        ProjectStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

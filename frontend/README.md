@@ -114,7 +114,7 @@ src
 | 登出 | POST | `/api/v1/auth/logout` | 退出当前登录态 |
 | 当前用户 | GET | `/api/v1/users/me` | 返回当前用户资料 |
 
-写接口会自动携带 `X-Idempotency-Key`，所有请求会自动携带 `X-Trace-Id`。登录后，请求会自动携带：
+所有请求会自动携带 `X-Trace-Id`。登录后，请求会自动携带：
 
 ```http
 Authorization: Bearer <tokenValue>

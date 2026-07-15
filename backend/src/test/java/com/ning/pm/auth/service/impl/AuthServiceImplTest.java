@@ -6,6 +6,7 @@ import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.user.converter.UserConverter;
 import com.ning.pm.user.domain.User;
+import com.ning.pm.user.domain.UserStatus;
 import com.ning.pm.user.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,8 +37,8 @@ class AuthServiceImplTest {
 
     @Test
     void loginShouldUseSameErrorForUnknownUserAndWrongPassword() {
-        LoginRequest request = new LoginRequest("dev_user", "wrong-password");
-        when(userService.findActiveUserByUsername("dev_user")).thenReturn(null);
+        LoginRequest request = new LoginRequest("dev@example.com", "wrong-password");
+        when(userService.findByEmail("dev@example.com")).thenReturn(null);
 
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BizException.class)
@@ -47,12 +48,13 @@ class AuthServiceImplTest {
 
     @Test
     void loginShouldRejectDisabledUser() {
-        LoginRequest request = new LoginRequest("dev_user", "Dev123456");
+        LoginRequest request = new LoginRequest("dev@example.com", "Dev123456");
         User user = new User();
         user.setUsername("dev_user");
+        user.setEmail("dev@example.com");
         user.setPasswordHash(BCrypt.hashpw("Dev123456", BCrypt.gensalt()));
-        user.setStatus("disabled");
-        when(userService.findActiveUserByUsername("dev_user")).thenReturn(user);
+        user.setStatus(UserStatus.DISABLED);
+        when(userService.findByEmail("dev@example.com")).thenReturn(user);
 
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BizException.class)

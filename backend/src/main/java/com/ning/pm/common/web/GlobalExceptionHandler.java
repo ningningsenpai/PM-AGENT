@@ -4,17 +4,20 @@ import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BaseException;
+import com.ning.pm.common.exception.SystemException;
 import com.ning.pm.common.response.R;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * GlobalExceptionHandler 统一处理后端接口异常并返回中文错误提示。
@@ -23,9 +26,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * @date 2026-06-08
  */
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    @ExceptionHandler(SystemException.class)
+    public R<Void> handleSystemException(SystemException exception) {
+        log.error("系统异常：{}", exception.getMessage(), exception);
+        return R.fail(exception.getErrorCode().getCode(), exception.getMessage());
+    }
 
     @ExceptionHandler(BaseException.class)
     public R<Void> handleBaseException(BaseException exception) {
@@ -75,6 +83,18 @@ public class GlobalExceptionHandler {
     public R<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException exception) {
         log.warn("请求体解析失败：{}", exception.getMessage());
         return R.fail(ErrorCode.PARAM_INVALID.getCode(), "请求体格式不正确");
+    }
+
+    @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class})
+    public R<Void> handleRequestBindingException(Exception exception) {
+        log.warn("请求参数绑定失败：{}", exception.getMessage());
+        return R.fail(ErrorCode.PARAM_INVALID.getCode(), "请求参数不完整或格式不正确");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public R<Void> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException exception) {
+        log.warn("上传文件超过请求限制：{}", exception.getMessage());
+        return R.fail(ErrorCode.FILE_TOO_LARGE.getCode(), ErrorCode.FILE_TOO_LARGE.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

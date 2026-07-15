@@ -1,375 +1,121 @@
 # CLAUDE.md
 
-本文件用于指导 Claude Code 在本仓库（PM-AGENT）中协助开发，覆盖项目背景、技术选型、开发规范、AI 协作策略与开发节奏。所有 Claude Code 会话在开始前都应阅读本文件。
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
+## 语言与协作规则
 
-## 一、项目概述
+- 所有对话、项目文档、错误提示使用中文；代码注释也使用中文。
+- 修改文件前必须先读取相关文件；涉及多模块改动时先列出计划再执行。
+- 不主动替换既定技术选型：前端 Vue 3 + Naive UI，后端 Spring Boot 3 + Sa-Token + MyBatis Plus，Agent 服务 FastAPI。
+- 中间件按阶段引入，不提前加入未确认的 Redis、RabbitMQ、MinIO、向量库等运行依赖。
+- 优先使用 `.claude/skills/` 下的正式英文 Skill；`BaseSkill-CN/` 只作为中文参考，不作为正式开发调用来源。
 
-### 1.1 项目名称
+## 常用命令
 
-**PM-Agent 智能项目管理 Agent 平台**
+### 本地中间件
 
-### 1.2 项目定位
+```bash
+cp deploy/.env.example deploy/.env
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d mysql
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs mysql
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml down
+```
 
-基于 Java + Python + 大模型 Agent 构建的智能项目管理平台，面向项目经理、研发团队与管理层，支持：
+如需启动当前 Compose 中已配置的全部本地服务：
 
-- 项目、需求、任务、迭代、风险、报告等结构化业务管理；
-- 通过 Agent 自动分析项目状态、识别风险、生成周报、拆解需求；
-- 通过 RAG 沉淀和检索项目知识、会议纪要与历史经验。
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+```
 
-### 1.3 项目目标
+重置本地数据会删除数据卷，执行前必须确认：
 
-> 帮助项目经理和研发团队自动理解项目状态、发现风险、生成报告、推动任务执行，从而提升项目交付效率。
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml down -v
+```
 
-### 1.4 项目规模
+### 后端 Spring Boot
 
-- 开发模式：**单人 + AI 协作**；
-- 月度 LLM 预算：**200 至 600 元人民币**；
-- 优先级：开发速度与效果 > 成本；可接受较高开发成本，但运行时成本须严格控制。
+```bash
+cd backend
+mvn spring-boot:run
+mvn test
+mvn -Dtest=AuthControllerTest test
+mvn -Dtest=AuthServiceImplTest#registerSuccess test
+mvn package
+```
 
----
+后端默认端口为 `8080`，本地数据库连接读取 `PM_AGENT_DB_USERNAME`、`PM_AGENT_DB_PASSWORD`，未设置时使用 `pm_agent` / `pm_agent_dev`。Flyway 迁移位于 `backend/src/main/resources/db/migration/`，启动后自动执行。
 
-## 二、技术栈
+### 前端 Vue 3
 
-### 2.1 前端
+```bash
+cd frontend
+pnpm install
+pnpm dev
+pnpm typecheck
+pnpm build
+pnpm preview
+```
 
-| 类别 | 选型 |
-|---|---|
-| 框架 | Vue 3 |
-| 语言 | TypeScript |
-| 构建 | Vite |
-| Node.js | Node 20 LTS |
-| 包管理器 | pnpm |
-| 组件库 | Naive UI |
-| 状态管理 | Pinia |
-| 路由 | Vue Router |
-| 图表 | ECharts |
-| HTTP 客户端 | Axios |
-| 样式增强 | UnoCSS 可选 |
+前端开发服务默认端口为 `5173`，`vite.config.ts` 将 `/api` 代理到 `http://localhost:8080`。当前未配置前端测试脚本和 lint 脚本，不要虚构相关命令。
 
-选择理由：Naive UI 视觉更现代、轻量、不冗余，TypeScript 支持友好，适合单人开发与可读性优先的后台管理系统。
+### Python Agent 服务
 
-### 2.2 Java 后端
+```bash
+cd agent-service
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install -e .
+uvicorn app.main:app --reload --port 8000
+python -m unittest tests/test_project_upload.py
+python -m pytest app/project_context/tests/test_file_tree_scan.py
+```
 
-| 类别 | 选型 |
-|---|---|
-| 框架 | Spring Boot 3 |
-| 构建工具 | Maven |
-| ORM | MyBatis Plus |
-| 数据库迁移 | Flyway |
-| 认证授权 | Sa-Token |
-| API 文档 | Knife4j / OpenAPI |
-| 校验 | Jakarta Validation |
-| 工具 | Hutool / MapStruct |
+Agent 服务默认端口为 `8000`，后端通过 `PM_AGENT_SERVICE_BASE_URL` 调用，默认值为 `http://localhost:8000`。如本机未安装 `pytest`，优先补充开发依赖或使用已有 `unittest` 用例，不要把第三方包测试目录纳入测试范围。
 
-选择理由：Sa-Token 上手快、代码轻量、权限直观，适合单人项目和后台管理系统；相比 Spring Security，可显著减少配置负担。
+## 架构总览
 
-### 2.3 Python Agent 服务
-
-| 类别 | 选型 |
-|---|---|
-| 框架 | FastAPI |
-| 数据校验 | Pydantic |
-| 异步任务 | Celery（后期引入） |
-| Agent 编排 | 自研轻量编排为主，必要时引入 LangChain / LlamaIndex |
-| 向量检索 | Qdrant 或 pgvector（RAG 阶段引入） |
-
-选择理由：Python 用于 Agent 推理、Prompt 编排、RAG 检索，避免污染 Java 业务主链路。
-
-### 2.4 数据库与中间件
-
-| 中间件 | 引入阶段 | 用途 |
-|---|---|---|
-| MySQL 8 | 第 1 阶段 | 业务数据存储 |
-| Redis 7 | 第 2 阶段 | 缓存、Sa-Token 会话、限流 |
-| RabbitMQ | 第 5 阶段 | 异步任务、通知、风险扫描 |
-| MinIO | 第 6 阶段 | 文档、附件、报告文件 |
-| Qdrant 或 pgvector | 第 6 阶段 | 向量检索 |
-| Elasticsearch | 可选后置 | 全文检索 |
-| Prometheus + Grafana | 后期 | 系统监控 |
-
-原则：**按阶段引入，不一次性堆所有中间件。**
-
----
-
-## 三、目录结构（规划）
+本仓库是 PM-Agent 智能项目管理平台的 Monorepo，核心链路为：
 
 ```text
-PM-AGENT/
-├── CLAUDE.md                       # 本文件
-├── .claude/                        # Claude Code 项目级配置
-│   └── skills/                     # 正式英文项目级 Skill（开发调用优先使用）
-│       ├── pm-agent-product-designer/
-│       ├── pm-agent-backend-architect/
-│       ├── pm-agent-frontend-builder/
-│       ├── pm-agent-data-modeler/
-│       ├── pm-agent-workflow-designer/
-│       ├── pm-agent-llm-orchestrator/
-│       ├── pm-agent-test-planner/
-│       ├── pm-agent-doc-writer/
-│       └── pm-agent-cost-optimizer/
-├── BaseSkill-CN/                   # 中文参考 Skill，非开发调用，仅供对照审阅
-│   ├── README.md
-│   ├── _base-template/
-│   ├── pm-agent-product-designer/
-│   ├── pm-agent-backend-architect/
-│   ├── pm-agent-frontend-builder/
-│   ├── pm-agent-data-modeler/
-│   ├── pm-agent-workflow-designer/
-│   ├── pm-agent-llm-orchestrator/
-│   ├── pm-agent-test-planner/
-│   ├── pm-agent-doc-writer/
-│   └── pm-agent-cost-optimizer/
-├── docs/                           # 项目文档
-│   ├── 00-术语表.md
-│   ├── 01-开发规划.md
-│   ├── 02-技术选型.md
-│   ├── 03-业务流程.md
-│   ├── 04-数据模型.md
-│   ├── 05-接口规范.md
-│   ├── 06-Agent设计.md
-│   ├── 10-第1阶段业务流程与验收清单.md
-│   ├── 12-Git管理策略.md
-│   ├── 13-用户认证模块设计.md
-│   └── Figma界面设计文档.md
-├── backend/                        # Java Spring Boot 后端
-├── agent-service/                  # Python FastAPI Agent 服务（第 3 阶段创建）
-├── frontend/                       # Vue 3 前端
-└── deploy/                         # 本地中间件与部署配置
+Vue 3 前端 -> Spring Boot 业务后端 -> FastAPI Agent 服务 -> LLM / 工具 / 后续 RAG
 ```
 
----
+- `frontend/`：Vue 3 + TypeScript + Vite + Naive UI。按业务模块组织在 `src/modules/`，公共请求封装在 `src/api/http.ts`，路由在 `src/router/index.ts`，登录态在 `src/stores/auth.ts`。
+- `backend/`：Spring Boot 3 单体业务主系统。包名以 `com.ning.pm` 为根，通用能力在 `common/`，配置在 `config/`，业务按 `auth`、`user`、`project`、`task`、`agent` 等模块拆分。
+- `agent-service/`：FastAPI Agent 服务。入口为 `app/main.py`，当前包含 Agent 对话、项目文件、LLM 适配、流式事件、项目上下文扫描等能力。
+- `deploy/`：本地 Docker 中间件配置。业务表结构由后端 Flyway 管理，不放入 MySQL 容器初始化脚本。
+- `docs/`：长期项目文档。涉及接口、数据模型、Agent 设计、部署或验收标准变化时，需要同步更新对应文档。
 
-## 四、开发规范
+## 后端约定
 
-### 4.1 语言规范
+- API 路径使用 `/api/v1/<module>/<resource>`，健康检查和 Knife4j 等非业务接口除外。
+- 统一响应结构为 `R<T>`：`code`、`message`、`data`、`traceId`；错误码集中在 `common.errorcode.ErrorCode`。
+- `TraceInterceptor` 负责 `X-Trace-Id` 生成与透传。
+- 登录认证使用 Sa-Token + JWT；Controller 使用登录或权限注解，Service 不手写绕过式鉴权。
+- MyBatis Plus 实体继承通用基础字段时遵循现有 `BaseEntity` 和自动填充配置；数据库表名使用小写下划线业务前缀。
+- 新增或调整数据库结构必须新增 Flyway migration，不直接修改已应用的历史迁移。
 
-- 所有对话和文档：**统一使用中文**；
-- 代码注释：**统一使用中文**；
-- 错误提示：**统一使用中文**；
-- 文档格式：**统一使用 Markdown**；
-- `.claude/skills/` 下的正式 Skill 文档允许使用英文，以便符合 Claude Code Skill 调用规范；
-- `BaseSkill-CN/` 下的中文 Skill 仅供对照审阅，不作为正式开发调用来源。
+## 前端约定
 
-### 4.2 命名规范
+- HTTP 调用统一走 `src/api/http.ts` 的 `request<T>`，它会自动注入 `Authorization` 和 `X-Trace-Id`。
+- 业务代码按模块放入 `src/modules/<module>/`，通常包含 `api.ts`、`types.ts`、`store.ts`、`mock.ts` 和 `pages/`。
+- 路由守卫依赖 `useAuthStore()` 加载当前用户；新增受保护页面默认放在非 `meta.public` 路由下。
+- 组件库使用 Naive UI；前端文件名使用 kebab-case，组件名使用大驼峰。
+- UI 改动完成后应启动 `pnpm dev` 并在浏览器验证关键路径；如果无法实际验证，需要在交付说明中明确说明。
 
-- Java 包名：`com.ning.pm.<module>`；
-- Java 类名：大驼峰；
-- Java 方法和变量：小驼峰；
-- 数据库表名：小写下划线，业务前缀，例如 `pm_project`、`pm_task`、`agent_trace`；
-- 前端组件：大驼峰；
-- 前端文件名：短横线 kebab-case；
-- 接口路径：`/api/v1/<module>/<resource>`；
+## Agent 服务约定
 
-### 4.3 注释规范
+- Agent 不直接操作业务数据库；业务变更必须通过 Java 后端工具 API 完成。
+- 高风险动作（删除、权限变更、对外通知等）必须人工确认。
+- 模型输出优先结构化，并通过 Pydantic / JSON Schema 校验关键字段。
+- Agent Trace、模型分层、成本控制策略以 `docs/06-Agent设计.md` 和 `docs/02-技术选型.md` 为准。
+- 项目文件接口当前依赖 MinIO 相关能力；本地联调时确认 `deploy/docker-compose.yml` 中对应服务是否已启动。
 
-- 关键类与方法必须有中文注释，说明用途、入参、出参；
-- 复杂业务逻辑必须解释“为什么这么做”，而不仅仅是“做了什么”；
-- 临时代码必须用 `// TODO 中文说明` 标注，禁止留下未说明的注释。
+## Git 与文档
 
-### 4.4 接口与错误码
-
-- 响应结构：
-
-  ```json
-  {
-    "code": 0,
-    "message": "成功",
-    "data": {},
-    "traceId": "abc123def456"
-  }
-  ```
-
-- 错误码分段：
-
-  ```text
-  0           成功
-  1xxxx       通用错误
-  2xxxx       用户与权限
-  3xxxx       项目与任务
-  4xxxx       Agent 与 LLM
-  5xxxx       外部服务
-  9xxxx       系统错误
-  ```
-
-### 4.5 提交规范（建议）
-
-采用 Conventional Commits：
-
-```text
-feat: 新功能
-fix: 修复
-docs: 文档
-refactor: 重构
-chore: 杂项
-test: 测试
-perf: 性能优化
-```
-
-建议使用 scope 标明影响模块：
-
-```text
-feat(frontend): 初始化 Vue 3 前端工程
-feat(backend): 初始化 Spring Boot 后端工程
-feat(auth): 完成登录接口与前端联调
-docs(git): 更新 Git 管理策略
-chore(deploy): 添加 MySQL 本地容器配置
-```
-
-### 4.6 Git 管理规范
-
-- 仓库采用 **单仓库 Monorepo + `main` 主干 + `feature/*` 任务分支**；
-- `main` 代表完整项目基线，应包含文档、前端、后端、部署配置和后续 Agent 服务骨架；
-- 目录用于区分模块，分支用于区分任务，不使用长期 `frontend` / `backend` 分支维护模块；
-- 当前前端初始化工作可视为 `feature/init-frontend` 任务，完成后合并回 `main`；
-- 后端初始化从 `main` 新建 `feature/init-backend`，不再新增长期 `backend` 分支；
-- 详细规则见 `docs/12-Git管理策略.md`。
-
----
-
-## 五、开发阶段规划
-
-> 原则：**前后端垂直切片，按模块闭环；技术点解耦，新增中间件按阶段引入。**
-
-| 阶段 | 核心目标 | 后端 | 前端 | 新增技术点 |
-|---|---|---|---|---|
-| 第 1 阶段 | 项目基础骨架 | Spring Boot + Sa-Token + MySQL；用户、项目、任务基础接口 | Vue3 + Naive UI 骨架、登录页、项目列表、任务看板 | Spring Boot 3、Sa-Token、MyBatis Plus、Naive UI |
-| 第 2 阶段 | 项目管理 MVP | 需求、迭代、任务依赖、风险表 | 项目详情、需求管理、风险列表、看板拖拽 | Redis、RBAC、状态机 |
-| 第 3 阶段 | Agent 对话能力 | Java 透传层 + Python FastAPI；Agent 对话接口、Trace 存储 | Agent 助手页、项目问答入口、流式输出 | FastAPI、Prompt 模板、模型路由 |
-| 第 4 阶段 | Agent 工具调用 | 工具 API（查询项目、任务、生成周报、拆分需求） | 一键周报、需求拆任务交互 | Tool Calling、Agent Trace 可视化 |
-| 第 5 阶段 | 风险分析与异步任务 | 延期识别、阻塞分析、人员负载、风险评分 | 风险中心、风险详情、Agent 建议卡片 | RabbitMQ、定时任务、规则引擎 |
-| 第 6 阶段 | RAG 知识库 | 文档上传、解析、切片、向量化 | 文档管理、会议纪要、知识问答 | MinIO、Qdrant/pgvector、RAG 链路 |
-| 第 7 阶段 | 企业级完善 | 通知、审计、报告导出、多项目统计 | 数据看板、报表中心、系统设置 | ECharts 看板、通知渠道、监控 |
-
-**MVP 范围（第 1–2 阶段）**：用户登录、项目管理、任务管理、任务看板、风险手动登记。
-
----
-
-## 六、Agent 设计原则
-
-详细方案见 `docs/06-Agent设计.md`。核心约束如下：
-
-1. Agent 不直接操作数据库，所有业务变更必须通过工具 API；
-2. 高风险操作（删除、修改权限、对外通知）必须人工确认；
-3. 所有 Agent 决策必须落库到 `agent_trace`，包含输入、Prompt、工具调用、模型输出、最终结论；
-4. 模型输出应尽量结构化，关键字段使用 JSON Schema 或 Pydantic 校验；
-5. Agent 必须能识别信息不足并追问，禁止凭空补全关键业务字段。
-
----
-
-## 七、LLM 模型策略
-
-### 7.1 运行时模型分层
-
-| 业务能力 | 默认模型 | 升级模型 |
-|---|---|---|
-| 意图识别 | DeepSeek | Claude |
-| 需求拆解 | DeepSeek 起草 | Claude / GPT |
-| 周报生成 | DeepSeek 起草 | Claude 润色 |
-| 风险分析 | DeepSeek / 规则结果 | Claude / GPT |
-| 会议纪要提取 | DeepSeek | Gemini / Claude |
-| RAG 问答 | DeepSeek | Claude |
-| 项目问答 | DeepSeek | Claude |
-
-### 7.2 开发期模型分工
-
-| 开发任务 | 首选 | 备选 |
-|---|---|---|
-| 系统架构设计 | Claude | GPT |
-| 后端代码开发 | Claude | DeepSeek |
-| 前端代码开发 | Claude | GPT |
-| 前端界面设计 | Claude + frontend-design skill | GPT |
-| 数据库设计 | Claude + database-schema-designer skill | GPT |
-| API 文档撰写 | GPT / Claude | DeepSeek |
-| 技术文档撰写 | Claude | GPT |
-| 产品设计 | GPT / Claude | DeepSeek |
-| 业务流程设计 | Claude | GPT |
-| 代码规范审查 | Claude + code-review skill | DeepSeek |
-
-### 7.3 成本控制原则
-
-- 项目运行时默认使用低成本模型（DeepSeek 优先）；
-- 关键决策、长文档生成、最终润色使用 Claude；
-- 文档切片、摘要等批量任务必须缓存结果；
-- Agent Trace 开发与调优阶段保留必要 Prompt、模型输出和工具调用结果；运行期按 3 个月保留策略控制存储成本。
-
----
-
-## 八、Claude Code 使用规范
-
-### 8.1 必须遵守
-
-1. 所有对话和文档使用中文；
-2. 所有代码注释使用中文；
-3. 修改文件前先 Read，不要凭印象编辑；
-4. 涉及多模块改动时，先列出计划，再执行；
-5. 不主动引入 CLAUDE.md 中未列出的中间件或框架，必须先经用户确认；
-6. 不主动改动已确定的技术选型（Sa-Token、Naive UI 等）。
-
-### 8.2 建议遵守
-
-1. 优先使用项目内正式 Skill（位于 `.claude/skills/`）；`BaseSkill-CN/` 仅用于和正式 Skill 对照审阅；
-2. 设计阶段优先输出 Markdown 文档到 `docs/`，再进入代码实现；
-3. 单次任务尽量限定在一个阶段、一个模块，避免跨阶段堆叠；
-4. 涉及 Agent 设计的改动必须更新 `docs/06-Agent设计.md`。
-
-### 8.3 输出格式
-
-Claude 在生成代码、设计或文档时默认输出结构：
-
-```markdown
-## 背景
-## 方案
-## 改动点
-## 验收标准
-## 风险与待确认
-```
-
----
-
-## 九、项目级 Skill
-
-详见 `.claude/skills/`。所有项目级正式 Skill 均为英文 `active` 状态，后续设计与实现优先遵守对应正式 Skill。`BaseSkill-CN/` 仅作为中文参考副本，用于和正式 Skill 对照审阅。
-
-| Skill | 用途 | 优先级 |
-|---|---|---|
-| pm-agent-product-designer | 产品边界、角色、模块、术语 | 高 |
-| pm-agent-backend-architect | Java 分层、接口、权限、异常 | 高 |
-| pm-agent-frontend-builder | Vue 页面、组件、路由、状态 | 高 |
-| pm-agent-data-modeler | 数据模型与演进 | 高 |
-| pm-agent-workflow-designer | 状态机、流程、审批、通知 | 中高 |
-| pm-agent-llm-orchestrator | Agent、工具调用、Prompt、Trace | 高 |
-| pm-agent-test-planner | 测试策略与用例 | 中 |
-| pm-agent-doc-writer | 项目文档统一风格 | 中 |
-| pm-agent-cost-optimizer | LLM 与中间件成本控制 | 中 |
-
-**最优先完善的三个**：`pm-agent-backend-architect`、`pm-agent-frontend-builder`、`pm-agent-llm-orchestrator`。
-
----
-
-## 十、相关文档
-
-| 文档 | 位置 | 用途 |
-|---|---|---|
-| 开发规划 | `docs/01-开发规划.md` | 分阶段任务清单 |
-| 技术选型 | `docs/02-技术选型.md` | 详细技术选型、运行时模型策略与中间件阶段引入 |
-| 业务流程 | `docs/03-业务流程.md` | 项目、任务、风险、报告等流程 |
-| 数据模型 | `docs/04-数据模型.md` | 表结构、状态枚举、Agent Trace 成本与脱敏 |
-| 接口规范 | `docs/05-接口规范.md` | API 命名、错误码、响应结构、幂等、traceId |
-| Agent 设计 | `docs/06-Agent设计.md` | Agent 编排、工具、Trace、模型升级与成本降级策略 |
-| 第 1 阶段业务流程与验收 | `docs/10-第1阶段业务流程与验收清单.md` | 登录、项目、任务、看板闭环流程与验收标准 |
-| Git 管理策略 | `docs/12-Git管理策略.md` | Monorepo、main 主干与 feature/* 任务分支规范 |
-| 用户认证模块设计 | `docs/13-用户认证模块设计.md` | 用户注册、登录、登出与当前用户接口设计 |
-| Figma 界面设计文档 | `docs/Figma界面设计文档.md` | 第一阶段 Figma 页面级设计文档 |
-| 本地中间件 | `deploy/README.md` | 本地 Docker 中间件启动、验证、重置与后续扩展策略 |
-
----
-
-## 十一、当前状态
-
-- 已完成：项目定位、技术选型、9 个项目级 Skill 规范化、长期文档体系（术语、规划、技术选型、业务流程、数据模型、接口规范、Agent 设计、Git 管理、用户认证模块设计、Figma 界面设计）、前端工程（含项目介绍页、登录、注册）、本地 MySQL 中间件配置、后端基础工程与用户认证接口；
-- 进行中：第 1 阶段项目管理与任务管理接口补齐；
-- 下一步：实现项目创建、项目列表、项目详情、任务创建、任务列表和任务状态流转接口，并与前端页面联调。
-
-成本相关原则已统一沉淀到 `docs/02-技术选型.md`、`docs/04-数据模型.md` 和 `docs/06-Agent设计.md`；本地 Docker 中间件说明已迁移到 `deploy/README.md`；阶段复盘、前置确认和临时 TODO 类过程文档已清理，不再作为长期文档维护。
+- 仓库采用 Monorepo + `main` 主干 + `feature/*` 任务分支；目录区分模块，分支区分任务。
+- 提交信息建议使用 Conventional Commits，例如 `feat(auth): 完成登录接口与前端联调`。
+- 涉及接口规范时同步更新 `docs/05-接口规范.md`；涉及 Agent 设计时同步更新 `docs/06-Agent设计.md`；涉及中间件和本地启动时同步更新 `deploy/README.md`。
+- 不要提交 `node_modules/`、`.venv/`、`__pycache__/`、本地 `.env` 或生成数据文件。

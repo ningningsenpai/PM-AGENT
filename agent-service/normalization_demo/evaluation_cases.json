@@ -1,0 +1,22 @@
+[
+  {
+    "id": "case-auth-risk",
+    "text": "帮我看看登录接口是不是少了权限校验，逾期任务会不会带来风险提示",
+    "expected_canonical": ["登录接口", "认证鉴权", "逾期任务", "风险分析"]
+  },
+  {
+    "id": "case-agent-trace",
+    "text": "Agent执行链路要不要写入Trace，并记录每次工具调用的输入输出",
+    "expected_canonical": ["Agent Trace", "工具调用"]
+  },
+  {
+    "id": "case-requirement-task",
+    "text": "需求拆解之后先生成任务草稿，等我确认后再落库",
+    "expected_canonical": ["需求拆解", "任务草稿"]
+  },
+  {
+    "id": "case-alias-mix",
+    "text": "登录API的JWT认证失败后，是否应该生成风险候选",
+    "expected_canonical": ["登录接口", "认证鉴权", "风险分析"]
+  }
+]

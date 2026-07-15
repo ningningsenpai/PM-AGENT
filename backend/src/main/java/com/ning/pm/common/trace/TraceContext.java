@@ -4,13 +4,15 @@ import cn.hutool.core.util.IdUtil;
 import org.slf4j.MDC;
 
 /**
- * 链路追踪上下文工具。
+ * TraceContext 管理请求链路日志使用的 MDC 字段。
+ *
+ * @author ning
+ * @date 2026-07-12
  */
 public final class TraceContext {
 
     public static final String TRACE_ID = "traceId";
     public static final String USER_ID = "userId";
-    public static final String TENANT_ID = "tenantId";
     public static final String ACTION = "action";
     public static final String COST_MS = "costMs";
 

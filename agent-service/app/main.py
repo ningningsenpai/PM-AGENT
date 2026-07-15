@@ -1,3 +1,6 @@
+"""PM-Agent Python Agent Service 启动入口。"""
+from __future__ import annotations
+
 from fastapi import FastAPI
 
 from app.api.v1.agent import router as agent_router

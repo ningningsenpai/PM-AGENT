@@ -1,13 +1,9 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 import { useMessage } from 'naive-ui'
 import type { ApiResponse } from '@/shared/types/api'
-import { createIdempotencyKey, createTraceId } from '@/shared/utils/request-id'
+import { createTraceId } from '@/shared/utils/request-id'
 
-export interface RequestConfig extends AxiosRequestConfig {
-  idempotencyKey?: string
-}
-
-const writeMethods = new Set(['post', 'put', 'patch', 'delete'])
+export type RequestConfig = AxiosRequestConfig
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
@@ -16,17 +12,10 @@ export const http = axios.create({
 
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem('pm-agent-token')
-  const method = config.method?.toLowerCase()
-
   config.headers.set('X-Trace-Id', createTraceId())
 
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`)
-  }
-
-  if (method && writeMethods.has(method)) {
-    const requestConfig = config as RequestConfig
-    config.headers.set('X-Idempotency-Key', requestConfig.idempotencyKey ?? createIdempotencyKey())
   }
 
   return config

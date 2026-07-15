@@ -1,5 +1,6 @@
 package com.ning.pm.user.service.impl;
 
+import cn.hutool.core.date.DateTime;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -9,16 +10,19 @@ import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.user.converter.UserConverter;
 import com.ning.pm.user.domain.User;
+import com.ning.pm.user.domain.UserStatus;
 import com.ning.pm.user.dto.ChangePasswordRequest;
 import com.ning.pm.user.dto.UpdateUserProfileRequest;
 import com.ning.pm.user.dto.UserProfileResponse;
 import com.ning.pm.user.repository.UserMapper;
 import com.ning.pm.user.service.UserService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 /**
  * UserServiceImpl 实现用户资料与账号数据的基础业务能力。
@@ -27,51 +31,37 @@ import java.time.LocalDateTime;
  * @date 2026-06-08
  */
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-
-    private static final long DEFAULT_TENANT_ID = 0L;
-    private static final String STATUS_ENABLED = "enabled";
 
     private final UserMapper userMapper;
     private final UserConverter userConverter;
     private final CurrentUserHolder currentUserHolder;
 
-    public UserServiceImpl(UserMapper userMapper, UserConverter userConverter, CurrentUserHolder currentUserHolder) {
-        this.userMapper = userMapper;
-        this.userConverter = userConverter;
-        this.currentUserHolder = currentUserHolder;
-    }
-
-    /**
-     * 创建启用状态用户；用户名唯一性由数据库索引兜底，避免并发注册产生重复账号。
-     */
+    /** 创建用户；用户名和邮箱唯一索引负责处理并发注册。 */
     @Override
-    public User createUser(RegisterRequest request, String username, String passwordHash) {
-        if (findActiveUserByUsername(username) != null) {
-            throw new BizException(ErrorCode.USERNAME_EXISTS);
-        }
+    public User createUser(RegisterRequest request, String username, String email, String passwordHash, LocalDateTime lastLoginInAt) {
+        validateUniqueFields(null, username, email);
 
         User user = userConverter.toEntity(request);
         user.setUsername(username);
+        user.setEmail(email);
         user.setPasswordHash(passwordHash);
-        user.setStatus(STATUS_ENABLED);
-        user.setTenantId(DEFAULT_TENANT_ID);
-        user.setDeleted(0);
+        user.setLastLoginAt(lastLoginInAt);
+        user.setStatus(UserStatus.ENABLED);
 
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException exception) {
-            throw new BizException(ErrorCode.USERNAME_EXISTS);
+            throw new BizException(ErrorCode.RESOURCE_CONFLICT, "用户名或邮箱已存在");
         }
         return user;
     }
 
     @Override
-    public User findActiveUserByUsername(String username) {
+    public User findByEmail(String email) {
         return userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getTenantId, DEFAULT_TENANT_ID)
-                .eq(User::getUsername, username)
-                .eq(User::getDeleted, 0)
+                .eq(User::getEmail, email)
                 .last("LIMIT 1"));
     }
 
@@ -86,8 +76,17 @@ public class UserServiceImpl implements UserService {
     @Transactional(rollbackFor = Exception.class)
     public UserProfileResponse updateCurrentUserProfile(UpdateUserProfileRequest request) {
         User user = requireCurrentUser();
+        String username = normalize(request.username());
+        String email = normalize(request.email());
+        validateUniqueFields(user.getId(), username, email);
         userConverter.updateEntity(user, request);
-        userMapper.updateById(user);
+        user.setUsername(username);
+        user.setEmail(email);
+        try {
+            userMapper.updateById(user);
+        } catch (DuplicateKeyException exception) {
+            throw new BizException(ErrorCode.RESOURCE_CONFLICT, "用户名或邮箱已存在");
+        }
         return userConverter.toProfileResponse(user);
     }
 
@@ -119,9 +118,29 @@ public class UserServiceImpl implements UserService {
     private User requireCurrentUser() {
         Long userId = currentUserHolder.requireUserId();
         User user = userMapper.selectById(userId);
-        if (user == null || Integer.valueOf(1).equals(user.getDeleted())) {
+        if (user == null) {
             throw new BizException(ErrorCode.USER_NOT_FOUND);
         }
         return user;
+    }
+
+    private void validateUniqueFields(Long excludedUserId, String username, String email) {
+        long usernameCount = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, username)
+                .ne(excludedUserId != null, User::getId, excludedUserId));
+        if (usernameCount > 0) {
+            throw new BizException(ErrorCode.USERNAME_EXISTS);
+        }
+
+        long emailCount = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, email)
+                .ne(excludedUserId != null, User::getId, excludedUserId));
+        if (emailCount > 0) {
+            throw new BizException(ErrorCode.EMAIL_EXISTS);
+        }
+    }
+
+    private String normalize(String value) {
+        return value.trim().toLowerCase(Locale.ROOT);
     }
 }

@@ -5,172 +5,181 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ning.pm.common.auth.CurrentUserHolder;
 import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BizException;
+import com.ning.pm.common.exception.SystemException;
+import com.ning.pm.file.domain.ProjectFile;
+import com.ning.pm.file.repository.ProjectFileMapper;
+import com.ning.pm.file.service.FileStorageLocationFactory;
+import com.ning.pm.infrastructure.storage.ObjectStorageService;
+import com.ning.pm.project.context.ProjectIndexService;
 import com.ning.pm.project.converter.ProjectConverter;
 import com.ning.pm.project.domain.Project;
-import com.ning.pm.project.domain.ProjectMember;
-import com.ning.pm.project.domain.ProjectRole;
 import com.ning.pm.project.domain.ProjectStatus;
 import com.ning.pm.project.dto.CreateProjectRequest;
-import com.ning.pm.project.dto.ProjectQueryRequest;
 import com.ning.pm.project.dto.ProjectResponse;
-import com.ning.pm.project.dto.UpdateProjectRequest;
-import com.ning.pm.project.dto.UpdateProjectStatusRequest;
 import com.ning.pm.project.repository.ProjectMapper;
-import com.ning.pm.project.repository.ProjectMemberMapper;
 import com.ning.pm.project.service.ProjectService;
-import com.ning.pm.task.domain.Task;
-import com.ning.pm.task.repository.TaskMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * ProjectServiceImpl 实现项目管理基础业务能力。
+ * ProjectServiceImpl 编排项目归属、初始上下文索引和项目硬删除生命周期。
  *
  * @author ning
- * @date 2026-06-10
+ * @date 2026-07-12
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class ProjectServiceImpl implements ProjectService {
 
-    private static final Logger log = LoggerFactory.getLogger(ProjectServiceImpl.class);
-    private static final long DEFAULT_TENANT_ID = 0L;
-
     private final ProjectMapper projectMapper;
-    private final ProjectMemberMapper projectMemberMapper;
-    private final TaskMapper taskMapper;
     private final ProjectConverter projectConverter;
     private final CurrentUserHolder currentUserHolder;
+    private final ProjectFileMapper projectFileMapper;
+    private final ProjectIndexService projectIndexService;
+    private final FileStorageLocationFactory locationFactory;
+    private final ObjectStorageService objectStorageService;
+    private final PlatformTransactionManager transactionManager;
 
-    public ProjectServiceImpl(ProjectMapper projectMapper,
-                              ProjectMemberMapper projectMemberMapper,
-                              TaskMapper taskMapper,
-                              ProjectConverter projectConverter,
-                              CurrentUserHolder currentUserHolder) {
-        this.projectMapper = projectMapper;
-        this.projectMemberMapper = projectMemberMapper;
-        this.taskMapper = taskMapper;
-        this.projectConverter = projectConverter;
-        this.currentUserHolder = currentUserHolder;
-    }
-
-    /** 创建项目，并把当前用户登记为项目负责人。 */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(timeout = 35)
     public ProjectResponse createProject(CreateProjectRequest request) {
-        Long userId = currentUserHolder.requireUserId();
         Project project = projectConverter.toEntity(request);
-        project.setTenantId(DEFAULT_TENANT_ID);
-        project.setOwnerId(userId);
-        project.setStatus(ProjectStatus.NOT_STARTED.getCode());
-        project.setDeleted(0);
+        project.setProjectName(request.projectName().trim());
+        project.setOwnerUserId(currentUserHolder.requireUserId());
+        project.setStatus(ProjectStatus.ACTIVE);
         projectMapper.insert(project);
-
-        ProjectMember member = new ProjectMember();
-        member.setTenantId(DEFAULT_TENANT_ID);
-        member.setProjectId(project.getId());
-        member.setUserId(userId);
-        member.setProjectRole(ProjectRole.OWNER.getCode());
-        member.setJoinedAt(LocalDateTime.now());
-        member.setDeleted(0);
-        projectMemberMapper.insert(member);
-
-        log.info("创建项目成功 projectId={}, ownerId={}", project.getId(), userId);
+        registerIndexRollbackCompensation(project);
+        projectIndexService.initialize(project);
         return projectConverter.toResponse(project);
     }
 
     @Override
-    public List<ProjectResponse> listProjects(ProjectQueryRequest request) {
+    public List<ProjectResponse> listCurrentUserProjects() {
         Long userId = currentUserHolder.requireUserId();
-        LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<Project>()
-                .eq(Project::getTenantId, DEFAULT_TENANT_ID)
-                .and(scope -> scope.eq(Project::getOwnerId, userId)
-                        .or()
-                        .inSql(Project::getId, "select project_id from pm_project_member where tenant_id = 0 and deleted = 0 and user_id = " + userId));
-        if (request.status() != null && !request.status().isBlank()) {
-            if (!ProjectStatus.isValid(request.status())) {
-                throw new BizException(ErrorCode.PROJECT_STATUS_INVALID);
-            }
-            wrapper.eq(Project::getStatus, request.status());
-        }
-        if (request.keyword() != null && !request.keyword().isBlank()) {
-            String keyword = request.keyword().trim();
-            wrapper.and(condition -> condition.like(Project::getName, keyword).or().like(Project::getCode, keyword));
-        }
-        wrapper.orderByDesc(Project::getUpdatedAt);
-        return projectMapper.selectList(wrapper).stream()
+        return projectMapper.selectList(new LambdaQueryWrapper<Project>()
+                        .eq(Project::getOwnerUserId, userId)
+                        .orderByDesc(Project::getCreatedAt))
+                .stream()
                 .map(projectConverter::toResponse)
                 .toList();
     }
 
+    /** 校验项目存在、属于当前用户且处于可用状态。 */
     @Override
-    public ProjectResponse getProjectDetail(Long id) {
-        Long userId = currentUserHolder.requireUserId();
-        return projectConverter.toResponse(requireAccessibleProject(id, userId));
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ProjectResponse updateProject(Long id, UpdateProjectRequest request) {
-        Long userId = currentUserHolder.requireUserId();
-        Project project = requireAccessibleProject(id, userId);
-        projectConverter.updateEntity(project, request);
-        projectMapper.updateById(project);
-        log.info("修改项目基础信息 projectId={}, operatorId={}", id, userId);
-        return projectConverter.toResponse(project);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ProjectResponse updateProjectStatus(Long id, UpdateProjectStatusRequest request) {
-        Long userId = currentUserHolder.requireUserId();
-        Project project = requireAccessibleProject(id, userId);
-        if (!ProjectStatus.isValid(request.status())) {
-            throw new BizException(ErrorCode.PROJECT_STATUS_INVALID);
-        }
-        String fromStatus = project.getStatus();
-        project.setStatus(request.status());
-        projectMapper.updateById(project);
-        log.info("项目状态变更 projectId={}, fromStatus={}, toStatus={}, operatorId={}", id, fromStatus, request.status(), userId);
-        return projectConverter.toResponse(project);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void deleteProject(Long id) {
-        Long userId = currentUserHolder.requireUserId();
-        requireAccessibleProject(id, userId);
-        projectMapper.deleteById(id);
-        projectMemberMapper.delete(new LambdaQueryWrapper<ProjectMember>()
-                .eq(ProjectMember::getTenantId, DEFAULT_TENANT_ID)
-                .eq(ProjectMember::getProjectId, id));
-        taskMapper.delete(new LambdaQueryWrapper<Task>()
-                .eq(Task::getTenantId, DEFAULT_TENANT_ID)
-                .eq(Task::getProjectId, id));
-        log.info("逻辑删除项目 projectId={}, operatorId={}", id, userId);
-    }
-
-    @Override
-    public Project requireAccessibleProject(Long projectId, Long userId) {
+    public Project requireOwnedProject(Long projectId) {
         Project project = projectMapper.selectById(projectId);
-        if (project == null || Integer.valueOf(1).equals(project.getDeleted()) || !canAccessProject(projectId, userId, project)) {
+        Long userId = currentUserHolder.requireUserId();
+        if (project == null || !userId.equals(project.getOwnerUserId())) {
             throw new BizException(ErrorCode.PROJECT_NOT_FOUND);
+        }
+        if (project.getStatus() != ProjectStatus.ACTIVE) {
+            throw new BizException(ErrorCode.PROJECT_DISABLED);
         }
         return project;
     }
 
-    private boolean canAccessProject(Long projectId, Long userId, Project project) {
-        if (userId.equals(project.getOwnerId())) {
-            return true;
+    /** 删除项目根前缀下的全部对象后，在独立数据库事务中硬删除项目数据。 */
+    @Override
+    public void deleteProject(Long projectId) {
+        Project project = requireOwnedProjectForDelete(projectId);
+        claimProjectForDelete(project);
+        try {
+            objectStorageService.removeByPrefix(locationFactory.buildProjectPrefix(
+                    project.getOwnerUserId(),
+                    project.getId()
+            ));
+        } catch (RuntimeException exception) {
+            markProjectDeleteFailed(project.getId());
+            throw new SystemException(
+                    ErrorCode.PROJECT_DELETE_FAILED,
+                    "项目对象未能全部删除",
+                    exception
+            );
         }
-        Long count = projectMemberMapper.selectCount(new LambdaQueryWrapper<ProjectMember>()
-                .eq(ProjectMember::getTenantId, DEFAULT_TENANT_ID)
-                .eq(ProjectMember::getProjectId, projectId)
-                .eq(ProjectMember::getUserId, userId));
-        return count != null && count > 0;
+
+        try {
+            TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+            transactionTemplate.executeWithoutResult(status -> {
+                projectFileMapper.delete(new LambdaQueryWrapper<ProjectFile>()
+                        .eq(ProjectFile::getProjectId, project.getId()));
+                int deleted = projectMapper.deleteById(project.getId());
+                if (deleted == 0) {
+                    throw new SystemException(ErrorCode.PROJECT_DELETE_FAILED, "项目记录硬删除失败");
+                }
+            });
+        } catch (RuntimeException exception) {
+            markProjectDeleteFailed(project.getId());
+            if (exception instanceof SystemException systemException
+                    && systemException.getErrorCode() == ErrorCode.PROJECT_DELETE_FAILED) {
+                throw systemException;
+            }
+            throw new SystemException(
+                    ErrorCode.PROJECT_DELETE_FAILED,
+                    "项目数据库记录硬删除失败",
+                    exception
+            );
+        }
+    }
+
+    private void registerIndexRollbackCompensation(Project project) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new SystemException(ErrorCode.SYSTEM_ERROR, "项目创建事务未启用");
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                    return;
+                }
+                try {
+                    projectIndexService.removeInitialIndexWithRetry(project);
+                } catch (RuntimeException exception) {
+                    log.error("项目创建回滚后清理初始索引失败 projectId={}", project.getId(), exception);
+                }
+            }
+        });
+    }
+
+    private Project requireOwnedProjectForDelete(Long projectId) {
+        Project project = projectMapper.selectById(projectId);
+        Long userId = currentUserHolder.requireUserId();
+        if (project == null || !userId.equals(project.getOwnerUserId())) {
+            throw new BizException(ErrorCode.PROJECT_NOT_FOUND);
+        }
+        boolean deletable = project.getStatus() == ProjectStatus.ACTIVE
+                || project.getStatus() == ProjectStatus.DELETING
+                || project.getStatus() == ProjectStatus.DELETE_FAILED;
+        if (!deletable) {
+            throw new BizException(ErrorCode.PROJECT_DISABLED);
+        }
+        return project;
+    }
+
+    private void claimProjectForDelete(Project project) {
+        int updated = projectMapper.update(null, new LambdaUpdateWrapper<Project>()
+                .eq(Project::getId, project.getId())
+                .in(Project::getStatus,
+                        ProjectStatus.ACTIVE,
+                        ProjectStatus.DELETING,
+                        ProjectStatus.DELETE_FAILED)
+                .set(Project::getStatus, ProjectStatus.DELETING));
+        if (updated == 0) {
+            throw new BizException(ErrorCode.RESOURCE_CONFLICT, "项目正在被其他请求处理");
+        }
+    }
+
+    private void markProjectDeleteFailed(Long projectId) {
+        projectMapper.update(null, new LambdaUpdateWrapper<Project>()
+                .eq(Project::getId, projectId)
+                .set(Project::getStatus, ProjectStatus.DELETE_FAILED));
     }
 }

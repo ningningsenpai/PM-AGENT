@@ -3,7 +3,10 @@ package com.ning.pm.common.exception;
 import com.ning.pm.common.errorcode.ErrorCode;
 
 /**
- * 普通业务异常。
+ * BizException 表示可预期的业务规则异常。
+ *
+ * @author ning
+ * @date 2026-07-12
  */
 public class BizException extends BaseException {
 

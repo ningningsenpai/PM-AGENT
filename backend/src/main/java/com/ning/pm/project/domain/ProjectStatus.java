@@ -1,42 +1,42 @@
 package com.ning.pm.project.domain;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
- * ProjectStatus 定义第 1 阶段项目状态集合。
+ * ProjectStatus 定义项目基础状态。
  *
  * @author ning
- * @date 2026-06-10
+ * @date 2026-07-12
  */
+@Getter
+@RequiredArgsConstructor
 public enum ProjectStatus {
-    NOT_STARTED("not_started"),
-    RUNNING("running"),
-    PAUSED("paused"),
-    DELAYED("delayed"),
-    DONE("done"),
-    ARCHIVED("archived");
 
-    private static final Set<String> CODES = Arrays.stream(values())
-            .map(ProjectStatus::getCode)
-            .collect(Collectors.toUnmodifiableSet());
+    ACTIVE("active", "启用"),
+    DISABLED("disabled", "停用"),
+    DELETING("deleting", "删除中"),
+    DELETE_FAILED("delete_failed", "删除失败");
 
+    @EnumValue
     private final String code;
+    private final String description;
 
-    ProjectStatus(String code) {
-        this.code = code;
-    }
-
-    public String getCode() {
+    @JsonValue
+    public String value() {
         return code;
     }
 
-    public static boolean isValid(String code) {
-        return code != null && CODES.contains(code);
-    }
-
-    public static boolean cannotCreateTask(String code) {
-        return DONE.code.equals(code) || ARCHIVED.code.equals(code);
+    @JsonCreator
+    public static ProjectStatus fromCode(String code) {
+        return Arrays.stream(values())
+                .filter(status -> status.code.equalsIgnoreCase(code))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("项目状态不合法：" + code));
     }
 }

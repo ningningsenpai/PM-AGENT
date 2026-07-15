@@ -13,16 +13,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class CurrentUserHolder {
 
-    /**
-     * 获取当前登录用户 ID；未登录时返回 null，便于基础填充逻辑兼容匿名请求。
-     */
+    /** 获取当前登录用户 ID；匿名请求或非 Web 上下文返回 null。 */
     public Long getUserIdOrNull() {
         try {
-            if (!StpUtil.isLogin()) {
-                return null;
-            }
-            return StpUtil.getLoginIdAsLong();
-        } catch (NotWebContextException ex) {
+            return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+        } catch (NotWebContextException exception) {
             return null;
         }
     }

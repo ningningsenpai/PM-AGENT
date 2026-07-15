@@ -1,0 +1,59 @@
+{
+  "lexicon_id": "pm-project-management",
+  "version": "2026.07.1",
+  "scope": "domain",
+  "status": "published",
+  "description": "PM-Agent 项目管理业务组合术语",
+  "entries": [
+    {
+      "term_id": "pm-overdue-task",
+      "canonical": "逾期任务",
+      "aliases": ["延期任务", "超期任务", "过期任务", "overdue task"],
+      "category": "task",
+      "tags": ["task", "schedule", "risk"],
+      "priority": 20,
+      "enabled": true,
+      "source": "business-rule"
+    },
+    {
+      "term_id": "pm-risk-analysis",
+      "canonical": "风险分析",
+      "aliases": ["风险识别", "风险候选", "风险提示", "风险线索"],
+      "category": "risk",
+      "tags": ["risk", "agent"],
+      "priority": 20,
+      "enabled": true,
+      "source": "agent-design"
+    },
+    {
+      "term_id": "pm-requirement-decomposition",
+      "canonical": "需求拆解",
+      "aliases": ["拆解需求", "需求转任务", "需求分解"],
+      "category": "requirement",
+      "tags": ["requirement", "task", "agent"],
+      "priority": 20,
+      "enabled": true,
+      "source": "agent-design"
+    },
+    {
+      "term_id": "pm-task-draft",
+      "canonical": "任务草稿",
+      "aliases": ["任务候选", "待确认任务", "任务建议"],
+      "category": "task",
+      "tags": ["task", "draft", "confirmation"],
+      "priority": 20,
+      "enabled": true,
+      "source": "agent-design"
+    },
+    {
+      "term_id": "pm-report-draft",
+      "canonical": "报告草稿",
+      "aliases": ["周报草稿", "迭代报告草稿", "风险报告草稿"],
+      "category": "report",
+      "tags": ["report", "draft", "confirmation"],
+      "priority": 20,
+      "enabled": true,
+      "source": "agent-design"
+    }
+  ]
+}

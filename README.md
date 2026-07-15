@@ -19,16 +19,17 @@ PM-Agent 是一个面向项目经理与研发团队的智能项目管理平台�
 
 ## 🚦 当前状态
 
-PM-Agent 处于 **第 1 阶段：项目基础骨架与 MVP 前置能力**。
+PM-Agent 当前的 Java 后端处于 **认证与项目文件基座阶段**，支持无租户隔离的多用户邮箱登录、最小项目归属和MinIO文件管理；完整项目管理与Agent业务能力仍未恢复。
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 文档体系 | ✅ 已完成基础版 | 术语、规划、技术选型、业务流程、数据模型、接口规范、Agent 设计、Git 管理、Figma 设计 |
 | 前端工程 | ✅ 已初始化 | Vue 3 + TS + Vite + Naive UI，包含项目介绍、登录、注册、项目列表、任务看板与 Mock 层 |
-| 后端工程 | ✅ 基础能力已完成 | Spring Boot 3 + Sa-Token JWT + MyBatis Plus + Flyway，含统一响应、traceId、幂等校验 |
-| 用户认证 | ✅ 已完成 | 注册、登录、登出、当前用户接口 |
-| 本地中间件 | ✅ MySQL 已启用 | Docker Compose 启动 MySQL 8 |
-| 项目 / 任务接口 | 🚧 进行中 | 数据库表已建模，业务接口仍在补齐 |
+| 后端工程 | ✅ 认证与文件基座已完成 | Spring Boot 3 + Sa-Token JWT + MyBatis Plus + Flyway + MinIO，含统一响应、日志和 traceId |
+| 用户认证 | ✅ 已完成 | 用户注册、邮箱登录、登出、当前用户资料和密码修改 |
+| 本地中间件 | ✅ MySQL、MinIO已启用 | Docker Compose启动MySQL 8和MinIO |
+| 项目文件接口 | ✅ 最小能力已完成 | 用户—项目—business—文件层级、双哈希、同对象键覆盖和临时只读地址 |
+| 完整项目 / 任务接口 | ⏸️ 未恢复 | 当前只提供文件归属所需的最小项目创建与查询 |
 | Figma 业务界面 | ✅ 已完成第一版 | 项目总览、项目管理、任务看板、风险中心、PM 助手、报告中心、系统设置、用户中心 |
 | Python Agent 服务 | 🗓️ 规划中 | 第 3 阶段引入 |
 | Agent 工具调用 | 🗓️ 规划中 | 第 4 阶段引入 |
@@ -45,9 +46,10 @@ PM-Agent 处于 **第 1 阶段：项目基础骨架与 MVP 前置能力**。
 - Vue 3 + TypeScript + Naive UI 前端骨架，包含公开介绍页与认证页；
 - Spring Boot 3 + Sa-Token JWT 后端骨架；
 - MyBatis Plus + Flyway 数据迁移；
-- 统一响应结构、traceId、写接口 `X-Idempotency-Key` 必填校验；
+- 统一响应结构和 traceId 链路追踪；
 - 用户注册、登录、登出、当前用户接口；
-- 本地 Docker MySQL 中间件配置。
+- 项目文件空间、MinIO上传与同对象键覆盖；
+- 本地Docker MySQL和MinIO中间件配置。
 
 ### 规划能力
 
@@ -72,7 +74,7 @@ Java Spring Boot 3（Sa-Token / MyBatis Plus / Flyway）
 Python FastAPI Agent 服务（第 3 阶段引入）
         │
         ▼
-LLM API（DeepSeek 优先） / 向量库（第 6 阶段） / 文件存储（第 6 阶段）
+LLM API（DeepSeek 优先） / 向量库（第 6 阶段）
 ```
 
 ---
@@ -82,10 +84,10 @@ LLM API（DeepSeek 优先） / 向量库（第 6 阶段） / 文件存储（第 
 | 层 | 技术 |
 |---|---|
 | 前端 | Vue 3、TypeScript、Vite、Naive UI、Pinia、Vue Router、Axios、ECharts |
-| 后端 | Java 17、Spring Boot 3、Maven、Sa-Token、MyBatis Plus、Flyway、Knife4j、Jakarta Validation |
+| 后端 | Java 17、Spring Boot 3、Maven、Sa-Token、MyBatis Plus、Flyway、MinIO Java SDK、Knife4j、Jakarta Validation |
 | Agent 服务 | Python FastAPI、Pydantic v2（**规划中，第 3 阶段引入**） |
 | 数据库 | MySQL 8（**当前已启用**） |
-| 后续中间件 | Redis（第 2 阶段）、RabbitMQ（第 5 阶段）、MinIO（第 6 阶段）、Qdrant 或 pgvector（第 6 阶段） |
+| 中间件 | MySQL、MinIO当前启用；Redis、RabbitMQ、Qdrant或pgvector按后续阶段引入 |
 | LLM | DeepSeek 优先；Claude / GPT 用于复杂推理、关键判断和最终润色 |
 | 部署 | Docker Compose 管理本地中间件，前后端本机运行 |
 
@@ -99,13 +101,14 @@ LLM API（DeepSeek 优先） / 向量库（第 6 阶段） / 文件存储（第 
 PM-AGENT/
 ├── frontend/        # Vue 3 前端工程
 ├── backend/         # Spring Boot 后端工程
+├── agent-service/   # 独立 Python Agent 服务
 ├── deploy/          # 本地中间件与部署配置
 ├── docs/            # 项目长期文档
 ├── .claude/         # Claude Code 项目级配置与 Skill
 └── CLAUDE.md        # 项目协作规范
 ```
 
-`agent-service/` 目录将在第 3 阶段引入 Agent 对话能力时创建，当前仓库中尚未存在。
+`agent-service/`与当前Java认证及文件基座独立演进，Java后端暂不调用该服务；文件路径与哈希规则保持可对接。
 
 仓库采用 **单仓库 Monorepo + `main` 主干 + `feature/*` 任务分支**，详见 [docs/12-Git管理策略.md](./docs/12-Git管理策略.md)。
 
@@ -195,7 +198,7 @@ pnpm dev
 - [docs/02-技术选型.md](./docs/02-技术选型.md)：技术栈与中间件阶段策略
 - [docs/03-业务流程.md](./docs/03-业务流程.md)：业务对象与状态流转
 - [docs/04-数据模型.md](./docs/04-数据模型.md)：表结构与 Agent Trace
-- [docs/05-接口规范.md](./docs/05-接口规范.md)：API、错误码、幂等、traceId
+- [docs/05-接口规范.md](./docs/05-接口规范.md)：API、错误码、traceId
 - [docs/06-Agent设计.md](./docs/06-Agent设计.md)：Agent、工具、Trace、成本边界
 - [docs/10-第1阶段业务流程与验收清单.md](./docs/10-第1阶段业务流程与验收清单.md)：第 1 阶段闭环与验收
 - [docs/12-Git管理策略.md](./docs/12-Git管理策略.md)：Monorepo 与分支策略

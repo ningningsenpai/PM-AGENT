@@ -68,6 +68,7 @@ class UserContext(BaseModel):
 class AgentChatRequest(BaseModel):
     """Agent 对话请求 —— 前端传递的完整数据结构。"""
 
+    trace_id: str = Field(..., description="Java 模块传入的链路追踪 ID")
     conversation_id: int = Field(
         ...,
         description="会话 ID；前端传递已有ID，或者在Java模块落库时生成"

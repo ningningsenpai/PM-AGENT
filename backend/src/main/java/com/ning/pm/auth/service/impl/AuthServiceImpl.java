@@ -10,7 +10,9 @@ import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.user.converter.UserConverter;
 import com.ning.pm.user.domain.User;
+import com.ning.pm.user.domain.UserStatus;
 import com.ning.pm.user.service.UserService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,27 +26,21 @@ import java.util.Locale;
  * @date 2026-06-08
  */
 @Service
+@RequiredArgsConstructor
 public class AuthServiceImpl implements com.ning.pm.auth.service.AuthService {
-
-    private static final String STATUS_ENABLED = "enabled";
 
     private final UserService userService;
     private final UserConverter userConverter;
 
-    public AuthServiceImpl(UserService userService, UserConverter userConverter) {
-        this.userService = userService;
-        this.userConverter = userConverter;
-    }
-
-    /**
-     * 注册后直接建立登录态，便于第 1 阶段前端完成最小闭环。
-     */
+    /** 注册用户，并在成功后直接建立登录态。 */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LoginResponse register(RegisterRequest request) {
         String username = normalizeUsername(request.username());
+        String email = normalizeEmail(request.email());
         String passwordHash = BCrypt.hashpw(request.password(), BCrypt.gensalt());
-        User user = userService.createUser(request, username, passwordHash);
+        LocalDateTime lastLoginAt = LocalDateTime.now();
+        User user = userService.createUser(request, username, email, passwordHash, lastLoginAt);
         StpUtil.login(user.getId());
         return buildLoginResponse(user);
     }
@@ -52,12 +48,12 @@ public class AuthServiceImpl implements com.ning.pm.auth.service.AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LoginResponse login(LoginRequest request) {
-        String username = normalizeUsername(request.username());
-        User user = userService.findActiveUserByUsername(username);
+        String email = normalizeEmail(request.email());
+        User user = userService.findByEmail(email);
         if (user == null || !BCrypt.checkpw(request.password(), user.getPasswordHash())) {
             throw new BizException(ErrorCode.AUTH_LOGIN_FAILED);
         }
-        if (!STATUS_ENABLED.equals(user.getStatus())) {
+        if (user.getStatus() != UserStatus.ENABLED) {
             throw new BizException(ErrorCode.USER_DISABLED);
         }
 
@@ -79,5 +75,9 @@ public class AuthServiceImpl implements com.ning.pm.auth.service.AuthService {
 
     private String normalizeUsername(String username) {
         return username.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

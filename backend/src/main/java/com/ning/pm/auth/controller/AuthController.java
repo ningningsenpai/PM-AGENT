@@ -8,8 +8,8 @@ import com.ning.pm.auth.service.AuthService;
 import com.ning.pm.common.auth.CurrentUserHolder;
 import com.ning.pm.common.response.R;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,33 +23,28 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/auth")
+@Slf4j
+@RequiredArgsConstructor
 public class AuthController {
-
-    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthService authService;
     private final CurrentUserHolder currentUserHolder;
 
-    public AuthController(AuthService authService, CurrentUserHolder currentUserHolder) {
-        this.authService = authService;
-        this.currentUserHolder = currentUserHolder;
-    }
-
-    /** 注册新用户并返回登录态。 */
+    /** 注册用户并返回登录态。 */
     @PostMapping("/register")
     public R<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
-        log.info("收到用户注册请求 username={}", request.username());
+        log.info("开始注册用户");
         LoginResponse response = authService.register(request);
-        log.info("用户注册成功 userId={}, username={}", response.user().id(), response.user().username());
+        log.info("用户注册成功 userId={}", response.user().id());
         return R.success(response);
     }
 
-    /** 校验账号密码并返回登录态。 */
+    /** 校验邮箱和密码并返回登录态。 */
     @PostMapping("/login")
     public R<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        log.info("收到登录请求 username={}", request.username());
+        log.info("开始登录");
         LoginResponse response = authService.login(request);
-        log.info("用户登录成功 userId={}, username={}", response.user().id(), response.user().username());
+        log.info("用户登录成功 userId={}", response.user().id());
         return R.success(response);
     }
 
@@ -59,7 +54,7 @@ public class AuthController {
     public R<Void> logout() {
         Long userId = currentUserHolder.requireUserId();
         authService.logout();
-        log.info("用户退出登录 userId={}", userId);
+        log.info("退出登录成功 userId={}", userId);
         return R.success(null);
     }
 }

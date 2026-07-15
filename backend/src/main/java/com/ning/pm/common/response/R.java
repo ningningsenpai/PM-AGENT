@@ -3,7 +3,10 @@ package com.ning.pm.common.response;
 import com.ning.pm.common.trace.TraceContext;
 
 /**
- * 统一接口响应结构。
+ * R 定义包含错误码、消息、数据和 traceId 的统一响应结构。
+ *
+ * @author ning
+ * @date 2026-07-12
  */
 public record R<T>(Integer code, String message, T data, String traceId) {
 
