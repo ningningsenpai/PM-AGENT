@@ -18,7 +18,9 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public enum ProjectStatus {
 
+    INITIALIZING("initializing", "初始化中"),
     ACTIVE("active", "启用"),
+    INIT_FAILED("init_failed", "初始化失败"),
     DISABLED("disabled", "停用"),
     DELETING("deleting", "删除中"),
     DELETE_FAILED("delete_failed", "删除失败");

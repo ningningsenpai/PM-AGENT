@@ -19,12 +19,8 @@ import com.ning.pm.project.dto.ProjectResponse;
 import com.ning.pm.project.repository.ProjectMapper;
 import com.ning.pm.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
@@ -36,7 +32,6 @@ import java.util.List;
  * @date 2026-07-12
  */
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class ProjectServiceImpl implements ProjectService {
 
@@ -48,17 +43,30 @@ public class ProjectServiceImpl implements ProjectService {
     private final FileStorageLocationFactory locationFactory;
     private final ObjectStorageService objectStorageService;
     private final PlatformTransactionManager transactionManager;
+    private final ProjectInitializationPersistenceService initializationPersistenceService;
 
     @Override
-    @Transactional(timeout = 35)
     public ProjectResponse createProject(CreateProjectRequest request) {
         Project project = projectConverter.toEntity(request);
         project.setProjectName(request.projectName().trim());
         project.setOwnerUserId(currentUserHolder.requireUserId());
+        project.setStatus(ProjectStatus.INITIALIZING);
+        initializationPersistenceService.insertInitializing(project);
+        try {
+            projectIndexService.initialize(project);
+        } catch (RuntimeException exception) {
+            try {
+                initializationPersistenceService.markInitFailed(project.getId());
+            } catch (RuntimeException persistenceException) {
+                exception.addSuppressed(persistenceException);
+            }
+            throw exception;
+        }
+        if (!initializationPersistenceService.markActive(project.getId())) {
+            initializationPersistenceService.markInitFailed(project.getId());
+            throw new SystemException(ErrorCode.PROJECT_INDEX_INIT_FAILED, "项目初始化状态落库失败");
+        }
         project.setStatus(ProjectStatus.ACTIVE);
-        projectMapper.insert(project);
-        registerIndexRollbackCompensation(project);
-        projectIndexService.initialize(project);
         return projectConverter.toResponse(project);
     }
 
@@ -130,25 +138,6 @@ public class ProjectServiceImpl implements ProjectService {
         }
     }
 
-    private void registerIndexRollbackCompensation(Project project) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            throw new SystemException(ErrorCode.SYSTEM_ERROR, "项目创建事务未启用");
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                    return;
-                }
-                try {
-                    projectIndexService.removeInitialIndexWithRetry(project);
-                } catch (RuntimeException exception) {
-                    log.error("项目创建回滚后清理初始索引失败 projectId={}", project.getId(), exception);
-                }
-            }
-        });
-    }
-
     private Project requireOwnedProjectForDelete(Long projectId) {
         Project project = projectMapper.selectById(projectId);
         Long userId = currentUserHolder.requireUserId();
@@ -156,6 +145,7 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BizException(ErrorCode.PROJECT_NOT_FOUND);
         }
         boolean deletable = project.getStatus() == ProjectStatus.ACTIVE
+                || project.getStatus() == ProjectStatus.INIT_FAILED
                 || project.getStatus() == ProjectStatus.DELETING
                 || project.getStatus() == ProjectStatus.DELETE_FAILED;
         if (!deletable) {
@@ -169,6 +159,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .eq(Project::getId, project.getId())
                 .in(Project::getStatus,
                         ProjectStatus.ACTIVE,
+                        ProjectStatus.INIT_FAILED,
                         ProjectStatus.DELETING,
                         ProjectStatus.DELETE_FAILED)
                 .set(Project::getStatus, ProjectStatus.DELETING));

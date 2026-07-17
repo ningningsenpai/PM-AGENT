@@ -6,18 +6,22 @@ import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BaseException;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.common.exception.SystemException;
+import com.ning.pm.file.analysis.AgentFileAnalysisProperties;
+import com.ning.pm.file.analysis.FileDetailTaskPublisher;
+import com.ning.pm.file.batch.ProjectFileIngestBatchService;
 import com.ning.pm.file.converter.ProjectFileConverter;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.dto.*;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
+import com.ning.pm.file.enums.ProjectFileAnalysisStatus;
+import com.ning.pm.file.enums.ProjectFileUploadStatus;
 import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
 import com.ning.pm.file.service.FileStorageLocationFactory;
 import com.ning.pm.file.service.FileOperationMetadata;
 import com.ning.pm.file.service.ProjectFileUploadValidator;
 import com.ning.pm.file.service.ProjectFileService;
-import com.ning.pm.infrastructure.messaging.rabbitmq.publisher.FileEventPublisher;
 import com.ning.pm.infrastructure.redis.RedisIdempotencyGuard;
 import com.ning.pm.infrastructure.storage.MinioProperties;
 import com.ning.pm.infrastructure.storage.ObjectStorageService;
@@ -57,8 +61,10 @@ public class ProjectFileServiceImpl implements ProjectFileService {
     private final ObjectStorageService objectStorageService;
     private final MinioProperties minioProperties;
     private final RedisIdempotencyGuard idempotencyGuard;
-    private final FileEventPublisher fileEventPublisher;
     private final ProjectIndexService projectIndexService;
+    private final AgentFileAnalysisProperties analysisProperties;
+    private final FileDetailTaskPublisher fileDetailTaskPublisher;
+    private final ProjectFileIngestBatchService ingestBatchService;
 
     /** 首次上传持久化稳定存储标识，并在累计三次失败后保留失败记录。 */
     @Override
@@ -69,6 +75,9 @@ public class ProjectFileServiceImpl implements ProjectFileService {
     ) {
         // 文件信息以及位置初步校验
         Project project = projectService.requireOwnedProject(projectId);
+        if (request.getIngestBatchId() != null) {
+            ingestBatchService.requireUploadingBatch(projectId, request.getIngestBatchId());
+        }
         requirePublicBusiness(request.getBusinessCode());
         FileOperationMetadata metadata = prepareMetadata(
                 request.getRelativePath(),
@@ -87,16 +96,30 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         ProjectFile file = fileConverter.toEntity(request);
         applyMetadata(file, metadata);
         file.setProjectId(projectId);
+        file.setIngestBatchId(request.getIngestBatchId());
         file.setStorageUuid(locationFactory.createStorageUuid());
-        // locationFactory 返回的为 StorageLocation对象，使用 .objectKey() 获取 objectKey 对象
-        file.setObjectKey(locationFactory.buildRegularFile(
+        StorageLocation storageLocation = locationFactory.buildRegularFile(
                 project.getOwnerUserId(),
                 projectId,
                 request.getBusinessCode(),
                 metadata.fileName(),
                 file.getStorageUuid()
-        ).objectKey());
+        );
+        file.setStorageName(locationFactory.buildStorageName(metadata.fileName(), file.getStorageUuid()));
+        file.setObjectKey(storageLocation.objectKey());
+        file.setMinioPath(locationFactory.relativeObjectPath(
+                project.getOwnerUserId(),
+                projectId,
+                storageLocation.objectKey()
+        ));
         file.setStatus(ProjectFileStatus.UPLOADING);
+        file.setUploadStatus(ProjectFileUploadStatus.RETRYING);
+        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
+        file.setAnalysisVersion(analysisProperties.getAnalysisVersion());
+        file.setDetailRef("system/file_details/" + file.getStorageName());
+        file.setAnalysisAttempts(0);
+        file.setUploadCompletionRecorded(false);
+        file.setAnalysisCompletionRecorded(false);
         file.setUploadAttempts(0);
         file.setLockVersion(0);
         try {
@@ -106,13 +129,25 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         }
         try {
             uploadNewFileWithRetry(file, metadata);
-            publishParsingEvent(file);
-            projectIndexService.rebuild(project);
+            if (file.getIngestBatchId() == null) {
+                publishParsingEvent(file);
+                projectIndexService.rebuild(project);
+            } else {
+                ingestBatchService.recordUploadTerminal(file, true);
+            }
             return fileConverter.toResponse(file);
         } catch (RuntimeException exception) {
             if (file.getStatus() == ProjectFileStatus.UPLOAD_FAILED
                     || file.getStatus() == ProjectFileStatus.VERIFY_REQUIRED) {
-                rebuildIndexPreservingFailure(project, exception);
+                if (file.getIngestBatchId() == null) {
+                    rebuildIndexPreservingFailure(project, exception);
+                } else {
+                    try {
+                        ingestBatchService.recordUploadTerminal(file, false);
+                    } catch (RuntimeException batchException) {
+                        exception.addSuppressed(batchException);
+                    }
+                }
             }
             throw exception;
         }
@@ -169,6 +204,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 continue;
             }
             finalizeOverwrite(file, metadata, claimedVersion);
+            publishParsingEvent(file);
             projectIndexService.rebuild(project);
             return fileConverter.toResponse(file);
         }
@@ -207,11 +243,13 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         );
         if (file.getFileName().equals(fileName)) {
             updateLogicalPath(file, relativePath, fileName, pathHash, quickFingerprint, request);
+            publishParsingEvent(file);
             projectIndexService.rebuild(project);
             return fileConverter.toResponse(file);
         }
 
         StorageLocation source = locationOf(file);
+        String previousDetailRef = file.getDetailRef();
         StorageLocation target = locationFactory.buildRegularFile(
                 project.getOwnerUserId(),
                 projectId,
@@ -219,6 +257,13 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 fileName,
                 file.getStorageUuid()
         );
+        String storageName = locationFactory.buildStorageName(fileName, file.getStorageUuid());
+        String minioPath = locationFactory.relativeObjectPath(
+                project.getOwnerUserId(),
+                projectId,
+                target.objectKey()
+        );
+        String detailRef = "system/file_details/" + storageName;
         int claimedVersion = claimForRename(file, request.lockVersion());
         try {
             objectStorageService.copyObject(source, target);
@@ -236,7 +281,20 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .set(ProjectFile::getPathHash, pathHash)
                 .set(ProjectFile::getFileName, fileName)
                 .set(ProjectFile::getExtension, fingerprintService.extension(fileName))
+                .set(ProjectFile::getStorageName, storageName)
                 .set(ProjectFile::getObjectKey, target.objectKey())
+                .set(ProjectFile::getMinioPath, minioPath)
+                .set(ProjectFile::getDetailRef, detailRef)
+                .set(ProjectFile::getIngestBatchId, null)
+                .set(ProjectFile::getUploadCompletionRecorded, false)
+                .set(ProjectFile::getAnalysisCompletionRecorded, false)
+                .set(ProjectFile::getAnalysisStatus, ProjectFileAnalysisStatus.PENDING)
+                .set(ProjectFile::getAnalysisModule, null)
+                .set(ProjectFile::getAnalysisKind, null)
+                .set(ProjectFile::getAnalysisLanguage, null)
+                .set(ProjectFile::getAnalysisImportance, null)
+                .set(ProjectFile::getAnalysisSummary, null)
+                .set(ProjectFile::getAnalysisKeywords, null)
                 .set(ProjectFile::getSourceMtimeMs, request.sourceMtimeMs())
                 .set(ProjectFile::getQuickFingerprint, quickFingerprint)
                 .set(ProjectFile::getStatus, ProjectFileStatus.ACTIVE));
@@ -249,7 +307,14 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setPathHash(pathHash);
         file.setFileName(fileName);
         file.setExtension(fingerprintService.extension(fileName));
+        file.setStorageName(storageName);
         file.setObjectKey(target.objectKey());
+        file.setMinioPath(minioPath);
+        file.setDetailRef(detailRef);
+        file.setIngestBatchId(null);
+        file.setUploadCompletionRecorded(false);
+        file.setAnalysisCompletionRecorded(false);
+        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
         file.setSourceMtimeMs(request.sourceMtimeMs());
         file.setQuickFingerprint(quickFingerprint);
         file.setLockVersion(claimedVersion);
@@ -267,6 +332,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
             rebuildIndexPreservingFailure(project, renameException);
             throw renameException;
         }
+        fileDetailTaskPublisher.publish(file, previousDetailRef);
         projectIndexService.rebuild(project);
         return fileConverter.toResponse(file);
     }
@@ -331,6 +397,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         RuntimeException lastException = null;
         for (int attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
             file.setStatus(ProjectFileStatus.UPLOADING);
+            file.setUploadStatus(ProjectFileUploadStatus.RETRYING);
             file.setUploadAttempts(attempt);
             fileMapper.updateById(file);
             try {
@@ -340,6 +407,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                         metadata.contentType()
                 );
                 file.setStatus(ProjectFileStatus.ACTIVE);
+                file.setUploadStatus(ProjectFileUploadStatus.SUCCESS);
                 clearUploadFailure(file);
                 fileMapper.updateById(file);
                 return;
@@ -348,6 +416,9 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 file.setStatus(attempt < MAX_UPLOAD_ATTEMPTS
                         ? ProjectFileStatus.VERIFY_REQUIRED
                         : ProjectFileStatus.UPLOAD_FAILED);
+                file.setUploadStatus(attempt < MAX_UPLOAD_ATTEMPTS
+                        ? ProjectFileUploadStatus.RETRYING
+                        : ProjectFileUploadStatus.FAILED);
                 applyUploadFailure(file, attempt, exception);
                 fileMapper.updateById(file);
             }
@@ -380,6 +451,16 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .set(ProjectFile::getExtension, fingerprintService.extension(fileName))
                 .set(ProjectFile::getSourceMtimeMs, request.sourceMtimeMs())
                 .set(ProjectFile::getQuickFingerprint, quickFingerprint)
+                .set(ProjectFile::getIngestBatchId, null)
+                .set(ProjectFile::getUploadCompletionRecorded, false)
+                .set(ProjectFile::getAnalysisCompletionRecorded, false)
+                .set(ProjectFile::getAnalysisStatus, ProjectFileAnalysisStatus.PENDING)
+                .set(ProjectFile::getAnalysisModule, null)
+                .set(ProjectFile::getAnalysisKind, null)
+                .set(ProjectFile::getAnalysisLanguage, null)
+                .set(ProjectFile::getAnalysisImportance, null)
+                .set(ProjectFile::getAnalysisSummary, null)
+                .set(ProjectFile::getAnalysisKeywords, null)
                 .set(ProjectFile::getLockVersion, request.lockVersion() + 1));
         if (updated == 0) {
             throw new BizException(ErrorCode.FILE_BUSY);
@@ -390,6 +471,10 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setExtension(fingerprintService.extension(fileName));
         file.setSourceMtimeMs(request.sourceMtimeMs());
         file.setQuickFingerprint(quickFingerprint);
+        file.setIngestBatchId(null);
+        file.setUploadCompletionRecorded(false);
+        file.setAnalysisCompletionRecorded(false);
+        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
         file.setLockVersion(request.lockVersion() + 1);
     }
 
@@ -433,11 +518,13 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                         ProjectFileStatus.UPDATING,
                         ProjectFileStatus.VERIFY_REQUIRED)
                 .set(ProjectFile::getStatus, ProjectFileStatus.UPDATING)
+                .set(ProjectFile::getUploadStatus, ProjectFileUploadStatus.RETRYING)
                 .set(ProjectFile::getUploadAttempts, attempt));
         if (updated == 0) {
             throw new BizException(ErrorCode.FILE_BUSY);
         }
         file.setStatus(ProjectFileStatus.UPDATING);
+        file.setUploadStatus(ProjectFileUploadStatus.RETRYING);
         file.setUploadAttempts(attempt);
     }
 
@@ -455,11 +542,17 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .eq(ProjectFile::getId, file.getId())
                 .eq(ProjectFile::getLockVersion, claimedVersion)
                 .set(ProjectFile::getStatus, status)
+                .set(ProjectFile::getUploadStatus, attempt < MAX_UPLOAD_ATTEMPTS
+                        ? ProjectFileUploadStatus.RETRYING
+                        : ProjectFileUploadStatus.FAILED)
                 .set(ProjectFile::getUploadAttempts, attempt)
                 .set(ProjectFile::getLastErrorCode, errorCode)
                 .set(ProjectFile::getLastErrorMessage, errorMessage)
                 .set(ProjectFile::getLastFailedAt, failedAt));
         file.setStatus(status);
+        file.setUploadStatus(attempt < MAX_UPLOAD_ATTEMPTS
+                ? ProjectFileUploadStatus.RETRYING
+                : ProjectFileUploadStatus.FAILED);
         file.setUploadAttempts(attempt);
         file.setLastErrorCode(errorCode);
         file.setLastErrorMessage(errorMessage);
@@ -662,6 +755,20 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .set(ProjectFile::getSourceMtimeMs, metadata.sourceMtimeMs())
                 .set(ProjectFile::getQuickFingerprint, metadata.quickFingerprint())
                 .set(ProjectFile::getContentHash, metadata.contentHash())
+                .set(ProjectFile::getIngestBatchId, null)
+                .set(ProjectFile::getUploadCompletionRecorded, false)
+                .set(ProjectFile::getAnalysisCompletionRecorded, false)
+                .set(ProjectFile::getUploadStatus, ProjectFileUploadStatus.SUCCESS)
+                .set(ProjectFile::getAnalysisStatus, ProjectFileAnalysisStatus.PENDING)
+                .set(ProjectFile::getAnalysisVersion, analysisProperties.getAnalysisVersion())
+                .set(ProjectFile::getAnalysisModule, null)
+                .set(ProjectFile::getAnalysisKind, null)
+                .set(ProjectFile::getAnalysisLanguage, null)
+                .set(ProjectFile::getAnalysisImportance, null)
+                .set(ProjectFile::getAnalysisSummary, null)
+                .set(ProjectFile::getAnalysisKeywords, null)
+                .set(ProjectFile::getAnalysisErrorCode, null)
+                .set(ProjectFile::getAnalysisErrorMessage, null)
                 .set(ProjectFile::getLastErrorCode, null)
                 .set(ProjectFile::getLastErrorMessage, null)
                 .set(ProjectFile::getLastFailedAt, null)
@@ -671,6 +778,12 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         }
         applyMetadata(file, metadata);
         file.setStatus(ProjectFileStatus.ACTIVE);
+        file.setIngestBatchId(null);
+        file.setUploadCompletionRecorded(false);
+        file.setAnalysisCompletionRecorded(false);
+        file.setUploadStatus(ProjectFileUploadStatus.SUCCESS);
+        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
+        file.setAnalysisVersion(analysisProperties.getAnalysisVersion());
         clearUploadFailure(file);
     }
 
@@ -745,6 +858,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
      * @param file 文件
      */
     private void publishParsingEvent(ProjectFile file) {
-
+        fileDetailTaskPublisher.publish(file);
     }
 }

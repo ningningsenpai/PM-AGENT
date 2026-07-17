@@ -3,7 +3,7 @@ package com.ning.pm.project.context;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.SystemException;
-import com.ning.pm.project.context.dto.ProjectIndex;
+import com.ning.pm.project.context.dto.ProjectIndexTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * ProjectIndexTemplateLoader 每次从固定模板反序列化新的索引对象，避免修改共享模板状态。
+ * ProjectIndexTemplateLoader 读取项目上下文索引的版本化模板配置。
  *
  * @author ning
  * @date 2026-07-15
@@ -25,11 +25,18 @@ public class ProjectIndexTemplateLoader {
 
     private final ObjectMapper objectMapper;
 
-    // 返回
-    public ProjectIndex load() {
+    /** 读取并校验索引格式版本配置。 */
+    public ProjectIndexTemplate load() {
         ClassPathResource resource = new ClassPathResource(TEMPLATE_PATH);
         try (InputStream inputStream = resource.getInputStream()) {
-            return objectMapper.readValue(inputStream, ProjectIndex.class);
+            ProjectIndexTemplate template = objectMapper.readValue(inputStream, ProjectIndexTemplate.class);
+            if (template.schemaVersion() == null || template.schemaVersion().isBlank()) {
+                throw new SystemException(
+                        ErrorCode.PROJECT_INDEX_INIT_FAILED,
+                        "项目上下文索引模板缺少schema_version"
+                );
+            }
+            return template;
         } catch (IOException exception) {
             throw new SystemException(
                     ErrorCode.PROJECT_INDEX_INIT_FAILED,

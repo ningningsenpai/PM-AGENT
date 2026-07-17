@@ -553,37 +553,40 @@ life.json：生活类偏好，项目 Agent 默认不主动读取。
 
 ```text
 file_details/
-  backend/
-    auth/
-      file-backend-auth-controller.json
-      file-backend-auth-service.json
-    project/
-      file-backend-project-service.json
-  frontend/
-    auth/
-      file-frontend-login-page.json
-  agent-service/
-    project-context/
-      file-agent-project-context-scanner.json
-  _archive/
-    deleted/
-    stale/
+  AuthController-a1b2c3d4e5f67890.java
+  LoginPage-b1c2d3e4f5a67890.vue
+  README-c1d2e3f4a5b67890.md
 ```
+
+详情对象名与源文件 `storage_name` 完全一致，固定引用为 `system/file_details/{storage_name}`。扩展名表示源文件类型，详情对象内容本身始终是 JSON。
 
 ### 10.3 结构
 
 ```json
 {
-  "id": "file-backend-auth-controller",
-  "project_id": "local-pm-agent-001",
+  "id": "file-30",
+  "project_id": 10,
+  "file_id": 30,
   "schema_version": "1.0.0",
+  "analysis_version": "file-detail-v1",
+  "generated_at": "2026-07-02T00:00:00",
+  "updated_at": "2026-07-02T00:00:00",
+  "storage_uuid": "a1b2c3d4e5f67890",
+  "storage_name": "AuthController-a1b2c3d4e5f67890.java",
+  "detail_ref": "system/file_details/AuthController-a1b2c3d4e5f67890.java",
   "original_path": "backend/src/main/java/com/ning/pm/auth/controller/AuthController.java",
+  "minio_path": "project/AuthController-a1b2c3d4e5f67890.java",
+  "size_bytes": 4096,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:xxx",
   "module": "backend-auth",
+  "kind": "api",
   "file_type": "code.backend.java",
   "language": "java",
   "status": "active",
   "importance": "high",
-  "content_hash": "sha256:xxx",
+  "summary": "认证模块的 HTTP 接口入口",
+  "keywords": ["认证", "登录", "Sa-Token"],
   "role": "提供认证相关 HTTP 接口入口，负责登录、注册和当前用户查询。",
   "content_slices": [
     {
@@ -621,17 +624,23 @@ file_details/
       "reason": "文件内容变化后重新生成详情"
     }
   ],
-  "updated_at": "2026-07-02T00:00:00"
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "deterministic-file-detail-v1",
+    "sampled": false,
+    "parsed_lines": 120
+  }
 }
 ```
+
+其中 `module`、`kind`、`language`、`importance`、`summary`、`keywords` 是 `index.json` 的顶层投影来源；它们只是完整详情的一部分，不能替代 `role`、`content_slices`、关联、风险、证据和版本信息。
 
 ### 10.4 生成范围
 
 ```text
-所有可见文件进入 index.json entries。
-高价值文件生成 file_details JSON。
-file_details 按模块分目录管理。
-删除或长期不活跃的详情进入 _archive。
+所有成功上传文件进入 index.json 的 project 或 user 数组。
+成功上传文件生成 file_details JSON。
+file_details 使用 storage_name 作为稳定对象名。
 index.json 通过 detail_ref 指向对应 file_details JSON。
 ```
 
@@ -639,10 +648,11 @@ index.json 通过 detail_ref 指向对应 file_details JSON。
 
 | `index.json` | `file_details` | 说明 |
 |---|---|---|
-| `entries[].id` | `id` | 必须一致 |
-| `entries[].path` | `original_path` | 文件移动后两者同步更新 |
-| `entries[].content_hash` | `content_hash` | 必须一致，否则详情已过期 |
-| `entries[].detail_ref` | 文件路径 | 用于读取该详情文件 |
+| `project[].id` / `user[].id` | `file_id` | 必须一致 |
+| `project[].logical_path` / `user[].logical_path` | `original_path` | 文件移动后同步更新 |
+| `project[].content_hash` / `user[].content_hash` | `content_hash` | 必须一致，否则详情已过期 |
+| `project[].detail_ref` / `user[].detail_ref` | `detail_ref` | 用于读取该详情文件 |
+| 六个详情投影字段 | 同名顶层字段 | Java 从 MySQL 批量回填索引，不逐个读取详情对象 |
 
 ## 11. project_specification.json
 

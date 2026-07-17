@@ -69,7 +69,7 @@ class ProjectIndexWriterTest {
                         "PM-AGENT/1/10/",
                         "system/index.json"
                 ),
-                new ProjectIndex.Summary(0, 0, 0, 0, 0, 0),
+                new ProjectIndex.Summary(0, 0, 0),
                 List.of(),
                 List.of(),
                 List.of(),

@@ -51,6 +51,10 @@ knife4j:
   enable: true
 
 pm-agent:
+  agent-service:
+    internal-token: ${PM_AGENT_INTERNAL_SERVICE_TOKEN:pm-agent-dev-internal-token}
+    backend-base-url: ${PM_AGENT_BACKEND_INTERNAL_BASE_URL:http://localhost:8080}
+    analysis-version: ${PM_AGENT_FILE_DETAIL_ANALYSIS_VERSION:file-detail-v1}
   file:
     validation:
       # 按完整目录名精确匹配，不会把 contest 误判为 test

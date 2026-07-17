@@ -72,6 +72,8 @@ Python FastAPI Agent 服务
 | Python Agent | Prompt、模型调用、工具选择、流式输出、Trace 协作 |
 | LLM | 意图识别、总结、拆解、解释、报告生成 |
 
+项目文件详细解析是受控的异步 Agent 能力：Java 通过 RabbitMQ 发送文件 ID、内容哈希、存储名和短期 MinIO 读取地址；Python 先做确定性结构解析，可选使用项目上下文模型增强，并以 Pydantic 校验完整详情。详情中的六个索引投影字段不能替代职责、内容切片、实体、关联、风险和证据等完整语义。Python 解析后通过 HTTP 回调 Java，不直接写 MySQL、MinIO 索引或业务状态。完整链路见 [19-项目上下文索引与MinIO存储设计.md](./19-项目上下文索引与MinIO存储设计.md)。
+
 ---
 
 ## 5. 模型调用策略

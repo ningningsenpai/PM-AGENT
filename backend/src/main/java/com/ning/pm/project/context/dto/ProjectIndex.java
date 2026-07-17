@@ -41,10 +41,7 @@ public record ProjectIndex(
     public record Summary(
             long totalNodes,
             long activeFiles,
-            long ignoredNodes,
-            long failedFiles,
-            long pendingAnalysisFiles,
-            long detailFiles
+            long failNodes
     ) {
     }
 

@@ -3,6 +3,7 @@ package com.ning.pm.file.dto;
 import com.ning.pm.file.enums.FileBusinessType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +18,9 @@ import org.springframework.web.multipart.MultipartFile;
 @Getter
 @Setter
 public class CreateProjectFileRequest {
+
+    @Positive(message = "文件导入批次 ID 必须大于0")
+    private Long ingestBatchId;
 
     @NotNull(message = "文件业务类型不能为空")
     private FileBusinessType businessCode;

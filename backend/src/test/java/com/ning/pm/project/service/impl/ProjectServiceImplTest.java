@@ -10,25 +10,26 @@ import com.ning.pm.project.domain.Project;
 import com.ning.pm.project.dto.CreateProjectRequest;
 import com.ning.pm.project.dto.ProjectResponse;
 import com.ning.pm.project.repository.ProjectMapper;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.ning.pm.common.errorcode.ErrorCode;
+import com.ning.pm.common.exception.SystemException;
+import com.ning.pm.project.domain.ProjectStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 
 /**
- * ProjectServiceImplTest 验证项目创建索引初始化和事务回滚补偿。
+ * ProjectServiceImplTest 验证项目创建时数据库事务与 MinIO 初始化分离。
  *
  * @author ning
  * @date 2026-07-15
@@ -52,22 +53,14 @@ class ProjectServiceImplTest {
     private ObjectStorageService objectStorageService;
     @Mock
     private PlatformTransactionManager transactionManager;
+    @Mock
+    private ProjectInitializationPersistenceService initializationPersistenceService;
 
     @InjectMocks
     private ProjectServiceImpl service;
 
-    @BeforeEach
-    void setUpTransactionSynchronization() {
-        TransactionSynchronizationManager.initSynchronization();
-    }
-
-    @AfterEach
-    void clearTransactionSynchronization() {
-        TransactionSynchronizationManager.clearSynchronization();
-    }
-
     @Test
-    void rollbackShouldCompensateInitialIndex() {
+    void createShouldInitializeIndexOutsidePersistenceStepAndActivateProject() {
         CreateProjectRequest request = new CreateProjectRequest("PM-Agent");
         Project project = new Project();
         when(projectConverter.toEntity(request)).thenReturn(project);
@@ -75,8 +68,9 @@ class ProjectServiceImplTest {
         doAnswer(invocation -> {
             Project inserted = invocation.getArgument(0);
             inserted.setId(10L);
-            return 1;
-        }).when(projectMapper).insert(any(Project.class));
+            return null;
+        }).when(initializationPersistenceService).insertInitializing(any(Project.class));
+        when(initializationPersistenceService.markActive(10L)).thenReturn(true);
         when(projectConverter.toResponse(project)).thenReturn(new ProjectResponse(
                 10L,
                 "PM-Agent",
@@ -86,13 +80,27 @@ class ProjectServiceImplTest {
         ));
 
         ProjectResponse response = service.createProject(request);
-        TransactionSynchronization synchronization = TransactionSynchronizationManager
-                .getSynchronizations()
-                .get(0);
-        synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
 
         assertThat(response.id()).isEqualTo(10L);
+        assertThat(project.getStatus()).isEqualTo(ProjectStatus.ACTIVE);
+        verify(initializationPersistenceService).insertInitializing(project);
         verify(projectIndexService).initialize(project);
-        verify(projectIndexService).removeInitialIndexWithRetry(project);
+        verify(initializationPersistenceService).markActive(10L);
+    }
+
+    @Test
+    void initializationFailureShouldPersistFailedStatus() {
+        CreateProjectRequest request = new CreateProjectRequest("PM-Agent");
+        Project project = new Project();
+        project.setId(10L);
+        when(projectConverter.toEntity(request)).thenReturn(project);
+        when(currentUserHolder.requireUserId()).thenReturn(1L);
+        doThrow(new SystemException(ErrorCode.PROJECT_INDEX_INIT_FAILED))
+                .when(projectIndexService).initialize(project);
+
+        assertThatThrownBy(() -> service.createProject(request))
+                .isInstanceOf(SystemException.class);
+
+        verify(initializationPersistenceService).markInitFailed(10L);
     }
 }

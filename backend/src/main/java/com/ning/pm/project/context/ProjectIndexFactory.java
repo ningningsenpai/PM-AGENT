@@ -1,11 +1,14 @@
 package com.ning.pm.project.context;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
 import com.ning.pm.file.service.FileStorageLocationFactory;
 import com.ning.pm.infrastructure.storage.StorageLocation;
 import com.ning.pm.project.context.dto.ProjectIndex;
+import com.ning.pm.project.context.dto.ProjectIndexTemplate;
 import com.ning.pm.project.domain.Project;
 import com.ning.pm.project.domain.SystemFilePath;
 import lombok.RequiredArgsConstructor;
@@ -27,9 +30,10 @@ public class ProjectIndexFactory {
 
     private final ProjectIndexTemplateLoader templateLoader;
     private final FileStorageLocationFactory locationFactory;
+    private final ObjectMapper objectMapper;
 
     public ProjectIndex createInitialIndex(Project project) {
-        ProjectIndex template = templateLoader.load();
+        ProjectIndexTemplate template = templateLoader.load();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime generatedAt = project.getCreatedAt() == null ? now : project.getCreatedAt();
         return new ProjectIndex(
@@ -40,7 +44,7 @@ public class ProjectIndexFactory {
                 generatedAt,
                 now,
                 createStorage(project),
-                new ProjectIndex.Summary(0, 0, 0, 0, 0, 0),
+                new ProjectIndex.Summary(0, 0, 0),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -53,7 +57,7 @@ public class ProjectIndexFactory {
             ProjectScanSummary scanSummary,
             List<ProjectFile> files
     ) {
-        ProjectIndex template = templateLoader.load();
+        ProjectIndexTemplate template = templateLoader.load();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime generatedAt = project.getCreatedAt() == null ? now : project.getCreatedAt();
         List<ProjectIndex.FileEntry> projectFiles = activeEntries(
@@ -72,6 +76,11 @@ public class ProjectIndexFactory {
                 .map(file -> toFailure(project, file, now))
                 .toList();
         long activeFiles = projectFiles.size() + userFiles.size();
+        long analysisFailures = files.stream()
+                .filter(file -> file.getStatus() == ProjectFileStatus.ACTIVE)
+                .filter(file -> file.getAnalysisStatus() != null
+                        && "failed".equals(file.getAnalysisStatus().getCode()))
+                .count();
         return new ProjectIndex(
                 project.getId(),
                 project.getProjectName(),
@@ -83,10 +92,7 @@ public class ProjectIndexFactory {
                 new ProjectIndex.Summary(
                         scanSummary.totalNodes(),
                         activeFiles,
-                        scanSummary.ignoredNodes(),
-                        failures.size(),
-                        activeFiles,
-                        0
+                        scanSummary.scanErrorNodes() + failures.size() + analysisFailures
                 ),
                 projectFiles,
                 userFiles,
@@ -108,30 +114,41 @@ public class ProjectIndexFactory {
     }
 
     private ProjectIndex.FileEntry toFileEntry(Project project, ProjectFile file) {
+        String storageName = valueOrFallback(
+                file.getStorageName(),
+                locationFactory.buildStorageName(file.getFileName(), file.getStorageUuid())
+        );
+        String minioPath = valueOrFallback(
+                file.getMinioPath(),
+                locationFactory.relativeObjectPath(
+                        project.getOwnerUserId(),
+                        project.getId(),
+                        file.getObjectKey()
+                )
+        );
         return new ProjectIndex.FileEntry(
                 file.getId(),
                 file.getStorageUuid(),
                 file.getRelativePath(),
                 file.getFileName(),
-                locationFactory.buildStorageName(file.getFileName(), file.getStorageUuid()),
-                locationFactory.relativeObjectPath(
-                        project.getOwnerUserId(),
-                        project.getId(),
-                        file.getObjectKey()
-                ),
+                storageName,
+                minioPath,
                 file.getSizeBytes(),
                 file.getContentType(),
                 file.getStatus().getCode(),
-                "pending",
+                file.getAnalysisStatus() == null ? "pending" : file.getAnalysisStatus().getCode(),
                 prefixHash("qf:sha256:", file.getQuickFingerprint()),
                 prefixHash("sha256:", file.getContentHash()),
-                null,
-                null,
-                detectLanguage(file.getExtension()),
-                null,
-                null,
-                List.of(),
-                null,
+                file.getAnalysisModule(),
+                file.getAnalysisKind(),
+                valueOrFallback(file.getAnalysisLanguage(), detectLanguage(file.getExtension())),
+                file.getAnalysisImportance(),
+                file.getAnalysisSummary(),
+                parseKeywords(file.getAnalysisKeywords()),
+                valueOrFallback(
+                        file.getDetailRef(),
+                        systemPath(SystemFilePath.FILE_DETAILS.directoryPath()) + storageName
+                ),
                 file.getUpdatedAt()
         );
     }
@@ -185,6 +202,22 @@ public class ProjectIndexFactory {
 
     private String prefixHash(String prefix, String hash) {
         return hash == null || hash.isBlank() ? null : prefix + hash;
+    }
+
+    private List<String> parseKeywords(String keywordsJson) {
+        if (keywordsJson == null || keywordsJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(keywordsJson, new TypeReference<List<String>>() {
+            });
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private String valueOrFallback(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private String detectLanguage(String extension) {

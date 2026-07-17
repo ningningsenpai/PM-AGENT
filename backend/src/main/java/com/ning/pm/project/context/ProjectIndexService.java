@@ -33,6 +33,7 @@ public class ProjectIndexService {
     private final ObjectStorageService objectStorageService;
     private final ConcurrentHashMap<Long, ReentrantLock> projectLocks = new ConcurrentHashMap<>();
 
+    // 初始化项目上下文索引
     public void initialize(Project project) {
         ProjectIndex index = indexFactory.createInitialIndex(project);
         // MAP 定义的 projectId -> ReentrantLock 映射锁
@@ -66,6 +67,7 @@ public class ProjectIndexService {
         rebuildInternal(project, scanSummary);
     }
 
+    // 重建项目上下文索引
     private void rebuildInternal(Project project, ProjectScanSummary scanSummary) {
         ReentrantLock lock = projectLock(project.getId());
         lock.lock();

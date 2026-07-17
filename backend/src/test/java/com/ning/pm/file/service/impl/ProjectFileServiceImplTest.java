@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.ning.pm.file.converter.ProjectFileConverter;
+import com.ning.pm.file.analysis.AgentFileAnalysisProperties;
+import com.ning.pm.file.analysis.FileDetailTaskPublisher;
+import com.ning.pm.file.batch.ProjectFileIngestBatchService;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.dto.CreateProjectFileRequest;
 import com.ning.pm.file.dto.OverwriteProjectFileRequest;
@@ -17,7 +20,6 @@ import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
 import com.ning.pm.file.service.FileStorageLocationFactory;
 import com.ning.pm.file.service.ProjectFileUploadValidator;
-import com.ning.pm.infrastructure.messaging.rabbitmq.publisher.FileEventPublisher;
 import com.ning.pm.infrastructure.redis.RedisIdempotencyGuard;
 import com.ning.pm.infrastructure.storage.MinioProperties;
 import com.ning.pm.infrastructure.storage.ObjectStorageService;
@@ -87,9 +89,13 @@ class ProjectFileServiceImplTest {
     @Mock
     private RedisIdempotencyGuard idempotencyGuard;
     @Mock
-    private FileEventPublisher fileEventPublisher;
+    private FileDetailTaskPublisher fileDetailTaskPublisher;
+    @Mock
+    private ProjectFileIngestBatchService ingestBatchService;
     @Mock
     private ProjectIndexService projectIndexService;
+    @Mock
+    private AgentFileAnalysisProperties analysisProperties;
 
     @InjectMocks
     private ProjectFileServiceImpl service;
@@ -105,6 +111,10 @@ class ProjectFileServiceImplTest {
         lenient().when(fileConverter.toResponse(any(ProjectFile.class)))
                 .thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
         lenient().doReturn("a1b2c3d4e5f67890").when(locationFactory).createStorageUuid();
+        lenient().when(analysisProperties.getAnalysisVersion()).thenReturn("file-detail-v1");
+        lenient().when(analysisProperties.getBackendBaseUrl()).thenReturn("http://localhost:8080");
+        lenient().when(objectStorageService.createReadUrl(any(StorageLocation.class)))
+                .thenReturn("http://minio/read-source");
     }
 
     @Test
@@ -347,7 +357,10 @@ class ProjectFileServiceImplTest {
         file.setFileName("App.java");
         file.setExtension("java");
         file.setStorageUuid("a1b2c3d4e5f67890");
+        file.setStorageName("App-a1b2c3d4e5f67890.java");
         file.setObjectKey("PM-AGENT/10/20/project/App-a1b2c3d4e5f67890.java");
+        file.setMinioPath("project/App-a1b2c3d4e5f67890.java");
+        file.setDetailRef("system/file_details/App-a1b2c3d4e5f67890.java");
         file.setContentType("text/x-java-source");
         file.setSizeBytes((long) bytes.length);
         file.setSourceMtimeMs(1000L);
@@ -363,9 +376,12 @@ class ProjectFileServiceImplTest {
         return new ProjectFileResponse(
                 file.getId(),
                 file.getProjectId(),
+                file.getIngestBatchId(),
                 file.getBusinessCode(),
                 file.getRelativePath(),
                 file.getFileName(),
+                file.getStorageName(),
+                file.getMinioPath(),
                 file.getExtension(),
                 file.getContentType(),
                 file.getSizeBytes(),
@@ -373,6 +389,9 @@ class ProjectFileServiceImplTest {
                 file.getQuickFingerprint(),
                 file.getContentHash(),
                 file.getStatus(),
+                file.getUploadStatus(),
+                file.getAnalysisStatus(),
+                file.getDetailRef(),
                 file.getLockVersion(),
                 file.getCreatedAt(),
                 file.getUpdatedAt()
