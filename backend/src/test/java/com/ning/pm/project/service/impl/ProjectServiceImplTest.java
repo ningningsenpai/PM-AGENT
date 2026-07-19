@@ -70,7 +70,7 @@ class ProjectServiceImplTest {
             inserted.setId(10L);
             return null;
         }).when(initializationPersistenceService).insertInitializing(any(Project.class));
-        when(initializationPersistenceService.markActive(10L)).thenReturn(true);
+        when(initializationPersistenceService.markInitToActive(10L)).thenReturn(true);
         when(projectConverter.toResponse(project)).thenReturn(new ProjectResponse(
                 10L,
                 "PM-Agent",
@@ -85,7 +85,7 @@ class ProjectServiceImplTest {
         assertThat(project.getStatus()).isEqualTo(ProjectStatus.ACTIVE);
         verify(initializationPersistenceService).insertInitializing(project);
         verify(projectIndexService).initialize(project);
-        verify(initializationPersistenceService).markActive(10L);
+        verify(initializationPersistenceService).markInitToActive(10L);
     }
 
     @Test
@@ -101,6 +101,32 @@ class ProjectServiceImplTest {
         assertThatThrownBy(() -> service.createProject(request))
                 .isInstanceOf(SystemException.class);
 
-        verify(initializationPersistenceService).markInitFailed(10L);
+        verify(initializationPersistenceService).deleteProject(10L);
+    }
+
+    @Test
+    void retryFailedInitializationShouldRecreateIndexBeforeActivatingProject() {
+        CreateProjectRequest request = new CreateProjectRequest("PM-Agent");
+        Project project = new Project();
+        project.setId(10L);
+        project.setProjectName("PM-Agent");
+        project.setOwnerUserId(1L);
+        project.setStatus(ProjectStatus.INIT_FAILED);
+        when(currentUserHolder.requireUserId()).thenReturn(1L);
+        when(initializationPersistenceService.checkProject(1L, "PM-Agent")).thenReturn(project);
+        when(initializationPersistenceService.markInitFailedToActive(10L)).thenReturn(true);
+        when(projectConverter.toResponse(project)).thenReturn(new ProjectResponse(
+                10L,
+                "PM-Agent",
+                ProjectStatus.ACTIVE,
+                null,
+                null
+        ));
+
+        ProjectResponse response = service.createProject(request);
+
+        assertThat(response.status()).isEqualTo(ProjectStatus.ACTIVE);
+        verify(projectIndexService).initialize(project);
+        verify(initializationPersistenceService).markInitFailedToActive(10L);
     }
 }

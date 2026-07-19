@@ -9,6 +9,7 @@
 </template>
 
 <script setup lang="ts">
+import { NConfigProvider, NDialogProvider, NMessageProvider } from 'naive-ui'
 import type { GlobalThemeOverrides } from 'naive-ui'
 
 const productFont = 'MiSans, "HarmonyOS Sans SC", "Microsoft YaHei", Inter, sans-serif'

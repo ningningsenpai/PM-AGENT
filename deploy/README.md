@@ -9,9 +9,9 @@ PM-Agent 严格遵守“中间件按阶段引入，不一次性堆叠”的原�
 | 阶段 | 中间件 | Compose 状态 | 用途 |
 |---|---|---|---|
 | 第 1 阶段 | MySQL 8 | 默认启用 | 业务数据库 |
-| 第 2 阶段 | Redis 7 | 已启用 | Sa-Token 会话持久化与文件写请求2分钟幂等校验 |
+| 第 2 阶段 | Redis 7 | 已启用 | Sa-Token 会话持久化与现有接口缓存/幂等能力 |
 | 文件可靠上传专项 | MinIO | 已启用 | 项目文件对象存储与只读地址 |
-| 可选服务 | RabbitMQ | 基础配置已启用，暂无业务生产或消费 | 后续异步任务、通知和文件重试预留 |
+| 可选服务 | RabbitMQ | 基础配置已启用，文件上传无业务生产或消费 | 后续 Agent 异步任务和通知预留 |
 | 小型 RAG 测试 | Qdrant | 可随本地 Compose 启动 | 向量检索链路验证 |
 
 后端 Spring Boot 工程和前端 Vite 工程在第 1 阶段都不进入容器，便于本地开发。容器化打包属于后期部署阶段的话题，不在 `deploy/` 当前职责内。
@@ -230,9 +230,11 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml down -v
 
 MySQL 数据库名通过 `PM_AGENT_DB_NAME` 配置，默认值为 `pm_agent`。完整示例见 `backend/.env.example`；Spring Boot 不会自动读取该文件，使用 Maven 启动时需要在当前终端或 VS Code 启动配置中注入这些变量。
 
-Sa-Token 使用 Redis 保存登录会话。文件上传和覆盖使用 Redis 原子占位校验2分钟内的重复请求。项目自管 Redis 键的名称前缀和过期时间集中定义在 `RedisKeyDefinition`，Sa-Token 内部键名及其有效期仍由框架和 `sa-token.timeout` 管理。
+Sa-Token 使用 Redis 保存登录会话。当前批次上传不依赖 Redis，以 MySQL 中的请求 ID、批次 ID、轮次、文件事实和唯一约束作为完成与幂等事实。项目自管 Redis 键的名称前缀和过期时间集中定义在 `RedisKeyDefinition`，Sa-Token 内部键名及其有效期仍由框架和 `sa-token.timeout` 管理。
 
-RabbitMQ连接参数位于`backend/src/main/resources/config/rabbitmq.yml`，Java基础配置位于`infrastructure/messaging/rabbitmq`。当前只配置连接、发布确认和JSON消息转换，不创建业务交换机、队列或监听器。
+RabbitMQ 连接参数位于 `backend/src/main/resources/config/rabbitmq.yml`，Java 只保留连接和 JSON 消息转换等基础配置。当前文件批次上传不创建文件业务交换机、队列或监听器，不写 Transactional Outbox。
+
+文件批次从 `waiting` 进入 `processing` 时会记录开始时间。`PM_AGENT_FILE_UPLOAD_PROCESSING_TIMEOUT` 控制同幂等键的超时接管阈值，默认 `15m`；接管时当前物理批次已成功文件不会重复 PUT。`PM_AGENT_MAX_UPLOAD_FILE_SIZE` 和 `PM_AGENT_MAX_UPLOAD_REQUEST_SIZE` 默认分别为 `50MB`、`256MB`。
 
 ## 职责边界
 
@@ -270,7 +272,7 @@ Found non-empty schema(s) `pm_agent` but no schema history table
 
 ### 2. 为什么启用MinIO？
 
-项目文件模块使用MinIO保存当前文件对象。当前覆盖写失败由文件状态和上传明细保留修复依据，不依赖RabbitMQ；RabbitMQ目前只有基础连接配置，未接入文件重试或其他业务。Redis用于Sa-Token会话持久化和文件写请求2分钟幂等校验，完整异步分析、RAG和向量链路仍按原阶段控制。
+项目文件模块使用 MinIO 保存成功上传的文件对象和 `system/index.json`。当前批次上传由前端按最多 50 个文件且原始文件总大小不超过 240 MB 分批，同一轮逐批顺序调用并最多执行三轮；后端 Multipart 请求上限为 256 MB，只在当前单批内部多线程上传，失败文件在 MySQL 中保持 `not_uploaded`。全部成功或第三轮结束后，Java 同步从 MySQL 重建索引。当前链路不依赖 RabbitMQ 或 Outbox，Python 异步解析、RAG 和向量链路仍按后续阶段控制。
 
 ### 3. 为什么后端和前端不放进 Docker？
 
@@ -288,7 +290,7 @@ MySQL 初始化目录只在容器首次启动时执行一次脚本，不适合�
 - 后端启动后 Flyway 能自动执行迁移脚本；
 - 后端重启后，未过期且未退出的 Sa-Token 登录态仍然有效；
 - RabbitMQ 容器健康检查通过，管理控制台可以登录；
-- 后端能够加载RabbitMQ连接和JSON转换配置，但不自动创建业务交换机或队列；
+- 后端能够加载 RabbitMQ 连接和 JSON 转换基础配置，目标文件上传链路不创建业务交换机或队列；
 - 项目文件联调时MySQL和MinIO健康检查通过；
 - MinIO 中可查看 `pm-agent` Bucket 内的项目文件对象。
 - 将 `MIDDLEWARE_BIND_ADDRESS` 设置为 Docker 主机的 ZeroTier IP 后，授权笔记本可通过 ZeroTier 访问必要的中间件端口，其他来源不在防火墙允许范围内。

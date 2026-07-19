@@ -1,4 +1,4 @@
-package com.ning.pm.file.dto;
+package com.ning.pm.file.dto.file;
 
 import java.time.LocalDateTime;
 

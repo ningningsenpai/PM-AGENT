@@ -1,7 +1,6 @@
 package com.ning.pm.project.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ning.pm.common.auth.CurrentUserHolder;
 import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BizException;
@@ -20,8 +19,6 @@ import com.ning.pm.project.repository.ProjectMapper;
 import com.ning.pm.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
@@ -42,11 +39,29 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectIndexService projectIndexService;
     private final FileStorageLocationFactory locationFactory;
     private final ObjectStorageService objectStorageService;
-    private final PlatformTransactionManager transactionManager;
     private final ProjectInitializationPersistenceService initializationPersistenceService;
 
     @Override
     public ProjectResponse createProject(CreateProjectRequest request) {
+        Project oldProject = initializationPersistenceService.checkProject(
+                currentUserHolder.requireUserId(),
+                request.projectName().trim());
+        if (oldProject != null) {
+            // 项目存在且状态为 active -> 更改项目名称
+            if(oldProject.getStatus().equals(ProjectStatus.ACTIVE)) {
+                throw new BizException(ErrorCode.PROJECT_NAME_EXISTS, "项目名称已存在");
+            }
+            // 项目存在且状态为 init_failed -> 重新初始化 index.json 后再激活
+            if(oldProject.getStatus().equals(ProjectStatus.INIT_FAILED)) {
+                projectIndexService.initialize(oldProject);
+                if (!initializationPersistenceService.markInitFailedToActive(oldProject.getId())) {
+                    throw new SystemException(ErrorCode.PROJECT_INDEX_INIT_FAILED, "项目初始化状态落库失败");
+                }
+                oldProject.setStatus(ProjectStatus.ACTIVE);
+                return projectConverter.toResponse(oldProject);
+            }
+        }
+        // 项目不存在
         Project project = projectConverter.toEntity(request);
         project.setProjectName(request.projectName().trim());
         project.setOwnerUserId(currentUserHolder.requireUserId());
@@ -56,13 +71,14 @@ public class ProjectServiceImpl implements ProjectService {
             projectIndexService.initialize(project);
         } catch (RuntimeException exception) {
             try {
-                initializationPersistenceService.markInitFailed(project.getId());
+                // TODO : 补充 idnex.json 初始化失败的校验和补偿机制
+                initializationPersistenceService.deleteProject(project.getId());
             } catch (RuntimeException persistenceException) {
                 exception.addSuppressed(persistenceException);
             }
             throw exception;
         }
-        if (!initializationPersistenceService.markActive(project.getId())) {
+        if (!initializationPersistenceService.markInitToActive(project.getId())) {
             initializationPersistenceService.markInitFailed(project.getId());
             throw new SystemException(ErrorCode.PROJECT_INDEX_INIT_FAILED, "项目初始化状态落库失败");
         }
@@ -98,15 +114,15 @@ public class ProjectServiceImpl implements ProjectService {
     /** 删除项目根前缀下的全部对象后，在独立数据库事务中硬删除项目数据。 */
     @Override
     public void deleteProject(Long projectId) {
-        Project project = requireOwnedProjectForDelete(projectId);
-        claimProjectForDelete(project);
+        // 校验项目存在、属于当前用户且处于可用状态
+        Project project = requireOwnedProject(projectId);
+        // 校验项目根前缀下的全部对象是否存在
         try {
             objectStorageService.removeByPrefix(locationFactory.buildProjectPrefix(
                     project.getOwnerUserId(),
                     project.getId()
             ));
         } catch (RuntimeException exception) {
-            markProjectDeleteFailed(project.getId());
             throw new SystemException(
                     ErrorCode.PROJECT_DELETE_FAILED,
                     "项目对象未能全部删除",
@@ -114,63 +130,17 @@ public class ProjectServiceImpl implements ProjectService {
             );
         }
 
+        // 删除 MySQL 数据库记录
         try {
-            TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-            transactionTemplate.executeWithoutResult(status -> {
-                projectFileMapper.delete(new LambdaQueryWrapper<ProjectFile>()
-                        .eq(ProjectFile::getProjectId, project.getId()));
-                int deleted = projectMapper.deleteById(project.getId());
-                if (deleted == 0) {
-                    throw new SystemException(ErrorCode.PROJECT_DELETE_FAILED, "项目记录硬删除失败");
-                }
-            });
+            projectFileMapper.delete(new LambdaQueryWrapper<ProjectFile>()
+                    .eq(ProjectFile::getProjectId, project.getId()));
+            initializationPersistenceService.deleteProject(projectId);
         } catch (RuntimeException exception) {
-            markProjectDeleteFailed(project.getId());
-            if (exception instanceof SystemException systemException
-                    && systemException.getErrorCode() == ErrorCode.PROJECT_DELETE_FAILED) {
-                throw systemException;
-            }
             throw new SystemException(
                     ErrorCode.PROJECT_DELETE_FAILED,
                     "项目数据库记录硬删除失败",
                     exception
             );
         }
-    }
-
-    private Project requireOwnedProjectForDelete(Long projectId) {
-        Project project = projectMapper.selectById(projectId);
-        Long userId = currentUserHolder.requireUserId();
-        if (project == null || !userId.equals(project.getOwnerUserId())) {
-            throw new BizException(ErrorCode.PROJECT_NOT_FOUND);
-        }
-        boolean deletable = project.getStatus() == ProjectStatus.ACTIVE
-                || project.getStatus() == ProjectStatus.INIT_FAILED
-                || project.getStatus() == ProjectStatus.DELETING
-                || project.getStatus() == ProjectStatus.DELETE_FAILED;
-        if (!deletable) {
-            throw new BizException(ErrorCode.PROJECT_DISABLED);
-        }
-        return project;
-    }
-
-    private void claimProjectForDelete(Project project) {
-        int updated = projectMapper.update(null, new LambdaUpdateWrapper<Project>()
-                .eq(Project::getId, project.getId())
-                .in(Project::getStatus,
-                        ProjectStatus.ACTIVE,
-                        ProjectStatus.INIT_FAILED,
-                        ProjectStatus.DELETING,
-                        ProjectStatus.DELETE_FAILED)
-                .set(Project::getStatus, ProjectStatus.DELETING));
-        if (updated == 0) {
-            throw new BizException(ErrorCode.RESOURCE_CONFLICT, "项目正在被其他请求处理");
-        }
-    }
-
-    private void markProjectDeleteFailed(Long projectId) {
-        projectMapper.update(null, new LambdaUpdateWrapper<Project>()
-                .eq(Project::getId, projectId)
-                .set(Project::getStatus, ProjectStatus.DELETE_FAILED));
     }
 }

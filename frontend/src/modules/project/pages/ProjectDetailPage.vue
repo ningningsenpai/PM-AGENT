@@ -40,6 +40,8 @@
         <n-descriptions-item label="计划结束">{{ project.endDate }}</n-descriptions-item>
       </n-descriptions>
     </n-card>
+
+    <project-file-upload-card v-if="project" :project-id="projectId" />
   </div>
 </template>
 
@@ -47,6 +49,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProjectDetail } from '@/modules/project/api'
+import ProjectFileUploadCard from '@/modules/project/components/project-file-upload-card.vue'
 import type { ProjectDetail, ProjectStatus } from '@/modules/project/types'
 
 const route = useRoute()

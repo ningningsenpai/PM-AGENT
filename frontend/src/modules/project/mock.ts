@@ -1,4 +1,10 @@
-import type { CreateProjectRequest, ProjectDetail, ProjectSummary } from '@/modules/project/types'
+import type {
+  CreateProjectRequest,
+  ProjectDetail,
+  ProjectFileUploadBatchResponse,
+  ProjectSummary,
+  UploadProjectFileBatchPayload,
+} from '@/modules/project/types'
 
 const projects: ProjectDetail[] = [
   {
@@ -49,4 +55,25 @@ export async function mockCreateProject(payload: CreateProjectRequest): Promise<
 
   projects.unshift(project)
   return project
+}
+
+export async function mockUploadProjectFileBatch(
+  payload: UploadProjectFileBatchPayload,
+): Promise<ProjectFileUploadBatchResponse> {
+  return {
+    uploadRequestId: 1,
+    requestId: payload.manifest.requestId,
+    batchId: payload.batch.batchId,
+    attemptNo: payload.manifest.attemptNo,
+    batchStatus: 'completed',
+    requestStatus: 'completed',
+    totalFiles: payload.manifest.originalTotalFiles,
+    completedFiles: payload.manifest.originalTotalFiles,
+    succeededFiles: payload.manifest.originalTotalFiles,
+    batchSucceededFiles: payload.batch.fileCount,
+    batchFailedFiles: 0,
+    failedFiles: [],
+    requiresRetry: false,
+    requiresProjectUpdate: false,
+  }
 }

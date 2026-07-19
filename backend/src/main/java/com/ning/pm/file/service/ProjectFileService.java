@@ -1,17 +1,14 @@
 package com.ning.pm.file.service;
 
-import com.ning.pm.file.dto.CreateProjectFileRequest;
-import com.ning.pm.file.dto.FileReadUrlResponse;
-import com.ning.pm.file.dto.OverwriteProjectFileRequest;
-import com.ning.pm.file.dto.ProjectFileResponse;
-import com.ning.pm.file.dto.UpdateProjectFilePathRequest;
+import com.ning.pm.file.dto.file.FileReadUrlResponse;
+import com.ning.pm.file.dto.file.OverwriteProjectFileRequest;
+import com.ning.pm.file.dto.file.ProjectFileResponse;
+import com.ning.pm.file.dto.file.UpdateProjectFilePathRequest;
 import com.ning.pm.file.enums.FileBusinessType;
 
 import java.util.List;
 
 public interface ProjectFileService {
-
-    ProjectFileResponse createFile(Long projectId, String idempotencyKey, CreateProjectFileRequest request);
 
     ProjectFileResponse overwriteContent(
             Long projectId,

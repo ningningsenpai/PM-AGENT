@@ -1,4 +1,6 @@
-package com.ning.pm.file.batch;
+package com.ning.pm.file.dto.batch;
+
+import com.ning.pm.file.enums.FileIngestBatchStatus;
 
 import java.time.LocalDateTime;
 

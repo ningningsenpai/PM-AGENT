@@ -21,6 +21,8 @@ import lombok.Setter;
 public class ProjectFile extends BaseEntity {
 
     private Long projectId;
+    private Long uploadRequestId;
+    private String clientFileId;
     private Long ingestBatchId;
     private FileBusinessType businessCode;
     private String relativePath;
@@ -53,6 +55,8 @@ public class ProjectFile extends BaseEntity {
     private java.time.LocalDateTime analyzedAt;
     private Boolean uploadCompletionRecorded;
     private Boolean analysisCompletionRecorded;
+    private Integer lastUploadAttempt;
+    private Long lastUploadBatchId;
     private Integer uploadAttempts;
     private String lastErrorCode;
     private String lastErrorMessage;

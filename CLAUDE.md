@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Design authority
+
+- When the user explicitly approves a feature-specific design baseline, that approved design is the authoritative source of truth. Existing code and documentation are references only. If they conflict, follow the approved design and update all affected artifacts together.
+- For the project-file MinIO batch-upload chain, the latest user-approved design must not be overridden by legacy implementation details or historical documents.
+
 ## 语言与协作规则
 
 - 所有对话、项目文档、错误提示使用中文；代码注释也使用中文。

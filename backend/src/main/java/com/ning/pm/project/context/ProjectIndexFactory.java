@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
+import com.ning.pm.file.enums.ProjectFileUploadStatus;
 import com.ning.pm.file.service.FileStorageLocationFactory;
 import com.ning.pm.infrastructure.storage.StorageLocation;
 import com.ning.pm.project.context.dto.ProjectIndex;
@@ -71,7 +72,8 @@ public class ProjectIndexFactory {
                 FileBusinessType.USER
         );
         List<ProjectIndex.UploadFailure> failures = files.stream()
-                .filter(file -> file.getStatus() == ProjectFileStatus.UPLOAD_FAILED
+                .filter(file -> file.getUploadStatus() == ProjectFileUploadStatus.NOT_UPLOADED
+                        || file.getStatus() == ProjectFileStatus.UPLOAD_FAILED
                         || file.getStatus() == ProjectFileStatus.VERIFY_REQUIRED)
                 .map(file -> toFailure(project, file, now))
                 .toList();
@@ -109,6 +111,8 @@ public class ProjectIndexFactory {
         return files.stream()
                 .filter(file -> file.getBusinessCode() == businessType)
                 .filter(file -> file.getStatus() == ProjectFileStatus.ACTIVE)
+                .filter(file -> file.getUploadStatus() == null
+                        || file.getUploadStatus() == ProjectFileUploadStatus.SUCCESS)
                 .map(file -> toFileEntry(project, file))
                 .toList();
     }
@@ -163,12 +167,24 @@ public class ProjectIndexFactory {
                 file.getBusinessCode().getCode(),
                 file.getRelativePath(),
                 file.getFileName(),
-                locationFactory.buildStorageName(file.getFileName(), file.getStorageUuid()),
-                file.getStatus().getCode(),
+                failureStorageName(file),
+                file.getUploadStatus() == ProjectFileUploadStatus.NOT_UPLOADED
+                        ? ProjectFileUploadStatus.NOT_UPLOADED.getCode()
+                        : file.getStatus().getCode(),
                 file.getUploadAttempts(),
                 file.getLastErrorCode(),
                 file.getUpdatedAt() == null ? fallbackUpdatedAt : file.getUpdatedAt()
         );
+    }
+
+    private String failureStorageName(ProjectFile file) {
+        if (file.getStorageName() != null && !file.getStorageName().isBlank()) {
+            return file.getStorageName();
+        }
+        if (file.getStorageUuid() == null || file.getStorageUuid().isBlank()) {
+            return null;
+        }
+        return locationFactory.buildStorageName(file.getFileName(), file.getStorageUuid());
     }
 
     private ProjectIndex.Storage createStorage(Project project) {

@@ -10,7 +10,6 @@ import com.ning.pm.file.analysis.dto.FileAnalysisResultRequest;
 import com.ning.pm.file.analysis.dto.FileAnalysisResultStatus;
 import com.ning.pm.file.analysis.dto.FileDetailDocument;
 import com.ning.pm.file.analysis.dto.InternalFileReadUrlResponse;
-import com.ning.pm.file.batch.ProjectFileIngestBatchService;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.enums.ProjectFileAnalysisStatus;
 import com.ning.pm.file.enums.ProjectFileStatus;
@@ -27,7 +26,6 @@ import com.ning.pm.project.repository.ProjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -47,7 +45,6 @@ public class FileDetailAnalysisService {
     private final ProjectIndexService projectIndexService;
     private final MinioProperties minioProperties;
     private final ObjectMapper objectMapper;
-    private final ProjectFileIngestBatchService ingestBatchService;
 
     public InternalFileReadUrlResponse createReadUrl(Long projectId, Long fileId) {
         Project project = requireActiveProject(projectId);
@@ -121,7 +118,7 @@ public class FileDetailAnalysisService {
         if (updated == 0) {
             throw invalidResult("文件内容已变化，旧解析结果不能覆盖当前版本");
         }
-        finishAnalysis(project, file, true);
+        finishAnalysis(project);
     }
 
     private void saveFailure(Project project, ProjectFile file, FileAnalysisResultRequest request) {
@@ -141,15 +138,11 @@ public class FileDetailAnalysisService {
         if (updated == 0) {
             throw invalidResult("文件内容已变化，失败结果不再适用于当前版本");
         }
-        finishAnalysis(project, file, false);
+        finishAnalysis(project);
     }
 
-    private void finishAnalysis(Project project, ProjectFile file, boolean success) {
-        if (file.getIngestBatchId() == null) {
-            projectIndexService.rebuild(project);
-            return;
-        }
-        ingestBatchService.recordAnalysisTerminal(file, success);
+    private void finishAnalysis(Project project) {
+        projectIndexService.rebuild(project);
     }
 
     private void validateDetail(

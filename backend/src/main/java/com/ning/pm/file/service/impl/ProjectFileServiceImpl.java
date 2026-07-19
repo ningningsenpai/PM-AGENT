@@ -6,12 +6,11 @@ import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.BaseException;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.common.exception.SystemException;
+import com.ning.pm.common.validation.IdempotencyKeyValidator;
 import com.ning.pm.file.analysis.AgentFileAnalysisProperties;
-import com.ning.pm.file.analysis.FileDetailTaskPublisher;
-import com.ning.pm.file.batch.ProjectFileIngestBatchService;
+import com.ning.pm.file.dto.file.*;
 import com.ning.pm.file.converter.ProjectFileConverter;
 import com.ning.pm.file.domain.ProjectFile;
-import com.ning.pm.file.dto.*;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
 import com.ning.pm.file.enums.ProjectFileAnalysisStatus;
@@ -31,7 +30,6 @@ import com.ning.pm.project.domain.Project;
 import com.ning.pm.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -63,95 +61,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
     private final RedisIdempotencyGuard idempotencyGuard;
     private final ProjectIndexService projectIndexService;
     private final AgentFileAnalysisProperties analysisProperties;
-    private final FileDetailTaskPublisher fileDetailTaskPublisher;
-    private final ProjectFileIngestBatchService ingestBatchService;
-
-    /** 首次上传持久化稳定存储标识，并在累计三次失败后保留失败记录。 */
-    @Override
-    public ProjectFileResponse createFile(
-            Long projectId,
-            String idempotencyKey,
-            CreateProjectFileRequest request
-    ) {
-        // 文件信息以及位置初步校验
-        Project project = projectService.requireOwnedProject(projectId);
-        if (request.getIngestBatchId() != null) {
-            ingestBatchService.requireUploadingBatch(projectId, request.getIngestBatchId());
-        }
-        requirePublicBusiness(request.getBusinessCode());
-        FileOperationMetadata metadata = prepareMetadata(
-                request.getRelativePath(),
-                request.getSourceMtimeMs(),
-                request.getFile()
-        );
-        ensurePathAvailable(projectId, request.getBusinessCode(), metadata.pathHash(), null);
-
-        // 文件上传接口 Redis 幂等判断
-        String normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
-        requireIdempotency(
-                project.getOwnerUserId(),
-                "file:create:" + projectId + ":" + request.getBusinessCode().value(),
-                normalizedIdempotencyKey
-        );
-        ProjectFile file = fileConverter.toEntity(request);
-        applyMetadata(file, metadata);
-        file.setProjectId(projectId);
-        file.setIngestBatchId(request.getIngestBatchId());
-        file.setStorageUuid(locationFactory.createStorageUuid());
-        StorageLocation storageLocation = locationFactory.buildRegularFile(
-                project.getOwnerUserId(),
-                projectId,
-                request.getBusinessCode(),
-                metadata.fileName(),
-                file.getStorageUuid()
-        );
-        file.setStorageName(locationFactory.buildStorageName(metadata.fileName(), file.getStorageUuid()));
-        file.setObjectKey(storageLocation.objectKey());
-        file.setMinioPath(locationFactory.relativeObjectPath(
-                project.getOwnerUserId(),
-                projectId,
-                storageLocation.objectKey()
-        ));
-        file.setStatus(ProjectFileStatus.UPLOADING);
-        file.setUploadStatus(ProjectFileUploadStatus.RETRYING);
-        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
-        file.setAnalysisVersion(analysisProperties.getAnalysisVersion());
-        file.setDetailRef("system/file_details/" + file.getStorageName());
-        file.setAnalysisAttempts(0);
-        file.setUploadCompletionRecorded(false);
-        file.setAnalysisCompletionRecorded(false);
-        file.setUploadAttempts(0);
-        file.setLockVersion(0);
-        try {
-            fileMapper.insert(file);
-        } catch (DuplicateKeyException exception) {
-            throw new BizException(ErrorCode.FILE_PATH_CONFLICT);
-        }
-        try {
-            uploadNewFileWithRetry(file, metadata);
-            if (file.getIngestBatchId() == null) {
-                publishParsingEvent(file);
-                projectIndexService.rebuild(project);
-            } else {
-                ingestBatchService.recordUploadTerminal(file, true);
-            }
-            return fileConverter.toResponse(file);
-        } catch (RuntimeException exception) {
-            if (file.getStatus() == ProjectFileStatus.UPLOAD_FAILED
-                    || file.getStatus() == ProjectFileStatus.VERIFY_REQUIRED) {
-                if (file.getIngestBatchId() == null) {
-                    rebuildIndexPreservingFailure(project, exception);
-                } else {
-                    try {
-                        ingestBatchService.recordUploadTerminal(file, false);
-                    } catch (RuntimeException batchException) {
-                        exception.addSuppressed(batchException);
-                    }
-                }
-            }
-            throw exception;
-        }
-    }
 
     /** 内容变化时覆盖同一对象键；覆盖结果不确定时保留待校验状态。 */
     @Override
@@ -173,7 +82,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
 
         boolean contentOverwriteRequired = file.getStatus() != ProjectFileStatus.ACTIVE
                 || !file.getContentHash().equals(metadata.contentHash());
-        String normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
+        String normalizedIdempotencyKey = IdempotencyKeyValidator.normalize(idempotencyKey);
         requireIdempotency(
                 project.getOwnerUserId(),
                 "file:content:" + projectId + ":" + fileId,
@@ -204,7 +113,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 continue;
             }
             finalizeOverwrite(file, metadata, claimedVersion);
-            publishParsingEvent(file);
             projectIndexService.rebuild(project);
             return fileConverter.toResponse(file);
         }
@@ -243,13 +151,11 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         );
         if (file.getFileName().equals(fileName)) {
             updateLogicalPath(file, relativePath, fileName, pathHash, quickFingerprint, request);
-            publishParsingEvent(file);
             projectIndexService.rebuild(project);
             return fileConverter.toResponse(file);
         }
 
         StorageLocation source = locationOf(file);
-        String previousDetailRef = file.getDetailRef();
         StorageLocation target = locationFactory.buildRegularFile(
                 project.getOwnerUserId(),
                 projectId,
@@ -332,7 +238,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
             rebuildIndexPreservingFailure(project, renameException);
             throw renameException;
         }
-        fileDetailTaskPublisher.publish(file, previousDetailRef);
         projectIndexService.rebuild(project);
         return fileConverter.toResponse(file);
     }
@@ -391,45 +296,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                     .set(ProjectFile::getStatus, ProjectFileStatus.DELETE_FAILED));
             throw exception;
         }
-    }
-
-    private void uploadNewFileWithRetry(ProjectFile file, FileOperationMetadata metadata) {
-        RuntimeException lastException = null;
-        for (int attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
-            file.setStatus(ProjectFileStatus.UPLOADING);
-            file.setUploadStatus(ProjectFileUploadStatus.RETRYING);
-            file.setUploadAttempts(attempt);
-            fileMapper.updateById(file);
-            try {
-                objectStorageService.putObject(
-                        locationOf(file),
-                        metadata.content(),
-                        metadata.contentType()
-                );
-                file.setStatus(ProjectFileStatus.ACTIVE);
-                file.setUploadStatus(ProjectFileUploadStatus.SUCCESS);
-                clearUploadFailure(file);
-                fileMapper.updateById(file);
-                return;
-            } catch (RuntimeException exception) {
-                lastException = exception;
-                file.setStatus(attempt < MAX_UPLOAD_ATTEMPTS
-                        ? ProjectFileStatus.VERIFY_REQUIRED
-                        : ProjectFileStatus.UPLOAD_FAILED);
-                file.setUploadStatus(attempt < MAX_UPLOAD_ATTEMPTS
-                        ? ProjectFileUploadStatus.RETRYING
-                        : ProjectFileUploadStatus.FAILED);
-                applyUploadFailure(file, attempt, exception);
-                fileMapper.updateById(file);
-            }
-        }
-        // 清除上传成功但是因为其他原因返回失败的 MinIo 对象，避免产生孤岛数据，方便后续进行上传重试
-        cleanupExpectedObject(file, lastException);
-        throw new SystemException(
-                ErrorCode.FILE_UPLOAD_RETRY_EXHAUSTED,
-                "文件连续三次上传失败",
-                lastException
-        );
     }
 
     private void updateLogicalPath(
@@ -557,13 +423,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setLastErrorCode(errorCode);
         file.setLastErrorMessage(errorMessage);
         file.setLastFailedAt(failedAt);
-    }
-
-    private void applyUploadFailure(ProjectFile file, int attempt, RuntimeException exception) {
-        file.setUploadAttempts(attempt);
-        file.setLastErrorCode(errorCode(exception));
-        file.setLastErrorMessage(errorMessage(exception));
-        file.setLastFailedAt(LocalDateTime.now());
     }
 
     private void clearUploadFailure(ProjectFile file) {
@@ -844,20 +703,4 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setContentHash(metadata.contentHash());
     }
 
-    private String normalizeIdempotencyKey(String idempotencyKey) {
-        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 64) {
-            throw new BizException(ErrorCode.PARAM_INVALID, "X-Idempotency-Key长度必须为1到64个字符");
-        }
-        return idempotencyKey.trim();
-    }
-
-
-    /**
-     * 发布文件解析事件
-     *
-     * @param file 文件
-     */
-    private void publishParsingEvent(ProjectFile file) {
-        fileDetailTaskPublisher.publish(file);
-    }
 }

@@ -9,7 +9,6 @@ import com.ning.pm.common.exception.BizException;
 import com.ning.pm.file.analysis.dto.FileAnalysisResultRequest;
 import com.ning.pm.file.analysis.dto.FileAnalysisResultStatus;
 import com.ning.pm.file.analysis.dto.FileDetailDocument;
-import com.ning.pm.file.batch.ProjectFileIngestBatchService;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
@@ -59,8 +58,6 @@ class FileDetailAnalysisServiceTest {
     private ObjectStorageService objectStorageService;
     @Mock
     private ProjectIndexService projectIndexService;
-    @Mock
-    private ProjectFileIngestBatchService ingestBatchService;
 
     private FileDetailAnalysisService service;
     private Project project;
@@ -95,8 +92,7 @@ class FileDetailAnalysisServiceTest {
                 objectStorageService,
                 projectIndexService,
                 new MinioProperties(),
-                new ObjectMapper().registerModule(new JavaTimeModule()),
-                ingestBatchService
+                new ObjectMapper().registerModule(new JavaTimeModule())
         );
     }
 

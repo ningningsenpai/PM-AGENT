@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ProjectFileUploadStatus {
 
+    NOT_UPLOADED("not_uploaded"),
     RETRYING("retrying"),
     SUCCESS("success"),
     FAILED("failed");

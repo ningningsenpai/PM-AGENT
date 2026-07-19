@@ -1,4 +1,4 @@
-package com.ning.pm.file.dto;
+package com.ning.pm.file.dto.file;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;

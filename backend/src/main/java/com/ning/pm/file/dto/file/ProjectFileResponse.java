@@ -1,4 +1,4 @@
-package com.ning.pm.file.dto;
+package com.ning.pm.file.dto.file;
 
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;

@@ -25,6 +25,7 @@ public enum ErrorCode {
     INTERNAL_SERVICE_UNAUTHORIZED(20010, "内部服务身份校验失败"),
     PROJECT_NOT_FOUND(30001, "项目不存在或无权访问"),
     PROJECT_DISABLED(30002, "项目已停用"),
+    PROJECT_NAME_EXISTS(30003, "项目名称已存在"),
     FILE_NOT_FOUND(30010, "文件不存在或无权访问"),
     FILE_PATH_CONFLICT(30011, "文件重复上传"),
     FILE_STATUS_INVALID(30012, "文件当前状态不允许执行该操作"),

@@ -29,8 +29,8 @@ spring:
       client-type: lettuce
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 51MB
+      max-file-size: ${PM_AGENT_MAX_UPLOAD_FILE_SIZE:50MB}
+      max-request-size: ${PM_AGENT_MAX_UPLOAD_REQUEST_SIZE:256MB}
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
@@ -51,77 +51,17 @@ knife4j:
   enable: true
 
 pm-agent:
+  file:
+    upload:
+      processing-timeout: ${PM_AGENT_FILE_UPLOAD_PROCESSING_TIMEOUT:15m}
+      executor:
+        core-size: ${PM_AGENT_FILE_UPLOAD_CORE_SIZE:4}
+        max-size: ${PM_AGENT_FILE_UPLOAD_MAX_SIZE:8}
+        queue-capacity: ${PM_AGENT_FILE_UPLOAD_QUEUE_CAPACITY:32}
   agent-service:
     internal-token: ${PM_AGENT_INTERNAL_SERVICE_TOKEN:pm-agent-dev-internal-token}
     backend-base-url: ${PM_AGENT_BACKEND_INTERNAL_BASE_URL:http://localhost:8080}
     analysis-version: ${PM_AGENT_FILE_DETAIL_ANALYSIS_VERSION:file-detail-v1}
-  file:
-    validation:
-      # 按完整目录名精确匹配，不会把 contest 误判为 test
-      ignored-directory-names:
-        - .git
-        - .svn
-        - .hg
-        - .idea
-        - .vscode
-        - target
-        - build
-        - dist
-        - out
-        - coverage
-        - test
-        - tests
-        - module
-        - node_modules
-        - .gradle
-        - .venv
-        - venv
-        - __pycache__
-        - .pytest_cache
-        - .mypy_cache
-        - .ruff_cache
-        - .next
-        - .nuxt
-        - .vite
-      ignored-file-names:
-        - .DS_Store
-        - Thumbs.db
-        - desktop.ini
-        - .project
-        - .classpath
-        - .env
-        - .env.local
-        - .env.development
-        - .env.production
-        - .env.test
-      # 为空时关闭白名单限制；配置后只允许名单内扩展名
-      allowed-extensions: []
-      blocked-extensions:
-        - exe
-        - dll
-        - com
-        - msi
-        - scr
-        - iml
-        - ipr
-        - iws
-        - class
-        - jar
-        - war
-        - ear
-        - log
-        - tmp
-        - cache
-        - pem
-        - key
-        - p12
-        - jks
-      blocked-mime-types:
-        - application/x-msdownload
-        - application/x-dosexec
-        - application/x-executable
-        - application/x-sharedlib
-        - application/vnd.microsoft.portable-executable
   storage:
     minio:
       endpoint: ${MINIO_ENDPOINT:http://10.144.48.123:9000}

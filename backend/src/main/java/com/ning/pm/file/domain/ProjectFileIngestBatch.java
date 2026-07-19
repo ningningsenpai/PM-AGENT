@@ -1,7 +1,8 @@
-package com.ning.pm.file.batch;
+package com.ning.pm.file.domain;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.ning.pm.common.domain.BaseEntity;
+import com.ning.pm.file.enums.FileIngestBatchStatus;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,7 +12,11 @@ import lombok.Setter;
 public class ProjectFileIngestBatch extends BaseEntity {
 
     private Long projectId;
+    private Long uploadRequestId;
+    private Integer attemptNo;
+    private String clientBatchId;
     private String idempotencyKey;
+    private String payloadHash;
     private Integer totalFiles;
     private Integer completedFiles;
     private Integer succeededFiles;

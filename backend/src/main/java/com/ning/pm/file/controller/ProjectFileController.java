@@ -2,11 +2,10 @@ package com.ning.pm.file.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.ning.pm.common.response.R;
-import com.ning.pm.file.dto.CreateProjectFileRequest;
-import com.ning.pm.file.dto.FileReadUrlResponse;
-import com.ning.pm.file.dto.OverwriteProjectFileRequest;
-import com.ning.pm.file.dto.ProjectFileResponse;
-import com.ning.pm.file.dto.UpdateProjectFilePathRequest;
+import com.ning.pm.file.dto.file.FileReadUrlResponse;
+import com.ning.pm.file.dto.file.OverwriteProjectFileRequest;
+import com.ning.pm.file.dto.file.ProjectFileResponse;
+import com.ning.pm.file.dto.file.UpdateProjectFilePathRequest;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.service.ProjectFileService;
 import jakarta.validation.Valid;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -29,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * ProjectFileController 提供项目文件上传、覆盖、移动、读取和删除接口。
+ * ProjectFileController 提供项目文件覆盖、移动、读取和删除接口。
  *
  * @author ning
  * @date 2026-07-12
@@ -41,22 +39,6 @@ import java.util.List;
 public class ProjectFileController {
 
     private final ProjectFileService projectFileService;
-
-    /** 上传单个项目文件。 */
-    @SaCheckLogin
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public R<ProjectFileResponse> create(
-            @PathVariable Long projectId,
-            @RequestHeader("X-Idempotency-Key") String idempotencyKey,
-            @Valid @ModelAttribute CreateProjectFileRequest request
-    ) {
-        log.info("开始上传项目文件 projectId={} business={} path={}",
-                projectId, request.getBusinessCode(), request.getRelativePath());
-        ProjectFileResponse response = projectFileService.createFile(projectId, idempotencyKey, request);
-        log.info("项目文件上传成功 projectId={} fileId={} sizeBytes={}",
-                projectId, response.id(), response.sizeBytes());
-        return R.success(response);
-    }
 
     /** 使用同一对象键覆盖文件内容。 */
     @SaCheckLogin

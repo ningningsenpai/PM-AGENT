@@ -5,17 +5,12 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.ning.pm.file.converter.ProjectFileConverter;
 import com.ning.pm.file.analysis.AgentFileAnalysisProperties;
-import com.ning.pm.file.analysis.FileDetailTaskPublisher;
-import com.ning.pm.file.batch.ProjectFileIngestBatchService;
 import com.ning.pm.file.domain.ProjectFile;
-import com.ning.pm.file.dto.CreateProjectFileRequest;
-import com.ning.pm.file.dto.OverwriteProjectFileRequest;
-import com.ning.pm.file.dto.ProjectFileResponse;
-import com.ning.pm.file.dto.UpdateProjectFilePathRequest;
+import com.ning.pm.file.dto.file.OverwriteProjectFileRequest;
+import com.ning.pm.file.dto.file.ProjectFileResponse;
+import com.ning.pm.file.dto.file.UpdateProjectFilePathRequest;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
-import com.ning.pm.common.errorcode.ErrorCode;
-import com.ning.pm.common.exception.SystemException;
 import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
 import com.ning.pm.file.service.FileStorageLocationFactory;
@@ -41,20 +36,16 @@ import org.springframework.mock.web.MockMultipartFile;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.times;
 
 /**
- * ProjectFileServiceImplTest 验证稳定存储标识、上传重试和文件重命名迁移。
+ * ProjectFileServiceImplTest 验证文件内容维护和文件重命名迁移。
  *
  * @author ning
  * @date 2026-07-12
@@ -89,10 +80,6 @@ class ProjectFileServiceImplTest {
     @Mock
     private RedisIdempotencyGuard idempotencyGuard;
     @Mock
-    private FileDetailTaskPublisher fileDetailTaskPublisher;
-    @Mock
-    private ProjectFileIngestBatchService ingestBatchService;
-    @Mock
     private ProjectIndexService projectIndexService;
     @Mock
     private AgentFileAnalysisProperties analysisProperties;
@@ -110,90 +97,10 @@ class ProjectFileServiceImplTest {
                 .thenReturn("text/plain");
         lenient().when(fileConverter.toResponse(any(ProjectFile.class)))
                 .thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
-        lenient().doReturn("a1b2c3d4e5f67890").when(locationFactory).createStorageUuid();
         lenient().when(analysisProperties.getAnalysisVersion()).thenReturn("file-detail-v1");
         lenient().when(analysisProperties.getBackendBaseUrl()).thenReturn("http://localhost:8080");
         lenient().when(objectStorageService.createReadUrl(any(StorageLocation.class)))
                 .thenReturn("http://minio/read-source");
-    }
-
-    @Test
-    void createShouldUploadWithStableObjectKey() {
-        stubMaxFileSize();
-        CreateProjectFileRequest request = createRequest("src/App.java", "first-content", 1000L);
-        when(fileConverter.toEntity(request)).thenReturn(new ProjectFile());
-        when(fileMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
-        doAnswer(invocation -> {
-            ProjectFile file = invocation.getArgument(0);
-            file.setId(30L);
-            return 1;
-        }).when(fileMapper).insert(any(ProjectFile.class));
-        stubIdempotency();
-
-        ProjectFileResponse response = service.createFile(20L, "create-key", request);
-
-        assertThat(response.id()).isEqualTo(30L);
-        verify(objectStorageService).putObject(
-                new StorageLocation(
-                        "pm-agent",
-                        "PM-AGENT/10/20/project/App-a1b2c3d4e5f67890.java"
-                ),
-                "first-content".getBytes(StandardCharsets.UTF_8),
-                "text/plain"
-        );
-        verify(projectIndexService).rebuild(any(Project.class));
-    }
-
-    @Test
-    void duplicateCreateShouldBeRejectedByRedis() {
-        stubMaxFileSize();
-        CreateProjectFileRequest request = createRequest("src/App.java", "first-content", 1000L);
-        when(fileMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
-        when(idempotencyGuard.tryAcquire(
-                10L,
-                "file:create:20:project",
-                "create-key"
-        )).thenReturn(false);
-
-        assertThatThrownBy(() -> service.createFile(20L, "create-key", request))
-                .isInstanceOf(com.ning.pm.common.exception.BizException.class)
-                .hasMessage("相同文件请求已在2分钟内提交");
-
-        verify(objectStorageService, never()).putObject(
-                any(StorageLocation.class), any(byte[].class), anyString()
-        );
-    }
-
-    @Test
-    void createShouldRetryThreeTimesAndKeepFailureRecord() {
-        stubMaxFileSize();
-        CreateProjectFileRequest request = createRequest("src/App.java", "first-content", 1000L);
-        ProjectFile file = new ProjectFile();
-        when(fileConverter.toEntity(request)).thenReturn(file);
-        when(fileMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
-        doAnswer(invocation -> {
-            ProjectFile inserted = invocation.getArgument(0);
-            inserted.setId(30L);
-            return 1;
-        }).when(fileMapper).insert(any(ProjectFile.class));
-        stubIdempotency();
-        doThrow(new SystemException(ErrorCode.FILE_STORAGE_ERROR))
-                .when(objectStorageService)
-                .putObject(any(StorageLocation.class), any(byte[].class), anyString());
-
-        assertThatThrownBy(() -> service.createFile(20L, "retry-key", request))
-                .isInstanceOf(SystemException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.FILE_UPLOAD_RETRY_EXHAUSTED);
-
-        verify(objectStorageService, times(3)).putObject(
-                any(StorageLocation.class), any(byte[].class), anyString()
-        );
-        verify(objectStorageService).removeObject(any(StorageLocation.class));
-        verify(projectIndexService).rebuild(any(Project.class));
-        assertThat(file.getStatus()).isEqualTo(ProjectFileStatus.UPLOAD_FAILED);
-        assertThat(file.getUploadAttempts()).isEqualTo(3);
-        assertThat(file.getLastErrorCode()).isEqualTo("FILE_STORAGE_ERROR");
     }
 
     @Test
@@ -317,20 +224,6 @@ class ProjectFileServiceImplTest {
 
     private void stubMaxFileSize() {
         when(minioProperties.getMaxFileSizeBytes()).thenReturn(50L * 1024 * 1024);
-    }
-
-    private CreateProjectFileRequest createRequest(String path, String content, long mtime) {
-        CreateProjectFileRequest request = new CreateProjectFileRequest();
-        request.setBusinessCode(FileBusinessType.PROJECT);
-        request.setRelativePath(path);
-        request.setSourceMtimeMs(mtime);
-        request.setFile(new MockMultipartFile(
-                "file",
-                "App.java",
-                "text/x-java-source",
-                content.getBytes(StandardCharsets.UTF_8)
-        ));
-        return request;
     }
 
     private OverwriteProjectFileRequest overwriteRequest(String content, long mtime) {
