@@ -2,7 +2,6 @@ package com.ning.pm.file.dto.file;
 
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
-import com.ning.pm.file.enums.ProjectFileAnalysisStatus;
 import com.ning.pm.file.enums.ProjectFileUploadStatus;
 
 import java.time.LocalDateTime;
@@ -16,7 +15,6 @@ import java.time.LocalDateTime;
 public record ProjectFileResponse(
         Long id,
         Long projectId,
-        Long ingestBatchId,
         FileBusinessType businessCode,
         String relativePath,
         String fileName,
@@ -30,8 +28,6 @@ public record ProjectFileResponse(
         String contentHash,
         ProjectFileStatus status,
         ProjectFileUploadStatus uploadStatus,
-        ProjectFileAnalysisStatus analysisStatus,
-        String detailRef,
         Integer lockVersion,
         LocalDateTime createdAt,
         LocalDateTime updatedAt

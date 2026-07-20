@@ -1,13 +1,4 @@
 import { v4 as uuidv4 } from 'uuid'
-import type {
-  ProjectFileUploadBatch,
-  ProjectFileUploadFileInfo,
-  ProjectFileUploadManifest,
-} from '@/modules/project/types'
-
-export const PROJECT_FILE_BATCH_SIZE = 50
-export const PROJECT_FILE_BATCH_MAX_BYTES = 240 * 1024 * 1024
-export const PROJECT_FILE_MAX_ATTEMPTS = 3
 
 const maxFileSizeBytes = 50 * 1024 * 1024
 
@@ -102,7 +93,10 @@ const blockedMimeTypes = new Set([
   'application/zip',
 ])
 
-export interface PreparedProjectFile extends ProjectFileUploadFileInfo {
+export interface PreparedProjectFile {
+  idempotencyKey: string
+  relativePath: string
+  sourceMtimeMs: number
   file: File
 }
 
@@ -111,132 +105,39 @@ export interface RejectedProjectFile {
   reason: string
 }
 
-export interface ProjectFileFilterResult {
-  acceptedFiles: PreparedProjectFile[]
-  rejectedFiles: RejectedProjectFile[]
-}
+export type ProjectFileValidationResult =
+  | { valid: true; candidate: PreparedProjectFile }
+  | { valid: false; rejection: RejectedProjectFile }
 
-export interface ProjectFileUploadRoundBatch {
-  batch: ProjectFileUploadBatch
-  files: File[]
-  candidates: PreparedProjectFile[]
-}
-
-export interface ProjectFileUploadRound {
-  manifest: ProjectFileUploadManifest
-  batches: ProjectFileUploadRoundBatch[]
-}
-
-export function prepareProjectFiles(files: File[]): ProjectFileFilterResult {
-  const acceptedFiles: PreparedProjectFile[] = []
-  const rejectedFiles: RejectedProjectFile[] = []
-  const acceptedPaths = new Set<string>()
-
-  for (const file of files) {
-    const pathInfo = normalizeFilePath(file)
-    const rejectedReason = getRejectedReason(file, pathInfo.directorySegments)
-
-    if (rejectedReason) {
-      rejectedFiles.push({ relativePath: pathInfo.relativePath, reason: rejectedReason })
-      continue
+export function validateProjectFile(
+  file: File,
+  acceptedPaths: Set<string>,
+): ProjectFileValidationResult {
+  const pathInfo = normalizeFilePath(file)
+  const rejectedReason = getRejectedReason(file, pathInfo.directorySegments)
+  if (rejectedReason) {
+    return {
+      valid: false,
+      rejection: { relativePath: pathInfo.relativePath, reason: rejectedReason },
     }
-
-    if (acceptedPaths.has(pathInfo.relativePath)) {
-      rejectedFiles.push({ relativePath: pathInfo.relativePath, reason: '相对路径重复' })
-      continue
+  }
+  if (acceptedPaths.has(pathInfo.relativePath)) {
+    return {
+      valid: false,
+      rejection: { relativePath: pathInfo.relativePath, reason: '相对路径重复' },
     }
+  }
 
-    acceptedPaths.add(pathInfo.relativePath)
-    acceptedFiles.push({
-      clientFileId: uuidv4(),
-      businessCode: 'project',
+  acceptedPaths.add(pathInfo.relativePath)
+  return {
+    valid: true,
+    candidate: {
+      idempotencyKey: uuidv4(),
       relativePath: pathInfo.relativePath,
-      fileName: file.name.normalize('NFC'),
-      sizeBytes: file.size,
       sourceMtimeMs: file.lastModified,
       file,
-    })
+    },
   }
-
-  return { acceptedFiles, rejectedFiles }
-}
-
-export function createProjectFileUploadRound(options: {
-  userId: number
-  projectId: number
-  requestId: string
-  attemptNo: number
-  originalTotalFiles: number
-  files: PreparedProjectFile[]
-}): ProjectFileUploadRound {
-  const roundBatches: ProjectFileUploadRoundBatch[] = []
-  const candidateGroups = splitUploadCandidates(options.files)
-
-  for (const candidates of candidateGroups) {
-    const batchId = uuidv4()
-    const idempotencyKey = uuidv4()
-    const fileInfos = candidates.map(toFileInfo)
-    const batch: ProjectFileUploadBatch = {
-      userId: options.userId,
-      projectId: options.projectId,
-      requestId: options.requestId,
-      attemptNo: options.attemptNo,
-      batchId,
-      idempotencyKey,
-      fileCount: candidates.length,
-      files: fileInfos,
-    }
-
-    roundBatches.push({
-      batch,
-      files: candidates.map((candidate) => candidate.file),
-      candidates,
-    })
-  }
-
-  const manifest: ProjectFileUploadManifest = {
-    userId: options.userId,
-    projectId: options.projectId,
-    requestId: options.requestId,
-    executionStatus: options.attemptNo === 1 ? 'initial' : 'retry',
-    attemptNo: options.attemptNo,
-    originalTotalFiles: options.originalTotalFiles,
-    roundTotalFiles: options.files.length,
-    totalBatchCount: roundBatches.length,
-    batches: roundBatches.map(({ batch }) => ({
-      batchId: batch.batchId,
-      fileCount: batch.fileCount,
-    })),
-  }
-
-  return { manifest, batches: roundBatches }
-}
-
-function splitUploadCandidates(files: PreparedProjectFile[]) {
-  const groups: PreparedProjectFile[][] = []
-  let currentGroup: PreparedProjectFile[] = []
-  let currentSizeBytes = 0
-
-  for (const file of files) {
-    const exceedsCount = currentGroup.length >= PROJECT_FILE_BATCH_SIZE
-    const exceedsSize =
-      currentGroup.length > 0 && currentSizeBytes + file.sizeBytes > PROJECT_FILE_BATCH_MAX_BYTES
-
-    if (exceedsCount || exceedsSize) {
-      groups.push(currentGroup)
-      currentGroup = []
-      currentSizeBytes = 0
-    }
-
-    currentGroup.push(file)
-    currentSizeBytes += file.sizeBytes
-  }
-
-  if (currentGroup.length) {
-    groups.push(currentGroup)
-  }
-
-  return groups
 }
 
 function normalizeFilePath(file: File) {
@@ -279,15 +180,4 @@ function getRejectedReason(file: File, directorySegments: string[]) {
 function getExtension(fileName: string) {
   const dotIndex = fileName.lastIndexOf('.')
   return dotIndex > 0 && dotIndex < fileName.length - 1 ? fileName.slice(dotIndex + 1) : ''
-}
-
-function toFileInfo(file: PreparedProjectFile): ProjectFileUploadFileInfo {
-  return {
-    clientFileId: file.clientFileId,
-    businessCode: file.businessCode,
-    relativePath: file.relativePath,
-    fileName: file.fileName,
-    sizeBytes: file.sizeBytes,
-    sourceMtimeMs: file.sourceMtimeMs,
-  }
 }

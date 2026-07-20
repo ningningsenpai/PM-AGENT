@@ -75,7 +75,6 @@ class ProjectIndexWriterTest {
                 List.of(),
                 new ProjectIndex.SystemSection(
                         "system/index.json",
-                        "system/file_details/",
                         "system/project_specification.json",
                         "system/long_term_memory.json",
                         "system/short_term_memory.json",

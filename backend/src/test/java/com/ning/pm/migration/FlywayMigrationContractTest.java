@@ -5,6 +5,9 @@ import com.ning.pm.project.domain.Project;
 import com.ning.pm.user.domain.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -15,7 +18,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * FlywayMigrationContractTest 验证最新迁移会清理旧租户表，且当前持久化实体不再包含租户字段。
+ * FlywayMigrationContractTest 验证唯一 V1 脚本直接创建当前持久化结构。
  *
  * @author ning
  * @date 2026-07-15
@@ -23,16 +26,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FlywayMigrationContractTest {
 
     @Test
-    void latestMigrationShouldDropUnusedLegacyTablesInDependencyOrder() throws IOException {
-        String sql = readMigration("V7__drop_legacy_tenant_tables.sql");
+    void migrationDirectoryShouldOnlyContainV1() throws IOException {
+        Resource[] resources = new PathMatchingResourcePatternResolver()
+                .getResources("classpath*:db/migration/V*.sql");
 
-        int statusLogIndex = sql.indexOf("DROP TABLE IF EXISTS pm_task_status_log");
-        int taskIndex = sql.indexOf("DROP TABLE IF EXISTS pm_task;");
-        int memberIndex = sql.indexOf("DROP TABLE IF EXISTS pm_project_member");
+        assertThat(Arrays.stream(resources).map(Resource::getFilename))
+                .containsExactly("V1__init_phase1_schema.sql");
+    }
 
-        assertThat(statusLogIndex).isGreaterThanOrEqualTo(0);
-        assertThat(taskIndex).isGreaterThan(statusLogIndex);
-        assertThat(memberIndex).isGreaterThan(taskIndex);
+    @Test
+    void v1ShouldDirectlyCreateOnlyCurrentTables() throws IOException {
+        String sql = readMigration("V1__init_phase1_schema.sql");
+
+        assertThat(StringUtils.countOccurrencesOf(sql, "CREATE TABLE")).isEqualTo(3);
+        assertThat(sql)
+                .contains("CREATE TABLE pm_user", "CREATE TABLE pm_project", "CREATE TABLE pm_project_file")
+                .doesNotContain(
+                        "tenant_id",
+                        "pm_project_member",
+                        "pm_task",
+                        "pm_event_outbox",
+                        "pm_project_file_upload",
+                        "pm_project_file_ingest_batch",
+                        "analysis_status",
+                        "analysis_version",
+                        "detail_ref"
+                );
     }
 
     @Test
@@ -43,6 +62,23 @@ class FlywayMigrationContractTest {
                 .toList();
 
         assertThat(fieldNames).doesNotContain("tenantId", "deleted", "createdBy", "updatedBy");
+    }
+
+    @Test
+    void projectFileShouldNotContainAnalysisFields() {
+        List<String> fieldNames = Arrays.stream(ProjectFile.class.getDeclaredFields())
+                .map(Field::getName)
+                .toList();
+
+        assertThat(fieldNames).doesNotContain(
+                "analysisStatus",
+                "analysisVersion",
+                "detailRef",
+                "analysisSummary",
+                "analysisKeywords",
+                "analysisAttempts",
+                "analyzedAt"
+        );
     }
 
     private String readMigration(String fileName) throws IOException {

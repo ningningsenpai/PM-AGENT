@@ -7,13 +7,11 @@ import com.ning.pm.common.exception.BaseException;
 import com.ning.pm.common.exception.BizException;
 import com.ning.pm.common.exception.SystemException;
 import com.ning.pm.common.validation.IdempotencyKeyValidator;
-import com.ning.pm.file.analysis.AgentFileAnalysisProperties;
 import com.ning.pm.file.dto.file.*;
 import com.ning.pm.file.converter.ProjectFileConverter;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
-import com.ning.pm.file.enums.ProjectFileAnalysisStatus;
 import com.ning.pm.file.enums.ProjectFileUploadStatus;
 import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
@@ -30,6 +28,7 @@ import com.ning.pm.project.domain.Project;
 import com.ning.pm.project.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -60,7 +59,116 @@ public class ProjectFileServiceImpl implements ProjectFileService {
     private final MinioProperties minioProperties;
     private final RedisIdempotencyGuard idempotencyGuard;
     private final ProjectIndexService projectIndexService;
-    private final AgentFileAnalysisProperties analysisProperties;
+
+    @Override
+    public ProjectFileUploadResponse uploadFile(
+            Long projectId,
+            String idempotencyKey,
+            UploadProjectFileRequest request
+    ) {
+        Project project = projectService.requireOwnedProject(projectId);
+        String normalizedIdempotencyKey = IdempotencyKeyValidator.normalize(idempotencyKey);
+        requireIdempotency(
+                project.getOwnerUserId(),
+                "file:upload:" + projectId + ":" + request.getRelativePath(),
+                normalizedIdempotencyKey
+        );
+        FileOperationMetadata metadata = prepareMetadata(
+                request.getRelativePath(),
+                request.getSourceMtimeMs(),
+                request.getFile()
+        );
+        ensurePathAvailable(projectId, FileBusinessType.PROJECT, metadata.pathHash(), null);
+
+        ProjectFile file = createUploadFile(project, metadata);
+        try {
+            fileMapper.insert(file);
+        } catch (DuplicateKeyException exception) {
+            throw new BizException(ErrorCode.FILE_PATH_CONFLICT);
+        }
+
+        try {
+            objectStorageService.putObject(
+                    locationOf(file),
+                    metadata.content(),
+                    metadata.contentType()
+            );
+        } catch (RuntimeException exception) {
+            log.warn("项目文件上传失败 projectId={} fileId={} path={}",
+                    projectId, file.getId(), file.getRelativePath(), exception);
+            return uploadResult(file, false, exception);
+        }
+
+        int updated = fileMapper.update(null, new LambdaUpdateWrapper<ProjectFile>()
+                .eq(ProjectFile::getId, file.getId())
+                .eq(ProjectFile::getUploadStatus, ProjectFileUploadStatus.NOT_UPLOADED)
+                .set(ProjectFile::getStatus, ProjectFileStatus.ACTIVE)
+                .set(ProjectFile::getUploadStatus, ProjectFileUploadStatus.SUCCESS));
+        if (updated != 1) {
+            return uploadResult(
+                    file,
+                    false,
+                    new SystemException(ErrorCode.SYSTEM_ERROR, "文件上传结果落库失败")
+            );
+        }
+        file.setStatus(ProjectFileStatus.ACTIVE);
+        file.setUploadStatus(ProjectFileUploadStatus.SUCCESS);
+        return uploadResult(file, true, null);
+    }
+
+    private ProjectFile createUploadFile(Project project, FileOperationMetadata metadata) {
+        String storageUuid = locationFactory.createStorageUuid();
+        StorageLocation location = locationFactory.buildProjectFile(
+                project.getOwnerUserId(),
+                project.getId(),
+                metadata.fileName(),
+                storageUuid
+        );
+        String storageName = locationFactory.buildStorageName(metadata.fileName(), storageUuid);
+
+        ProjectFile file = new ProjectFile();
+        file.setProjectId(project.getId());
+        file.setBusinessCode(FileBusinessType.PROJECT);
+        file.setRelativePath(metadata.relativePath());
+        file.setPathHash(metadata.pathHash());
+        file.setFileName(metadata.fileName());
+        file.setExtension(metadata.extension());
+        file.setStorageUuid(storageUuid);
+        file.setStorageName(storageName);
+        file.setObjectKey(location.objectKey());
+        file.setMinioPath(locationFactory.relativeObjectPath(
+                project.getOwnerUserId(),
+                project.getId(),
+                location.objectKey()
+        ));
+        file.setContentType(metadata.contentType());
+        file.setSizeBytes(metadata.sizeBytes());
+        file.setSourceMtimeMs(metadata.sourceMtimeMs());
+        file.setQuickFingerprint(metadata.quickFingerprint());
+        file.setContentHash(metadata.contentHash());
+        file.setStatus(ProjectFileStatus.UPLOADING);
+        file.setUploadStatus(ProjectFileUploadStatus.NOT_UPLOADED);
+        file.setUploadAttempts(1);
+        file.setLockVersion(0);
+        return file;
+    }
+
+    private ProjectFileUploadResponse uploadResult(
+            ProjectFile file,
+            boolean success,
+            RuntimeException exception
+    ) {
+        return new ProjectFileUploadResponse(
+                file.getId(),
+                file.getRelativePath(),
+                file.getFileName(),
+                success,
+                file.getStatus(),
+                file.getUploadStatus(),
+                exception == null ? null : errorCode(exception),
+                exception == null ? null : errorMessage(exception)
+        );
+    }
 
     /** 内容变化时覆盖同一对象键；覆盖结果不确定时保留待校验状态。 */
     @Override
@@ -169,7 +277,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 projectId,
                 target.objectKey()
         );
-        String detailRef = "system/file_details/" + storageName;
         int claimedVersion = claimForRename(file, request.lockVersion());
         try {
             objectStorageService.copyObject(source, target);
@@ -190,17 +297,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .set(ProjectFile::getStorageName, storageName)
                 .set(ProjectFile::getObjectKey, target.objectKey())
                 .set(ProjectFile::getMinioPath, minioPath)
-                .set(ProjectFile::getDetailRef, detailRef)
-                .set(ProjectFile::getIngestBatchId, null)
-                .set(ProjectFile::getUploadCompletionRecorded, false)
-                .set(ProjectFile::getAnalysisCompletionRecorded, false)
-                .set(ProjectFile::getAnalysisStatus, ProjectFileAnalysisStatus.PENDING)
-                .set(ProjectFile::getAnalysisModule, null)
-                .set(ProjectFile::getAnalysisKind, null)
-                .set(ProjectFile::getAnalysisLanguage, null)
-                .set(ProjectFile::getAnalysisImportance, null)
-                .set(ProjectFile::getAnalysisSummary, null)
-                .set(ProjectFile::getAnalysisKeywords, null)
                 .set(ProjectFile::getSourceMtimeMs, request.sourceMtimeMs())
                 .set(ProjectFile::getQuickFingerprint, quickFingerprint)
                 .set(ProjectFile::getStatus, ProjectFileStatus.ACTIVE));
@@ -216,11 +312,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setStorageName(storageName);
         file.setObjectKey(target.objectKey());
         file.setMinioPath(minioPath);
-        file.setDetailRef(detailRef);
-        file.setIngestBatchId(null);
-        file.setUploadCompletionRecorded(false);
-        file.setAnalysisCompletionRecorded(false);
-        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
         file.setSourceMtimeMs(request.sourceMtimeMs());
         file.setQuickFingerprint(quickFingerprint);
         file.setLockVersion(claimedVersion);
@@ -317,16 +408,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .set(ProjectFile::getExtension, fingerprintService.extension(fileName))
                 .set(ProjectFile::getSourceMtimeMs, request.sourceMtimeMs())
                 .set(ProjectFile::getQuickFingerprint, quickFingerprint)
-                .set(ProjectFile::getIngestBatchId, null)
-                .set(ProjectFile::getUploadCompletionRecorded, false)
-                .set(ProjectFile::getAnalysisCompletionRecorded, false)
-                .set(ProjectFile::getAnalysisStatus, ProjectFileAnalysisStatus.PENDING)
-                .set(ProjectFile::getAnalysisModule, null)
-                .set(ProjectFile::getAnalysisKind, null)
-                .set(ProjectFile::getAnalysisLanguage, null)
-                .set(ProjectFile::getAnalysisImportance, null)
-                .set(ProjectFile::getAnalysisSummary, null)
-                .set(ProjectFile::getAnalysisKeywords, null)
                 .set(ProjectFile::getLockVersion, request.lockVersion() + 1));
         if (updated == 0) {
             throw new BizException(ErrorCode.FILE_BUSY);
@@ -337,10 +418,6 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setExtension(fingerprintService.extension(fileName));
         file.setSourceMtimeMs(request.sourceMtimeMs());
         file.setQuickFingerprint(quickFingerprint);
-        file.setIngestBatchId(null);
-        file.setUploadCompletionRecorded(false);
-        file.setAnalysisCompletionRecorded(false);
-        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
         file.setLockVersion(request.lockVersion() + 1);
     }
 
@@ -614,20 +691,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
                 .set(ProjectFile::getSourceMtimeMs, metadata.sourceMtimeMs())
                 .set(ProjectFile::getQuickFingerprint, metadata.quickFingerprint())
                 .set(ProjectFile::getContentHash, metadata.contentHash())
-                .set(ProjectFile::getIngestBatchId, null)
-                .set(ProjectFile::getUploadCompletionRecorded, false)
-                .set(ProjectFile::getAnalysisCompletionRecorded, false)
                 .set(ProjectFile::getUploadStatus, ProjectFileUploadStatus.SUCCESS)
-                .set(ProjectFile::getAnalysisStatus, ProjectFileAnalysisStatus.PENDING)
-                .set(ProjectFile::getAnalysisVersion, analysisProperties.getAnalysisVersion())
-                .set(ProjectFile::getAnalysisModule, null)
-                .set(ProjectFile::getAnalysisKind, null)
-                .set(ProjectFile::getAnalysisLanguage, null)
-                .set(ProjectFile::getAnalysisImportance, null)
-                .set(ProjectFile::getAnalysisSummary, null)
-                .set(ProjectFile::getAnalysisKeywords, null)
-                .set(ProjectFile::getAnalysisErrorCode, null)
-                .set(ProjectFile::getAnalysisErrorMessage, null)
                 .set(ProjectFile::getLastErrorCode, null)
                 .set(ProjectFile::getLastErrorMessage, null)
                 .set(ProjectFile::getLastFailedAt, null)
@@ -637,12 +701,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         }
         applyMetadata(file, metadata);
         file.setStatus(ProjectFileStatus.ACTIVE);
-        file.setIngestBatchId(null);
-        file.setUploadCompletionRecorded(false);
-        file.setAnalysisCompletionRecorded(false);
         file.setUploadStatus(ProjectFileUploadStatus.SUCCESS);
-        file.setAnalysisStatus(ProjectFileAnalysisStatus.PENDING);
-        file.setAnalysisVersion(analysisProperties.getAnalysisVersion());
         clearUploadFailure(file);
     }
 

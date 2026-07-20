@@ -51,17 +51,6 @@ knife4j:
   enable: true
 
 pm-agent:
-  file:
-    upload:
-      processing-timeout: ${PM_AGENT_FILE_UPLOAD_PROCESSING_TIMEOUT:15m}
-      executor:
-        core-size: ${PM_AGENT_FILE_UPLOAD_CORE_SIZE:4}
-        max-size: ${PM_AGENT_FILE_UPLOAD_MAX_SIZE:8}
-        queue-capacity: ${PM_AGENT_FILE_UPLOAD_QUEUE_CAPACITY:32}
-  agent-service:
-    internal-token: ${PM_AGENT_INTERNAL_SERVICE_TOKEN:pm-agent-dev-internal-token}
-    backend-base-url: ${PM_AGENT_BACKEND_INTERNAL_BASE_URL:http://localhost:8080}
-    analysis-version: ${PM_AGENT_FILE_DETAIL_ANALYSIS_VERSION:file-detail-v1}
   storage:
     minio:
       endpoint: ${MINIO_ENDPOINT:http://10.144.48.123:9000}

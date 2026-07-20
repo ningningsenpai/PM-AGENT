@@ -14,7 +14,6 @@ import java.util.Arrays;
 public enum SystemFilePath {
 
     INDEX("index.json", false),
-    FILE_DETAILS("file_details", true),
     PROJECT_SPECIFICATION("project_specification.json", false),
     LONG_TERM_MEMORY("long_term_memory.json", false),
     SHORT_TERM_MEMORY("short_term_memory.json", false),

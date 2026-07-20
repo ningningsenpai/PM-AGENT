@@ -1,9 +1,9 @@
 import type {
   CreateProjectRequest,
   ProjectDetail,
-  ProjectFileUploadBatchResponse,
+  ProjectFileUploadResponse,
   ProjectSummary,
-  UploadProjectFileBatchPayload,
+  UploadProjectFilePayload,
 } from '@/modules/project/types'
 
 const projects: ProjectDetail[] = [
@@ -57,23 +57,21 @@ export async function mockCreateProject(payload: CreateProjectRequest): Promise<
   return project
 }
 
-export async function mockUploadProjectFileBatch(
-  payload: UploadProjectFileBatchPayload,
-): Promise<ProjectFileUploadBatchResponse> {
+let mockFileId = 1
+
+export async function mockUploadProjectFile(
+  payload: UploadProjectFilePayload,
+): Promise<ProjectFileUploadResponse> {
   return {
-    uploadRequestId: 1,
-    requestId: payload.manifest.requestId,
-    batchId: payload.batch.batchId,
-    attemptNo: payload.manifest.attemptNo,
-    batchStatus: 'completed',
-    requestStatus: 'completed',
-    totalFiles: payload.manifest.originalTotalFiles,
-    completedFiles: payload.manifest.originalTotalFiles,
-    succeededFiles: payload.manifest.originalTotalFiles,
-    batchSucceededFiles: payload.batch.fileCount,
-    batchFailedFiles: 0,
-    failedFiles: [],
-    requiresRetry: false,
-    requiresProjectUpdate: false,
+    fileId: mockFileId++,
+    relativePath: payload.relativePath,
+    fileName: payload.file.name,
+    success: true,
+    status: 'active',
+    uploadStatus: 'success',
+    errorCode: null,
+    errorMessage: null,
   }
 }
+
+export async function mockRequestProjectFileParsing(): Promise<void> {}

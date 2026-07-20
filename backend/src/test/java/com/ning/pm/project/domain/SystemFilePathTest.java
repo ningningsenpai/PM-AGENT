@@ -15,13 +15,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class SystemFilePathTest {
 
     @Test
-    void fileDetailsShouldResolveControlledRelativePath() {
-        String path = SystemFilePath.FILE_DETAILS.resolve("backend/auth/controller.json");
-
-        assertThat(path).isEqualTo("file_details/backend/auth/controller.json");
-    }
-
-    @Test
     void windowsSeparatorShouldBeNormalized() {
         String path = SystemFilePath.USER_HABITS.resolve("work\\daily.json");
 
@@ -30,7 +23,7 @@ class SystemFilePathTest {
 
     @Test
     void traversalPathShouldBeRejected() {
-        assertThatThrownBy(() -> SystemFilePath.FILE_DETAILS.resolve("../secret.json"))
+        assertThatThrownBy(() -> SystemFilePath.USER_HABITS.resolve("../secret.json"))
                 .isInstanceOf(BizException.class)
                 .hasMessageContaining("合法相对路径");
     }

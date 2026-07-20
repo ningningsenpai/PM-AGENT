@@ -7,7 +7,7 @@
           <h2>项目文件上传</h2>
           <n-tag :type="uploadStatusType" round size="small">{{ uploadStatusLabel }}</n-tag>
         </div>
-        <p>选择项目文件夹后，前端会先筛选文件，再按每批最多 50 个自动上传并处理失败重试。</p>
+        <p>选择项目文件夹后，前端会逐个校验并调用单文件上传接口。</p>
       </div>
       <div class="upload-actions">
         <n-button :disabled="uploading" @click="openDirectoryPicker">重新选择</n-button>
@@ -27,7 +27,7 @@
     </div>
 
     <n-alert class="filter-alert" type="info" :show-icon="false">
-      会排除依赖、构建产物、缓存、环境变量、可执行文件、压缩包和媒体文件；单文件最大 50MB，单批原始文件总大小不超过 240MB。
+      文件通过前端校验后逐个上传；单文件最大 50MB，失败文件不会自动重试。
     </n-alert>
 
     <div v-if="viewState === 'idle'" class="upload-placeholder">
@@ -38,40 +38,28 @@
       </n-empty>
     </div>
 
-    <div v-else-if="viewState === 'empty'" class="empty-project-mock">
-      <span class="mock-badge">本地 Mock 状态</span>
+    <div v-else-if="viewState === 'empty'" class="empty-project">
       <h3>项目内容为空</h3>
-      <p>当前文件夹中没有可上传文件，前端未调用任何后端接口。</p>
-      <div v-if="rejectedFiles.length" class="filter-summary">
-        <span>已筛除 {{ rejectedFiles.length }} 个文件：</span>
-        <n-tag
-          v-for="item in rejectedReasonSummary"
-          :key="item.reason"
-          size="small"
-          round
-        >
-          {{ item.reason }} {{ item.count }}
-        </n-tag>
-      </div>
+      <p>当前文件夹中没有文件，前端未调用后端接口。</p>
     </div>
 
     <template v-else>
       <div class="upload-metrics">
         <div>
-          <span>符合条件</span>
-          <strong>{{ originalTotalFiles }}</strong>
+          <span>文件总数</span>
+          <strong>{{ totalFileCount }}</strong>
         </div>
         <div>
-          <span>已筛除</span>
-          <strong>{{ rejectedFiles.length }}</strong>
+          <span>已处理</span>
+          <strong>{{ processedFileCount }}</strong>
         </div>
         <div>
-          <span>当前轮次</span>
-          <strong>{{ currentAttempt }}/3</strong>
+          <span>上传成功</span>
+          <strong>{{ succeededFileCount }}</strong>
         </div>
         <div>
-          <span>当前批次</span>
-          <strong>{{ completedBatchCount }}/{{ currentBatchCount }}</strong>
+          <span>失败或跳过</span>
+          <strong>{{ finalFailures.length }}</strong>
         </div>
       </div>
 
@@ -93,7 +81,7 @@
       </div>
 
       <div v-if="rejectedFiles.length" class="filter-summary">
-        <span>筛选结果：</span>
+        <span>前端校验未通过：</span>
         <n-tag
           v-for="item in rejectedReasonSummary"
           :key="item.reason"
@@ -105,32 +93,28 @@
       </div>
 
       <n-alert v-if="viewState === 'success'" type="success" title="项目文件上传完成">
-        {{ originalTotalFiles }} 个文件已全部上传，后端已根据 MySQL 数据重建 index.json。
+        {{ succeededFileCount }} 个文件已上传，文件解析接口已调用。
       </n-alert>
 
       <n-alert
         v-if="viewState === 'needs-update'"
         type="warning"
-        title="三轮上传结束，仍有文件失败"
+        title="存在未上传成功的文件"
       >
-        共 {{ finalFailures.length }} 个文件未上传成功。后续请点击“更新项目”重新处理这些文件。
-      </n-alert>
-
-      <n-alert v-if="viewState === 'error'" type="error" title="上传流程中断">
-        {{ fatalErrorMessage }}
+        共 {{ finalFailures.length }} 个文件失败或未通过校验，系统不会自动重试，请后续更新项目。
       </n-alert>
 
       <div v-if="finalFailures.length" class="failure-list">
         <div class="failure-list-head">
-          <strong>未上传文件</strong>
+          <strong>待更新文件</strong>
           <span>{{ finalFailures.length }} 个</span>
         </div>
         <div
-          v-for="failure in finalFailures.slice(0, 20)"
-          :key="failure.candidate.clientFileId"
+          v-for="(failure, index) in finalFailures.slice(0, 20)"
+          :key="`${failure.relativePath}-${index}`"
           class="failure-item"
         >
-          <span>{{ failure.candidate.relativePath }}</span>
+          <span>{{ failure.relativePath }}</span>
           <small>{{ failure.errorMessage }}</small>
         </div>
         <p v-if="finalFailures.length > 20" class="failure-more">
@@ -144,54 +128,33 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useMessage } from 'naive-ui'
-import { v4 as uuidv4 } from 'uuid'
-import { uploadProjectFileBatch } from '@/modules/project/api'
+import { requestProjectFileParsing, uploadProjectFile } from '@/modules/project/api'
 import {
-  createProjectFileUploadRound,
-  prepareProjectFiles,
-  PROJECT_FILE_MAX_ATTEMPTS,
-  type PreparedProjectFile,
+  validateProjectFile,
   type RejectedProjectFile,
 } from '@/modules/project/file-upload'
-import type {
-  ProjectFileUploadBatchResponse,
-  UploadProjectFileBatchPayload,
-} from '@/modules/project/types'
-import { useAuthStore } from '@/stores/auth'
 
-type UploadViewState = 'idle' | 'empty' | 'uploading' | 'success' | 'needs-update' | 'error'
+type UploadViewState = 'idle' | 'empty' | 'uploading' | 'success' | 'needs-update'
 
 interface UploadFailure {
-  candidate: PreparedProjectFile
-  errorCode: string
+  relativePath: string
   errorMessage: string
 }
-
-interface RoundBatchOutcome {
-  candidates: PreparedProjectFile[]
-  response: ProjectFileUploadBatchResponse
-}
-
-const batchHttpRetryDelaysMs = [300, 600]
 
 const props = defineProps<{
   projectId: number
 }>()
 
-const authStore = useAuthStore()
 const message = useMessage()
 const directoryInput = ref<HTMLInputElement | null>(null)
 const viewState = ref<UploadViewState>('idle')
 const uploading = ref(false)
 const selectedDirectoryName = ref('')
-const originalTotalFiles = ref(0)
-const remainingFileCount = ref(0)
-const currentAttempt = ref(0)
-const currentBatchCount = ref(0)
-const completedBatchCount = ref(0)
+const totalFileCount = ref(0)
+const processedFileCount = ref(0)
+const succeededFileCount = ref(0)
 const rejectedFiles = ref<RejectedProjectFile[]>([])
 const finalFailures = ref<UploadFailure[]>([])
-const fatalErrorMessage = ref('')
 
 const rejectedReasonSummary = computed(() => {
   const counts = new Map<string, number>()
@@ -200,19 +163,17 @@ const rejectedReasonSummary = computed(() => {
 })
 
 const uploadPercentage = computed(() => {
-  if (!originalTotalFiles.value) return 0
-  return Math.round(
-    ((originalTotalFiles.value - remainingFileCount.value) / originalTotalFiles.value) * 100,
-  )
+  if (!totalFileCount.value) return 0
+  return Math.round((processedFileCount.value / totalFileCount.value) * 100)
 })
 
 const uploadProgressText = computed(() => {
   if (viewState.value === 'uploading') {
-    return `第 ${currentAttempt.value} 轮处理中，剩余 ${remainingFileCount.value} 个文件待确认`
+    const currentFile = Math.min(processedFileCount.value + 1, totalFileCount.value)
+    return `正在处理第 ${currentFile} 个文件，共 ${totalFileCount.value} 个`
   }
-  if (viewState.value === 'success') return `${originalTotalFiles.value} 个文件已上传成功`
-  if (viewState.value === 'needs-update') return `${remainingFileCount.value} 个文件仍未上传`
-  return '上传流程已中断'
+  if (viewState.value === 'success') return `${succeededFileCount.value} 个文件已上传成功`
+  return `${finalFailures.value.length} 个文件需要后续更新`
 })
 
 const uploadStatusLabel = computed(() => {
@@ -222,16 +183,14 @@ const uploadStatusLabel = computed(() => {
     uploading: '上传中',
     success: '已完成',
     'needs-update': '待更新',
-    error: '已中断',
   }
   return labels[viewState.value]
 })
 
-const uploadStatusType = computed<'default' | 'info' | 'success' | 'warning' | 'error'>(() => {
+const uploadStatusType = computed<'default' | 'info' | 'success' | 'warning'>(() => {
   if (viewState.value === 'uploading') return 'info'
   if (viewState.value === 'success') return 'success'
   if (viewState.value === 'needs-update' || viewState.value === 'empty') return 'warning'
-  if (viewState.value === 'error') return 'error'
   return 'default'
 })
 
@@ -254,146 +213,70 @@ async function handleDirectoryChange(event: Event) {
   }
 
   selectedDirectoryName.value = getDirectoryName(selectedFiles[0])
-  const filterResult = prepareProjectFiles(selectedFiles)
-  rejectedFiles.value = filterResult.rejectedFiles
-  originalTotalFiles.value = filterResult.acceptedFiles.length
-  remainingFileCount.value = filterResult.acceptedFiles.length
-
-  if (!filterResult.acceptedFiles.length) {
-    viewState.value = 'empty'
-    message.info('文件夹中没有符合上传条件的文件，未调用后端接口')
-    return
-  }
-
-  await startUpload(filterResult.acceptedFiles)
-}
-
-async function startUpload(allCandidates: PreparedProjectFile[]) {
-  const userId = authStore.user?.id
-  if (!userId) {
-    viewState.value = 'error'
-    fatalErrorMessage.value = '当前登录用户信息不可用，请重新登录后再试。'
-    return
-  }
-
+  totalFileCount.value = selectedFiles.length
   uploading.value = true
   viewState.value = 'uploading'
-  const requestId = uuidv4()
-  const candidateById = new Map(allCandidates.map((candidate) => [candidate.clientFileId, candidate]))
-  let pendingCandidates = allCandidates
+  const acceptedPaths = new Set<string>()
 
-  try {
-    for (let attemptNo = 1; attemptNo <= PROJECT_FILE_MAX_ATTEMPTS; attemptNo += 1) {
-      currentAttempt.value = attemptNo
-      const round = createProjectFileUploadRound({
-        userId,
-        projectId: props.projectId,
-        requestId,
-        attemptNo,
-        originalTotalFiles: allCandidates.length,
-        files: pendingCandidates,
+  for (const file of selectedFiles) {
+    const validation = validateProjectFile(file, acceptedPaths)
+    if (!validation.valid) {
+      rejectedFiles.value.push(validation.rejection)
+      finalFailures.value.push({
+        relativePath: validation.rejection.relativePath,
+        errorMessage: validation.rejection.reason,
       })
-      currentBatchCount.value = round.batches.length
-      completedBatchCount.value = 0
-
-      const outcomes: RoundBatchOutcome[] = []
-      for (const { batch, files, candidates } of round.batches) {
-        const response = await uploadBatchWithHttpRetry(props.projectId, {
-          manifest: round.manifest,
-          batch,
-          files,
-        })
-        outcomes.push({ candidates, response })
-        completedBatchCount.value += 1
-      }
-
-      const failures = collectRoundFailures(outcomes, candidateById)
-      pendingCandidates = failures.map((failure) => failure.candidate)
-      remainingFileCount.value = pendingCandidates.length
-      finalFailures.value = failures
-
-      if (!pendingCandidates.length) {
-        viewState.value = 'success'
-        message.success('项目文件上传完成')
-        return
-      }
-
-      if (attemptNo < PROJECT_FILE_MAX_ATTEMPTS) {
-        message.warning(`第 ${attemptNo} 轮有 ${pendingCandidates.length} 个文件失败，正在重新分批上传`)
-      }
+      processedFileCount.value += 1
+      continue
     }
 
-    viewState.value = 'needs-update'
-    message.warning('三轮上传结束，仍有失败文件，请后续点击更新项目重试')
+    const candidate = validation.candidate
+    try {
+      const result = await uploadProjectFile(props.projectId, candidate)
+      if (result.success) {
+        succeededFileCount.value += 1
+      } else {
+        finalFailures.value.push({
+          relativePath: result.relativePath,
+          errorMessage: result.errorMessage || '文件上传失败',
+        })
+      }
+    } catch (error) {
+      finalFailures.value.push({
+        relativePath: candidate.relativePath,
+        errorMessage: error instanceof Error ? error.message : '文件上传失败',
+      })
+    } finally {
+      processedFileCount.value += 1
+    }
+  }
+
+  try {
+    await requestProjectFileParsing(props.projectId)
   } catch (error) {
-    viewState.value = 'error'
-    fatalErrorMessage.value = error instanceof Error ? error.message : '上传流程发生未知错误，请稍后重试。'
-    message.error(fatalErrorMessage.value)
+    const errorMessage = error instanceof Error ? error.message : '文件解析接口调用失败'
+    message.warning(`文件上传结果已保存，但${errorMessage}`)
   } finally {
     uploading.value = false
   }
-}
 
-function collectRoundFailures(
-  outcomes: RoundBatchOutcome[],
-  candidateById: Map<string, PreparedProjectFile>,
-) {
-  const failures = new Map<string, UploadFailure>()
-
-  for (const outcome of outcomes) {
-    const batchFileIds = new Set(outcome.candidates.map((candidate) => candidate.clientFileId))
-    outcome.response.failedFiles.forEach((failedFile) => {
-      const candidate = candidateById.get(failedFile.clientFileId)
-      if (!candidate || !batchFileIds.has(failedFile.clientFileId)) {
-        throw new Error(`上传响应包含未知文件ID：${failedFile.clientFileId}`)
-      }
-      failures.set(candidate.clientFileId, {
-        candidate,
-        errorCode: failedFile.errorCode || 'FILE_UPLOAD_FAILED',
-        errorMessage: failedFile.errorMessage || '文件上传失败',
-      })
-    })
+  if (finalFailures.value.length) {
+    viewState.value = 'needs-update'
+    message.warning('存在失败文件，请后续更新项目')
+  } else {
+    viewState.value = 'success'
+    message.success('项目文件上传完成')
   }
-
-  return Array.from(failures.values())
-}
-
-async function uploadBatchWithHttpRetry(
-  projectId: number,
-  payload: UploadProjectFileBatchPayload,
-) {
-  let lastError: unknown
-
-  for (let sendIndex = 0; sendIndex <= batchHttpRetryDelaysMs.length; sendIndex += 1) {
-    try {
-      return await uploadProjectFileBatch(projectId, payload)
-    } catch (error) {
-      lastError = error
-      const retryDelay = batchHttpRetryDelaysMs[sendIndex]
-      if (retryDelay === undefined) break
-      await wait(retryDelay)
-    }
-  }
-
-  const errorMessage = lastError instanceof Error ? lastError.message : '批次请求失败'
-  throw new Error(`批次请求补发两次后仍失败，上传流程已中断：${errorMessage}`)
-}
-
-function wait(milliseconds: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
 }
 
 function resetUploadView() {
   viewState.value = 'idle'
   selectedDirectoryName.value = ''
-  originalTotalFiles.value = 0
-  remainingFileCount.value = 0
-  currentAttempt.value = 0
-  currentBatchCount.value = 0
-  completedBatchCount.value = 0
+  totalFileCount.value = 0
+  processedFileCount.value = 0
+  succeededFileCount.value = 0
   rejectedFiles.value = []
   finalFailures.value = []
-  fatalErrorMessage.value = ''
 }
 
 function getDirectoryName(file: File) {
@@ -423,13 +306,13 @@ function getDirectoryName(file: File) {
 }
 
 .upload-head h2,
-.empty-project-mock h3 {
+.empty-project h3 {
   margin: 0;
   color: var(--pm-text);
 }
 
 .upload-head > div:first-child > p:last-child,
-.empty-project-mock p {
+.empty-project p {
   margin: 8px 0 0;
   color: var(--pm-text-secondary);
   line-height: 1.7;
@@ -459,7 +342,7 @@ function getDirectoryName(file: File) {
 }
 
 .upload-placeholder,
-.empty-project-mock {
+.empty-project {
   margin-top: 20px;
   border: 1px dashed #cbd8eb;
   border-radius: 18px;
@@ -470,21 +353,9 @@ function getDirectoryName(file: File) {
   padding: 42px 24px;
 }
 
-.empty-project-mock {
-  position: relative;
+.empty-project {
   padding: 34px;
   border-left: 4px solid var(--pm-yellow);
-}
-
-.mock-badge {
-  display: inline-flex;
-  margin-bottom: 14px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  color: #9a650d;
-  background: var(--pm-yellow-soft);
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .upload-metrics {

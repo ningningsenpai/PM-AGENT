@@ -230,11 +230,11 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml down -v
 
 MySQL 数据库名通过 `PM_AGENT_DB_NAME` 配置，默认值为 `pm_agent`。完整示例见 `backend/.env.example`；Spring Boot 不会自动读取该文件，使用 Maven 启动时需要在当前终端或 VS Code 启动配置中注入这些变量。
 
-Sa-Token 使用 Redis 保存登录会话。当前批次上传不依赖 Redis，以 MySQL 中的请求 ID、批次 ID、轮次、文件事实和唯一约束作为完成与幂等事实。项目自管 Redis 键的名称前缀和过期时间集中定义在 `RedisKeyDefinition`，Sa-Token 内部键名及其有效期仍由框架和 `sa-token.timeout` 管理。
+Sa-Token 使用 Redis 保存登录会话。单文件上传还使用 Redis 幂等键保护短时间内的重复文件写请求；文件状态以 MySQL `pm_project_file` 为准。项目自管 Redis 键的名称前缀和过期时间集中定义在 `RedisKeyDefinition`，Sa-Token 内部键名及其有效期仍由框架和 `sa-token.timeout` 管理。
 
-RabbitMQ 连接参数位于 `backend/src/main/resources/config/rabbitmq.yml`，Java 只保留连接和 JSON 消息转换等基础配置。当前文件批次上传不创建文件业务交换机、队列或监听器，不写 Transactional Outbox。
+RabbitMQ 连接参数位于 `backend/src/main/resources/config/rabbitmq.yml`，Java 只保留连接和 JSON 消息转换等基础配置。当前单文件上传和解析占位接口不创建文件业务交换机、队列或监听器，不写 Transactional Outbox。
 
-文件批次从 `waiting` 进入 `processing` 时会记录开始时间。`PM_AGENT_FILE_UPLOAD_PROCESSING_TIMEOUT` 控制同幂等键的超时接管阈值，默认 `15m`；接管时当前物理批次已成功文件不会重复 PUT。`PM_AGENT_MAX_UPLOAD_FILE_SIZE` 和 `PM_AGENT_MAX_UPLOAD_REQUEST_SIZE` 默认分别为 `50MB`、`256MB`。
+`PM_AGENT_MAX_UPLOAD_FILE_SIZE` 和 `PM_AGENT_MAX_UPLOAD_REQUEST_SIZE` 默认分别为 `50MB`、`256MB`。当前接口一次只上传一个文件，不再配置批次线程池或批次处理超时。
 
 ## 职责边界
 
@@ -266,13 +266,13 @@ Found non-empty schema(s) `pm_agent` but no schema history table
 1. 先导出需要保留的数据；
 2. 确认可以丢弃现有本地结构；
 3. 使用本文“重置本地数据”命令删除数据卷，或手动重建空的 `pm_agent` schema；
-4. 重新启动后端，让 Flyway 从 V1 完整执行到最新版本。
+4. 重新启动后端，让 Flyway 执行唯一的 V1 初始化脚本。
 
 生产或共享数据库不得直接重置，应先人工核对实际表结构和数据，再制定单独的基线或迁移方案。
 
 ### 2. 为什么启用MinIO？
 
-项目文件模块使用 MinIO 保存成功上传的文件对象和 `system/index.json`。当前批次上传由前端按最多 50 个文件且原始文件总大小不超过 240 MB 分批，同一轮逐批顺序调用并最多执行三轮；后端 Multipart 请求上限为 256 MB，只在当前单批内部多线程上传，失败文件在 MySQL 中保持 `not_uploaded`。全部成功或第三轮结束后，Java 同步从 MySQL 重建索引。当前链路不依赖 RabbitMQ 或 Outbox，Python 异步解析、RAG 和向量链路仍按后续阶段控制。
+项目文件模块使用 MinIO 保存项目文件对象和 `system/index.json`。项目创建时 Java 同步初始化索引；随后前端逐文件校验并顺序调用单文件接口，Java 先落库再执行一次 MinIO PUT，失败文件保持 `not_uploaded`。当前流程不自动重试、不在上传后重建索引，也不依赖 RabbitMQ 或 Outbox；Python 解析、RAG 和向量链路仍按后续阶段控制。
 
 ### 3. 为什么后端和前端不放进 Docker？
 

@@ -56,16 +56,8 @@ public record ProjectIndex(
             Long sizeBytes,
             String contentType,
             String status,
-            String analysisStatus,
             String quickFingerprint,
             String contentHash,
-            String module,
-            String kind,
-            String language,
-            String importance,
-            String summary,
-            List<String> keywords,
-            String detailRef,
             LocalDateTime updatedAt
     ) {
     }
@@ -87,7 +79,6 @@ public record ProjectIndex(
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record SystemSection(
             String index,
-            String fileDetails,
             String projectSpecification,
             String longTermMemory,
             String shortTermMemory,

@@ -4,13 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.ning.pm.file.converter.ProjectFileConverter;
-import com.ning.pm.file.analysis.AgentFileAnalysisProperties;
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.dto.file.OverwriteProjectFileRequest;
 import com.ning.pm.file.dto.file.ProjectFileResponse;
+import com.ning.pm.file.dto.file.ProjectFileUploadResponse;
 import com.ning.pm.file.dto.file.UpdateProjectFilePathRequest;
+import com.ning.pm.file.dto.file.UploadProjectFileRequest;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
+import com.ning.pm.file.enums.ProjectFileUploadStatus;
 import com.ning.pm.file.repository.ProjectFileMapper;
 import com.ning.pm.file.service.FileFingerprintService;
 import com.ning.pm.file.service.FileStorageLocationFactory;
@@ -41,6 +43,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,8 +85,6 @@ class ProjectFileServiceImplTest {
     private RedisIdempotencyGuard idempotencyGuard;
     @Mock
     private ProjectIndexService projectIndexService;
-    @Mock
-    private AgentFileAnalysisProperties analysisProperties;
 
     @InjectMocks
     private ProjectFileServiceImpl service;
@@ -97,10 +99,69 @@ class ProjectFileServiceImplTest {
                 .thenReturn("text/plain");
         lenient().when(fileConverter.toResponse(any(ProjectFile.class)))
                 .thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
-        lenient().when(analysisProperties.getAnalysisVersion()).thenReturn("file-detail-v1");
-        lenient().when(analysisProperties.getBackendBaseUrl()).thenReturn("http://localhost:8080");
         lenient().when(objectStorageService.createReadUrl(any(StorageLocation.class)))
                 .thenReturn("http://minio/read-source");
+    }
+
+    @Test
+    void uploadShouldInsertNotUploadedBeforePuttingObject() {
+        stubMaxFileSize();
+        stubIdempotency();
+        when(fileMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
+        doAnswer(invocation -> {
+            ProjectFile file = invocation.getArgument(0);
+            assertThat(file.getStatus()).isEqualTo(ProjectFileStatus.UPLOADING);
+            assertThat(file.getUploadStatus()).isEqualTo(ProjectFileUploadStatus.NOT_UPLOADED);
+            file.setId(40L);
+            return 1;
+        }).when(fileMapper).insert(any(ProjectFile.class));
+        when(fileMapper.update(isNull(), any())).thenReturn(1);
+
+        ProjectFileUploadResponse response = service.uploadFile(
+                20L,
+                "upload-key",
+                uploadRequest("new-content", 2000L)
+        );
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.status()).isEqualTo(ProjectFileStatus.ACTIVE);
+        assertThat(response.uploadStatus()).isEqualTo(ProjectFileUploadStatus.SUCCESS);
+        verify(objectStorageService).putObject(
+                any(StorageLocation.class),
+                any(byte[].class),
+                anyString()
+        );
+        verify(projectIndexService, never()).rebuild(any(Project.class));
+    }
+
+    @Test
+    void uploadFailureShouldLeaveDatabaseStatusUnchanged() {
+        stubMaxFileSize();
+        stubIdempotency();
+        when(fileMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
+        doAnswer(invocation -> {
+            ProjectFile file = invocation.getArgument(0);
+            file.setId(40L);
+            return 1;
+        }).when(fileMapper).insert(any(ProjectFile.class));
+        doThrow(new RuntimeException("MinIO不可用")).when(objectStorageService).putObject(
+                any(StorageLocation.class),
+                any(byte[].class),
+                anyString()
+        );
+
+        ProjectFileUploadResponse response = service.uploadFile(
+                20L,
+                "upload-key",
+                uploadRequest("new-content", 2000L)
+        );
+
+        assertThat(response.success()).isFalse();
+        assertThat(response.status()).isEqualTo(ProjectFileStatus.UPLOADING);
+        assertThat(response.uploadStatus()).isEqualTo(ProjectFileUploadStatus.NOT_UPLOADED);
+        assertThat(response.errorMessage()).isEqualTo("MinIO不可用");
+        verify(fileMapper, never()).update(isNull(), any());
+        verify(projectIndexService, never()).rebuild(any(Project.class));
     }
 
     @Test
@@ -239,6 +300,19 @@ class ProjectFileServiceImplTest {
         return request;
     }
 
+    private UploadProjectFileRequest uploadRequest(String content, long mtime) {
+        UploadProjectFileRequest request = new UploadProjectFileRequest();
+        request.setRelativePath("src/App.java");
+        request.setSourceMtimeMs(mtime);
+        request.setFile(new MockMultipartFile(
+                "file",
+                "App.java",
+                "text/x-java-source",
+                content.getBytes(StandardCharsets.UTF_8)
+        ));
+        return request;
+    }
+
     private ProjectFile existingFile(String content) {
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         ProjectFile file = new ProjectFile();
@@ -253,7 +327,6 @@ class ProjectFileServiceImplTest {
         file.setStorageName("App-a1b2c3d4e5f67890.java");
         file.setObjectKey("PM-AGENT/10/20/project/App-a1b2c3d4e5f67890.java");
         file.setMinioPath("project/App-a1b2c3d4e5f67890.java");
-        file.setDetailRef("system/file_details/App-a1b2c3d4e5f67890.java");
         file.setContentType("text/x-java-source");
         file.setSizeBytes((long) bytes.length);
         file.setSourceMtimeMs(1000L);
@@ -269,7 +342,6 @@ class ProjectFileServiceImplTest {
         return new ProjectFileResponse(
                 file.getId(),
                 file.getProjectId(),
-                file.getIngestBatchId(),
                 file.getBusinessCode(),
                 file.getRelativePath(),
                 file.getFileName(),
@@ -283,8 +355,6 @@ class ProjectFileServiceImplTest {
                 file.getContentHash(),
                 file.getStatus(),
                 file.getUploadStatus(),
-                file.getAnalysisStatus(),
-                file.getDetailRef(),
                 file.getLockVersion(),
                 file.getCreatedAt(),
                 file.getUpdatedAt()

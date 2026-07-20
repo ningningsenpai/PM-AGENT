@@ -4,14 +4,15 @@ import {
   mockCreateProject,
   mockGetProjectDetail,
   mockListProjects,
-  mockUploadProjectFileBatch,
+  mockRequestProjectFileParsing,
+  mockUploadProjectFile,
 } from '@/modules/project/mock'
 import type {
   CreateProjectRequest,
   ProjectDetail,
-  ProjectFileUploadBatchResponse,
+  ProjectFileUploadResponse,
   ProjectSummary,
-  UploadProjectFileBatchPayload,
+  UploadProjectFilePayload,
 } from '@/modules/project/types'
 
 export async function listProjects() {
@@ -48,34 +49,34 @@ export async function createProject(payload: CreateProjectRequest) {
   })
 }
 
-export async function uploadProjectFileBatch(
-  projectId: number,
-  payload: UploadProjectFileBatchPayload,
-) {
+export async function uploadProjectFile(projectId: number, payload: UploadProjectFilePayload) {
   if (useMock) {
-    return mockUploadProjectFileBatch(payload)
+    return mockUploadProjectFile(payload)
   }
 
   const formData = new FormData()
-  formData.append(
-    'manifest',
-    new Blob([JSON.stringify(payload.manifest)], { type: 'application/json' }),
-    'manifest.json',
-  )
-  formData.append(
-    'batch',
-    new Blob([JSON.stringify(payload.batch)], { type: 'application/json' }),
-    'batch.json',
-  )
-  payload.files.forEach((file) => formData.append('files', file, file.name))
+  formData.append('file', payload.file, payload.file.name)
+  formData.append('relativePath', payload.relativePath)
+  formData.append('sourceMtimeMs', String(payload.sourceMtimeMs))
 
-  return request<ProjectFileUploadBatchResponse>({
-    url: `/api/v1/projects/${projectId}/file-ingest-batches/concurrent-uploads`,
+  return request<ProjectFileUploadResponse>({
+    url: `/api/v1/projects/${projectId}/files`,
     method: 'post',
     data: formData,
     headers: {
-      'X-Idempotency-Key': payload.batch.idempotencyKey,
+      'X-Idempotency-Key': payload.idempotencyKey,
     },
-    timeout: 10 * 60 * 1000,
+    timeout: 2 * 60 * 1000,
+  })
+}
+
+export async function requestProjectFileParsing(projectId: number) {
+  if (useMock) {
+    return mockRequestProjectFileParsing()
+  }
+
+  return request<void>({
+    url: `/api/v1/projects/${projectId}/files/parse`,
+    method: 'post',
   })
 }
