@@ -4,6 +4,7 @@
 # 依赖目录
 node_modules/
 frontend/node_modules/
+.pnpm-store/
 backend/target/
 backend/data/
 
