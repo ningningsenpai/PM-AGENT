@@ -36,8 +36,7 @@ agent-service/
 │   │   └── orchestration/
 │   │
 │   ├── project/                      # 用户项目相关业务能力
-│   │   ├── files/                    # 项目文件上传、存储规则、文件树编排
-│   │   ├── context/                  # 项目文件树扫描、索引、模型相关
+│   │   ├── context/                  # 项目文件详情解析、上下文模型相关
 │   │   └── habits/                   # 用户习惯识别业务
 │   │
 │   ├── normalization/                # 内容归一化、词库、匹配、映射和版本缓存
@@ -68,7 +67,7 @@ agent-service/
 | 核心层 | `app/core` | 配置、日志、请求上下文、中间件 | 不写具体业务逻辑 |
 | 基础设施层 | `app/infrastructure` | MinIO、HTTP、向量库等底层客户端 | 不写项目业务规则 |
 | LLM 层 | `app/llm` | 模型客户端、Prompt、工具注册、Agent 编排 | 不直接处理项目文件路径或业务状态 |
-| 项目业务层 | `app/project` | 项目文件、文件树、上下文、用户习惯等业务能力 | 不直接初始化底层 SDK |
+| 项目业务层 | `app/project` | 项目文件详情解析、上下文、用户习惯等业务能力 | 不直接初始化底层 SDK，不扫描服务器本地项目目录 |
 | 内容归一化层 | `app/normalization` | 词库加载、校验、合并、匹配、术语映射和版本缓存 | 不负责 BM25F 召回、SimHash 去重或直接修改业务数据 |
 | 流式层 | `app/streaming` | SSE 事件、流式 payload、token 统计 | 不写业务规则 |
 | RAG 层 | `app/rag` | 文档摄取、切片、向量化、检索 | 当前阶段只保留扩展位置 |
@@ -92,25 +91,17 @@ agent-service/
 
 ---
 
-## 4. MinIO 文件链路
+## 4. 项目文件解析链路
 
 | 层级 | 推荐文件 | 职责 |
 |---|---|---|
-| API 路由 | `app/api/v1/minio_files.py` | 上传 / 查看 / 下载 / 更新 / 删除 HTTP 入口 |
-| 内部函数 | `app/api/internal/minio_files.py` | 复用 service 的业务封装，供 `project_files` 等模块直接调用 |
-| 文件树编排 | `app/api/v1/project_files.py` | 项目文件树构建与更新 HTTP 入口 |
-| 文件树服务 | `app/project/files/tree_service.py` | 文件树扫描、MinIO 同步、`Project_Index.json` 写入 |
-| 业务服务 | `app/project/files/service.py` | 文件名规则、用户归属校验、业务分区 |
-| 存储规则 | `app/project/files/storage.py` | 对象名、URL、路径解析 |
-| 基础设施 | `app/infrastructure/minio_client.py` | MinIO Client 初始化、Bucket 创建、对象读写 |
+| MQ 消费入口 | `app/project/context/detail_analysis/consumer.py` | 接收 Java 发布的文件解析事件并控制消息确认 |
+| 解析编排 | `app/project/context/detail_analysis/service.py` | 下载受控文件、校验哈希、解析并回调 Java |
+| 结构解析 | `app/project/context/detail_analysis/parser.py` | 生成可校验的文件详情基线 |
+| 模型增强 | `app/project/context/detail_analysis/enricher.py` | 按配置使用模型补充文件详情 |
+| 数据结构 | `app/project/context/detail_analysis/schemas.py` | 定义事件、详情文档和回调结果 |
 
-对象命名规则：
-
-```text
-PM-AGENT/{userId}/{projectId}/{business}/{file}
-```
-
-`business` 仅允许 `project`、`system`、`user`。
+Java 负责项目文件上传、MySQL、MinIO、权限和业务状态；Python 仅消费受控文件引用，不扫描服务器本地目录，也不生成 `Project_Index.json`。
 
 ---
 

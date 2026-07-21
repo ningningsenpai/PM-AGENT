@@ -106,7 +106,7 @@
 | `pm_project_file` | Java | 项目文件元数据和存储引用 | 待新增 |
 | `pm_project_analysis_job` | Java | 初始化与分析作业状态 | 待新增 |
 | `agent_trace` | Java | 模型调用、Prompt、Token 和 Trace | 待新增 |
-| `index.json` / `Project_Index.json` | MinIO 或受控文件存储 | 项目文件索引，不是 MySQL 表 | 已有实验实现 |
+| `index.json` | MinIO 或受控文件存储 | 项目上下文轻量索引，不是 MySQL 表 | 待基于 Java 文件事件实现 |
 
 ### 需要展示的数据字段
 
@@ -489,7 +489,7 @@ X-Idempotency-Key
 
 1. 先统一 Java 与 Python 的 `traceId`、用户、租户和会话字段类型；
 2. 新增 `pm_project_analysis_job` 和 `agent_trace`，实现统一作业状态；
-3. 将现有文件扫描封装到 `project_initialization` 作业；
+3. 由 Java 向 `project_initialization` 作业提供受控文件元数据和文件引用；
 4. 实现项目简报结构化输出并保存到 `pm_project_brief`；
 5. 实现风险候选并保存到 `pm_risk` 草稿；
 6. 实现任务拆解并保存到 `pm_task_draft`；
@@ -498,7 +498,7 @@ X-Idempotency-Key
 
 ## 13. 风险与取舍
 
-1. 当前文件树接口使用服务器本地 `root_path`，不能直接作为浏览器正式契约；
+1. Python 不接收服务器本地 `root_path`，项目文件必须通过 Java 受控接口或事件进入解析链路；
 2. 作业结果中的大文件列表和证据内容不能全部写入 `result_json`，应保存引用和脱敏摘要；
 3. 项目初始化属于长任务，不能在 Java 数据库事务中等待 Agent 完成；
 4. Agent 生成的风险候选和任务草稿必须经过人工确认；

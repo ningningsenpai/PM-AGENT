@@ -57,7 +57,7 @@ class ShortTermMemoryPrompt(str, Enum):
       "status": "active | expired | pending_review",
       "confidence": "high | medium | low",
       "importance": "high | medium | low",
-      "ttl_hint": "建议保留时间或复查条件，例如 本周内 / 下次测试后 / 文件树链路稳定后",
+      "ttl_hint": "建议保留时间或复查条件，例如 本周内 / 下次测试后 / 文件解析链路稳定后",
       "next_check": "下一步需要确认的问题或动作",
       "promote_candidate": true,
       "tags": ["中文标签"],

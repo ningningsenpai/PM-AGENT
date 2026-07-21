@@ -74,7 +74,7 @@ class RelatedFile(BaseModel):
 
 
 class Evidence(BaseModel):
-    source: Literal["file_content", "file_tree_node", "existing_file_detail_json"]
+    source: Literal["file_content", "existing_file_detail_json"]
     quote: str = Field(min_length=1, max_length=300)
 
 

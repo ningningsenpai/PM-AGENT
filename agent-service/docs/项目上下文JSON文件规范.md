@@ -2,16 +2,16 @@
 
 ## 1. 背景
 
-PM-Agent 的项目上下文索引与记忆系统需要在用户选择本地项目目录后，持续维护项目文件、项目规范、项目记忆、用户习惯和增量更新记录。
+PM-Agent 的项目上下文索引与记忆系统需要在 Java 后端完成项目文件上传和权限校验后，基于受控文件事件持续维护项目规范、项目记忆、用户习惯和增量更新记录。
 
-本文件用于固定系统内部 JSON / JSONL 文件的结构，作为后续实现扫描、召回、记忆演进、`project.md` 内化和调试审计的格式依据。
+本文件用于固定系统内部 JSON / JSONL 文件的结构，作为后续实现文件事件处理、召回、记忆演进、`project.md` 内化和调试审计的格式依据。
 
 ## 2. 目标
 
 1. 固定各类 JSON 文件的字段结构，减少后续实现时的格式漂移；
 2. 明确每类文件的职责边界，避免索引、详情、规范和记忆互相污染；
 3. 支持 `index.json → file_details → 原始文件 / 记忆` 的轻量召回链路；
-4. 支持文件增量扫描、内容 hash 对比、软删除和更新日志记录；
+4. 支持文件增量事件、内容 hash 对比、软删除和更新日志记录；
 5. 为后续 BM25、向量检索、AST 解析和更完整 RAG 预留结构。
 
 ## 3. 总体结构
@@ -115,7 +115,7 @@ LLM 不直接拼接 user_id、project_id 或云端完整对象路径。
 file_details 逻辑路径和云端对象路径都保留目录层级。
 ```
 
-当前代码中的 `TreeIndexWriter` 会将文件树扫描结果写为 `Project_Index.json`。该文件属于现有文件树扫描产物；本文中的 `index.json` 是项目上下文总索引规范文件，后续实现时应避免两者命名职责混淆。
+Python Agent 服务不再扫描本地文件树，也不生成 `Project_Index.json`。本文中的 `index.json` 是项目上下文总索引规范文件，其输入只能来自 Java 提供的受控文件元数据、文件变更事件和文件详情解析结果。
 
 | 文件 | 格式 | 职责 |
 |---|---|---|
@@ -821,9 +821,9 @@ index.json 通过 detail_ref 指向对应 file_details JSON。
 ## 13. 更新链路
 
 ```text
-重新扫描文件树
-→ 对比旧 index.json
-→ 得到 added / modified / deleted / moved
+接收 Java 文件变更事件
+→ 根据文件 ID、路径和 content_hash 对比旧 index.json
+→ 确认 added / modified / deleted / moved
 → 只处理变化文件
 → 更新对应 file_details
 → 更新 index.json 对应 entry
