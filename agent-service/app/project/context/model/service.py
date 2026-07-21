@@ -4,30 +4,20 @@ from __future__ import annotations
 import httpx
 from pydantic import json
 
+from app.project.context.model import ProjectContextModelClient
 from app.project.context.model.processor import ProjectContextModelProcessor
 from app.project.context.model.schemas import ProjectContextModelResponse
 
 __all__ = ["ProjectContextModelService"]
+
+from app.project.inner_prompts import ProjectFileDetailPrompt
 
 
 class ProjectContextModelService:
     """项目上下文模型最小调用服务。"""
 
     def __init__(self) -> None:
-        self.client = ProjectContextModelProcessor()
-
-
-    def generate_user_habits(
-            self,
-            *,
-            existing_habits: str | None = None,
-            user_content: str | None = None,
-            project_content: str | None = None,
-    ) -> str:
-        """生成用户习惯。"""
-    #     TODO : 后续探讨合适的返回数据格式
-        effective_prompt = user_content or project_content
-        return self.client.user_habits(existing_habits, effective_prompt)
+        self.client = ProjectContextModelClient()
 
 
     @staticmethod

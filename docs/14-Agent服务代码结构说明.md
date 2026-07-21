@@ -95,13 +95,13 @@ agent-service/
 
 | 层级 | 推荐文件 | 职责 |
 |---|---|---|
-| MQ 消费入口 | `app/project/context/detail_analysis/consumer.py` | 接收 Java 发布的文件解析事件并控制消息确认 |
-| 解析编排 | `app/project/context/detail_analysis/service.py` | 下载受控文件、校验哈希、解析并回调 Java |
+| HTTP 入口 | `app/api/v1/project_files.py` | 校验内部服务令牌、接收受控文件引用并同步返回结果 |
+| 解析编排 | `app/project/context/detail_analysis/service.py` | 下载受控文件、校验哈希并返回结构化详情 |
 | 结构解析 | `app/project/context/detail_analysis/parser.py` | 生成可校验的文件详情基线 |
 | 模型增强 | `app/project/context/detail_analysis/enricher.py` | 按配置使用模型补充文件详情 |
-| 数据结构 | `app/project/context/detail_analysis/schemas.py` | 定义事件、详情文档和回调结果 |
+| 数据结构 | `app/project/context/detail_analysis/schemas.py` | 定义同步请求、详情文档和响应结果 |
 
-Java 负责项目文件上传、MySQL、MinIO、权限和业务状态；Python 仅消费受控文件引用，不扫描服务器本地目录，也不生成 `Project_Index.json`。
+Java 负责项目文件上传、MySQL、MinIO、权限和业务状态；Python 仅通过同步 HTTP 解析受控文件引用，不扫描服务器本地目录、不使用文件业务 MQ，也不生成 `Project_Index.json`。
 
 ---
 

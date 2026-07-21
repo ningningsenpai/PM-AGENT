@@ -1,6 +1,12 @@
 """单文件完整详情解析链路。"""
 
-from app.project.context.detail_analysis.parser import FileDetailParser
-from app.project.context.detail_analysis.schemas import FileDetailDocument, FileParsingEvent
+from .downloader import FileDownloader
+from .parser import FileParseResult, FileParser, FileParserFactory
 
-__all__ = ["FileDetailDocument", "FileDetailParser", "FileParsingEvent"]
+__all__ = [
+    "FileDetailAnalysisService",
+    "FileDownloader",
+    "FileParseResult",
+    "FileParser",
+    "FileParserFactory",
+]

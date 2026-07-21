@@ -1,21 +1,22 @@
 # Agent Service
 
-`agent-service` 是 PM-Agent 的 Python Agent 对话服务。当前版本已去除对 Java 模块的运行依赖，可单独启动、单独测试，实现 FastAPI 接口、Agent 编排、Prompt 构造、模型适配和工具调用的完整链路。
+`agent-service` 是 PM-Agent 的 Python Agent 服务，可单独启动和测试，当前提供 Agent 对话与项目文件同步解析能力。
 
 ---
 
 ## 1. 当前定位
 
-当前服务只做一件事：
+当前服务包含两条独立链路：
 
 ```text
 接收用户问题 → 可选调用工具 → 构造 Prompt → 调用模型 → 返回 JSON / SSE
+接收 Java 受控文件引用 → 下载并校验文件 → 生成文件详情 → 同步返回 JSON
 ```
 
 核心边界：
 
 1. 不连接 MySQL；
-2. 不依赖 Java 后端；
+2. 不直接操作 MinIO，文件解析只读取 Java 提供的受控地址；
 3. 不真实修改项目、任务、用户等业务数据；
 4. 必须配置当前选中 provider 对应的 API Key 才能调用（启动期不强校验，调用期才报错）；
 5. 内置工具当前返回固定演示数据，等待替换为真实工具 API。
@@ -32,7 +33,8 @@ agent-service/
     ├── main.py                     # 应用入口：创建 FastAPI 实例，组装路由
     ├── api/
     │   └── v1/
-    │       └── agent.py            # HTTP 接口层：接收请求，解析参数，决定 JSON/SSE 输出
+    │       ├── agent.py            # Agent 对话接口
+    │       └── project_files.py    # 项目文件同步解析接口
     ├── core/
     │   └── config.py               # 配置层：加载 .env，提供 Settings 实例
     ├── agents/
@@ -50,6 +52,8 @@ agent-service/
     │       └── doubao_client.py
     ├── tools/
     │   └── demo_project_tool.py    # 工具层：提供可被 Agent 调用的业务工具（当前为演示数据）
+    ├── project/context/
+    │   └── detail_analysis/        # 文件下载、校验、结构解析与可选模型增强
     └── schemas/
         └── chat.py                 # 数据模型层：定义请求/响应 Pydantic 模型
 ```
@@ -60,6 +64,8 @@ agent-service/
 |-----|------|------|
 | 入口 | `main.py` | 创建 FastAPI 实例，注册路由 |
 | 接口层 | `api/v1/agent.py` | 解析 HTTP 请求，调度 Agent，控制响应格式 |
+| 文件接口层 | `api/v1/project_files.py` | 校验内部令牌并同步返回文件解析结果 |
+| 文件解析层 | `project/context/detail_analysis/` | 下载受控文件、校验哈希、生成完整详情 |
 | 配置层 | `core/config.py` | 从 `.env` 读取运行配置，校验 API Key |
 | 编排层 | `agents/project_chat_agent.py` | 协调工具调用、Prompt、模型三者的执行顺序 |
 | Prompt 层 | `prompts/project_chat.py` | 定义系统角色、边界约束，拼接上下文 |
@@ -77,6 +83,7 @@ agent-service/
 |------|------|------|
 | `GET` | `/internal/health` | 健康检查，返回服务状态 |
 | `POST` | `/api/v1/agent/chat` | Agent 对话，支持 JSON 和 SSE 流式两种输出 |
+| `POST` | `/api/v1/project-files/analyze` | Java 内部调用的项目文件同步解析接口 |
 
 ### 功能
 
@@ -87,3 +94,4 @@ agent-service/
 | DeepSeek 模型适配 | 默认模型 `deepseek-v4-pro`，通过 `.env` 配置 Key 和 Base URL |
 | 多模型切换 | 内置 DeepSeek / 豆包客户端；通过 `DEFAULT_LLM_PROVIDER` 或请求体 `llm_provider` 字段切换 |
 | 工具调用演示 | `demo_query_project_overview` 返回固定项目概览数据 |
+| 文件同步解析 | 校验内部令牌和文件哈希，直接返回结构化文件详情，不使用 MQ |

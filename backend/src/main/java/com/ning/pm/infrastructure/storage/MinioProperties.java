@@ -19,7 +19,7 @@ public class MinioProperties {
     private String accessKey;
     private String secretKey;
     private long maxFileSizeBytes = 50L * 1024 * 1024;
-    private int readUrlExpirySeconds = 300;
+    private int readUrlExpirySeconds = 30000;
     private int connectTimeoutSeconds = 2;
     private int readTimeoutSeconds = 10;
     private int writeTimeoutSeconds = 10;

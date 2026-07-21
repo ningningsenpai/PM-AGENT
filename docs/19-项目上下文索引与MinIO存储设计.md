@@ -12,7 +12,7 @@
 4. 单文件上传先保存完整文件元数据和预生成的存储位置，再执行一次 MinIO PUT。
 5. 单文件上传成功后只更新文件状态，不修改索引。
 6. 文件解析接口当前不实现解析或索引更新。
-7. 当前上传链路不使用 RabbitMQ、Outbox 或 Python。
+7. 当前上传链路不使用 RabbitMQ、Outbox 或 Python；Python 同步解析 API 独立存在，尚未接入 Java 占位接口。
 
 ## 3. 存储层级
 
@@ -149,7 +149,7 @@ uploadStatus = success
 
 后续清理任务可以从 MySQL 查询有效 `object_key`，再与 MinIO 项目前缀对象比对并清理长期冗余对象。该功能当前未实现。
 
-## 8. Python 解析扩展点
+## 8. Python 同步解析扩展点
 
 `POST /api/v1/projects/{projectId}/files/parse` 当前只是 Java 占位接口：
 
@@ -159,7 +159,7 @@ uploadStatus = success
 - 不保存解析状态或解析结果；
 - 不重建索引。
 
-未来实现前需单独评审解析数据模型、任务协议、幂等、失败恢复和索引更新规则。
+Python 已提供 `POST /api/v1/project-files/analyze`：接收 Java 提供的受控只读地址和文件元数据，同步返回结构化详情。该接口不使用 MQ、不回调 Java、不操作 MySQL 或 MinIO。Java 正式接入前仍需确认解析结果的持久化位置和失败处理规则。
 
 ## 9. 一致性取舍
 
