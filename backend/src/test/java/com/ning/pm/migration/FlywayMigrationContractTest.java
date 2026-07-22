@@ -26,12 +26,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FlywayMigrationContractTest {
 
     @Test
-    void migrationDirectoryShouldOnlyContainV1() throws IOException {
+    void migrationDirectoryShouldContainAnalysisMigration() throws IOException {
         Resource[] resources = new PathMatchingResourcePatternResolver()
                 .getResources("classpath*:db/migration/V*.sql");
 
         assertThat(Arrays.stream(resources).map(Resource::getFilename))
-                .containsExactly("V1__init_phase1_schema.sql");
+                .containsExactly(
+                        "V1__init_phase1_schema.sql",
+                        "V2__add_project_file_analysis_fields.sql"
+                );
     }
 
     @Test
@@ -65,19 +68,40 @@ class FlywayMigrationContractTest {
     }
 
     @Test
-    void projectFileShouldNotContainAnalysisFields() {
+    void projectFileShouldContainAnalysisProjectionFields() {
         List<String> fieldNames = Arrays.stream(ProjectFile.class.getDeclaredFields())
                 .map(Field::getName)
                 .toList();
 
-        assertThat(fieldNames).doesNotContain(
-                "analysisStatus",
+        assertThat(fieldNames).contains(
+                "parseAttempts",
                 "analysisVersion",
                 "detailRef",
-                "analysisSummary",
-                "analysisKeywords",
-                "analysisAttempts",
-                "analyzedAt"
+                "module",
+                "kind",
+                "fileType",
+                "language",
+                "importance",
+                "summary",
+                "keywords"
+        );
+    }
+
+    @Test
+    void v2ShouldAddProjectFileAnalysisProjection() throws IOException {
+        String sql = readMigration("V2__add_project_file_analysis_fields.sql");
+
+        assertThat(sql).contains(
+                "parse_attempts",
+                "detail_ref",
+                "analysis_version",
+                "module",
+                "kind",
+                "file_type",
+                "language",
+                "importance",
+                "summary",
+                "keywords"
         );
     }
 

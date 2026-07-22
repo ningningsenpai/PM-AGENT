@@ -28,6 +28,7 @@ public record ProjectFileResponse(
         String contentHash,
         ProjectFileStatus status,
         ProjectFileUploadStatus uploadStatus,
+        Integer parseAttempts,
         Integer lockVersion,
         LocalDateTime createdAt,
         LocalDateTime updatedAt

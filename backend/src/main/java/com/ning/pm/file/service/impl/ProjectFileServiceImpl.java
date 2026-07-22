@@ -149,6 +149,7 @@ public class ProjectFileServiceImpl implements ProjectFileService {
         file.setStatus(ProjectFileStatus.UPLOADING);
         file.setUploadStatus(ProjectFileUploadStatus.NOT_UPLOADED);
         file.setUploadAttempts(1);
+        file.setParseAttempts(0);
         file.setLockVersion(0);
         return file;
     }

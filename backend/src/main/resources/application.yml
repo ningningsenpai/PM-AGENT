@@ -57,7 +57,7 @@ pm-agent:
       access-key: ${MINIO_ROOT_USER:pm-agent}
       secret-key: ${MINIO_ROOT_PASSWORD:123456-pm-agent}
       max-file-size-bytes: ${MINIO_MAX_FILE_SIZE_BYTES:52428800}
-      read-url-expiry-seconds: ${MINIO_READ_URL_EXPIRY_SECONDS:300}
+      read-url-expiry-seconds: ${MINIO_READ_URL_EXPIRY_SECONDS:30000}
       connect-timeout-seconds: ${MINIO_CONNECT_TIMEOUT_SECONDS:2}
       read-timeout-seconds: ${MINIO_READ_TIMEOUT_SECONDS:10}
       write-timeout-seconds: ${MINIO_WRITE_TIMEOUT_SECONDS:10}

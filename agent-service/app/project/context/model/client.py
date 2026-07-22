@@ -19,9 +19,14 @@ class ProjectContextModelClient:
         if self.config.provider != "ollama":
             raise RuntimeError(f"当前仅支持 ollama provider，实际为：{self.config.provider}")
 
-    def generate(self, prompt: str) -> ProjectContextModelResponse:
+    def generate(
+        self,
+        prompt: str,
+        *,
+        response_format: str | dict[str, Any] | None = None,
+    ) -> ProjectContextModelResponse:
         """调用本地项目上下文模型生成内容。"""
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.config.model_name,
             "prompt": prompt,
             "stream": False,
@@ -29,6 +34,8 @@ class ProjectContextModelClient:
                 "num_ctx": self.config.context_size,
             },
         }
+        if response_format is not None:
+            payload["format"] = response_format
         with httpx.Client(timeout=self.config.timeout_seconds) as client:
             response = client.post(f"{self.config.base_url}/api/generate", json=payload)
             response.raise_for_status()

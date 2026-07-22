@@ -112,6 +112,7 @@ class ProjectFileServiceImplTest {
             ProjectFile file = invocation.getArgument(0);
             assertThat(file.getStatus()).isEqualTo(ProjectFileStatus.UPLOADING);
             assertThat(file.getUploadStatus()).isEqualTo(ProjectFileUploadStatus.NOT_UPLOADED);
+            assertThat(file.getParseAttempts()).isZero();
             file.setId(40L);
             return 1;
         }).when(fileMapper).insert(any(ProjectFile.class));
@@ -334,6 +335,7 @@ class ProjectFileServiceImplTest {
         file.setContentHash(fingerprintService.contentHash(bytes));
         file.setStatus(ProjectFileStatus.ACTIVE);
         file.setUploadAttempts(1);
+        file.setParseAttempts(0);
         file.setLockVersion(0);
         return file;
     }
@@ -355,6 +357,7 @@ class ProjectFileServiceImplTest {
                 file.getContentHash(),
                 file.getStatus(),
                 file.getUploadStatus(),
+                file.getParseAttempts(),
                 file.getLockVersion(),
                 file.getCreatedAt(),
                 file.getUpdatedAt()

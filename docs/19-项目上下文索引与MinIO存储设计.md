@@ -11,8 +11,8 @@
 3. 项目创建时必须先成功写入初始 `system/index.json`，项目才能进入 `active`。
 4. 单文件上传先保存完整文件元数据和预生成的存储位置，再执行一次 MinIO PUT。
 5. 单文件上传成功后只更新文件状态，不修改索引。
-6. 文件解析接口当前不实现解析或索引更新。
-7. 当前上传链路不使用 RabbitMQ、Outbox 或 Python；Python 同步解析 API 独立存在，尚未接入 Java 占位接口。
+6. 初始化解析接口在详情上传和字段落库后补全索引。
+7. 文件上传热路径不使用 RabbitMQ、Outbox 或 Python；文件队列结束后由 Java 同步调用 Python 批量解析 API。
 
 ## 3. 存储层级
 
@@ -133,7 +133,7 @@ uploadStatus = success
 
 ## 6. 索引更新边界
 
-本次简化后的单文件上传和解析占位接口都不触发索引重建。
+单文件上传不触发索引重建；初始化解析接口在详情字段落库后补全并整体覆盖 `system/index.json`。
 
 以下既有操作的索引行为不在本次范围内：
 
@@ -141,7 +141,7 @@ uploadStatus = success
 - 修改已有文件路径；
 - 删除已有文件。
 
-后续实现新的解析业务时，应重新明确解析完成条件和索引更新时间，不能把旧批次完成闸门直接恢复。
+解析结果只有在 `file_id`、`content_hash` 和 `analysis_version` 与请求一致时才允许落库和更新索引。
 
 ## 7. 冗余对象清理
 
@@ -149,17 +149,18 @@ uploadStatus = success
 
 后续清理任务可以从 MySQL 查询有效 `object_key`，再与 MinIO 项目前缀对象比对并清理长期冗余对象。该功能当前未实现。
 
-## 8. Python 同步解析扩展点
+## 8. Python 同步解析链路
 
-`POST /api/v1/projects/{projectId}/files/parse` 当前只是 Java 占位接口：
+`POST /api/v1/projects/{projectId}/files/parse/init` 负责初始化项目文件解析：
 
 - 不发布消息；
-- 不调用 Python；
-- 不扫描 MinIO；
-- 不保存解析状态或解析结果；
-- 不重建索引。
+- Java 查询 `active` 且 `parse_attempts=0` 的文件并批量调用 Python；
+- Python 返回文件级成功或失败列表，不操作 MySQL 或 MinIO；
+- Java 按 `detail_ref` 上传成功详情到 `system/file_details/`；
+- Java 保存 `module`、`kind`、`file_type`、`language`、`importance`、`summary` 和 `keywords` 等索引投影字段，并累加 `parse_attempts`；
+- 字段落库后，Java 下载现有 `system/index.json`，重新查询文件表补全条目并整体覆盖上传。
 
-Python 已提供 `POST /api/v1/project-files/analyze`：接收 Java 提供的受控只读地址和文件元数据，同步返回结构化详情。该接口不使用 MQ、不回调 Java、不操作 MySQL 或 MinIO。Java 正式接入前仍需确认解析结果的持久化位置和失败处理规则。
+Python `POST /api/v1/project-files/analyze` 接收 Java 提供的受控只读地址和文件元数据列表，同步返回同等数量的结构化结果。完整详情以 MinIO 文件为准，MySQL 保存索引投影和解析次数，`index.json` 是由 Java 生成的可重建投影。
 
 ## 9. 一致性取舍
 
@@ -178,9 +179,9 @@ Python 已提供 `POST /api/v1/project-files/analyze`：接收 Java 提供的受
 3. MinIO 成功后文件状态为 `active / success`。
 4. MinIO 失败时文件记录不再更新。
 5. 单文件上传不读取或改写索引。
-6. 解析占位接口没有 MinIO、MQ、Python 或索引副作用。
+6. 解析接口按 `detail_ref` 上传详情并在字段落库后补全索引。
 7. 当前链路不依赖旧批次表。
 
 ## 11. 待确认问题
 
-解析实现和冗余对象定时清理在进入开发前分别补充设计。
+详情对象已上传但数据库落库失败时允许暂时产生冗余对象；定时清理策略后续单独设计。

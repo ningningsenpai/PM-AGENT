@@ -58,6 +58,15 @@ class ProjectIndexFactoryTest {
     @Test
     void currentIndexShouldSeparateActiveAndFailedFiles() {
         ProjectFile active = file(30L, ProjectFileStatus.ACTIVE, "README.md", "a1b2c3d4e5f67890");
+        active.setDetailRef("system/file_details/README-a1b2c3d4e5f67890.json");
+        active.setAnalysisVersion("file-detail-v1");
+        active.setModule("docs");
+        active.setKind("documentation");
+        active.setFileType("doc");
+        active.setLanguage("markdown");
+        active.setImportance("medium");
+        active.setSummary("项目说明");
+        active.setKeywords(List.of("项目文件"));
         ProjectFile failed = file(31L, ProjectFileStatus.UPLOAD_FAILED, "Broken.java", "b1c2d3e4f5a67890");
         failed.setUploadAttempts(3);
         failed.setLastErrorCode("FILE_STORAGE_ERROR");
@@ -73,6 +82,10 @@ class ProjectIndexFactoryTest {
                 .isEqualTo("README-a1b2c3d4e5f67890.md");
         assertThat(index.project().get(0).minioPath())
                 .isEqualTo("project/README-a1b2c3d4e5f67890.md");
+        assertThat(index.project().get(0).detailRef())
+                .isEqualTo("system/file_details/README-a1b2c3d4e5f67890.json");
+        assertThat(index.project().get(0).module()).isEqualTo("docs");
+        assertThat(index.project().get(0).keywords()).containsExactly("项目文件");
         assertThat(index.uploadFailures()).hasSize(1);
         assertThat(index.uploadFailures().get(0).attempts()).isEqualTo(3);
         assertThat(index.summary().activeFiles()).isEqualTo(1);

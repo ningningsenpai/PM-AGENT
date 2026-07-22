@@ -72,7 +72,7 @@ Python FastAPI Agent 服务
 | Python Agent | Prompt、模型调用、工具选择、流式输出、Trace 协作 |
 | LLM | 意图识别、总结、拆解、解释、报告生成 |
 
-项目文件详细解析是独立的受控 Agent 能力，不属于当前单文件上传闭环。前端处理完文件队列后会调用 Java 解析占位接口，但该接口当前不调用 Python，也不修改 `index.json`。Python 已提供同步文件解析 API；后续接入时仍由 Java 负责权限、MySQL、MinIO 和业务状态，Python 只负责解析受控文件并在 HTTP 响应中返回结构化结果，不引入文件业务 MQ 或回调链路。当前上传权威设计见 [18-项目文件可靠上传模块设计](./18-项目文件可靠上传模块设计.md)。
+项目文件详细解析是独立的受控 Agent 能力，不属于单文件上传热路径。前端处理完文件队列后调用 Java 初始化解析接口，Java 批量调用 Python 同步解析 API。Python 只负责解析受控文件并返回经过 Pydantic 校验的结构化详情列表；Java 负责按 `detail_ref` 写入 MinIO、保存索引投影字段、累加解析次数并补全 `system/index.json`，不引入文件业务 MQ 或 Python 回调链路。当前上传权威设计见 [18-项目文件可靠上传模块设计](./18-项目文件可靠上传模块设计.md)。
 
 ---
 

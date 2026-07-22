@@ -133,7 +133,16 @@ public class ProjectIndexFactory {
                 file.getStatus().getCode(),
                 prefixHash("qf:sha256:", file.getQuickFingerprint()),
                 prefixHash("sha256:", file.getContentHash()),
-                file.getUpdatedAt()
+                file.getUpdatedAt(),
+                file.getDetailRef(),
+                file.getAnalysisVersion(),
+                file.getModule(),
+                file.getKind(),
+                file.getFileType(),
+                file.getLanguage(),
+                file.getImportance(),
+                file.getSummary(),
+                file.getKeywords()
         );
     }
 

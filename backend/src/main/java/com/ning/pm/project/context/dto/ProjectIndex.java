@@ -58,7 +58,16 @@ public record ProjectIndex(
             String status,
             String quickFingerprint,
             String contentHash,
-            LocalDateTime updatedAt
+            LocalDateTime updatedAt,
+            String detailRef,
+            String analysisVersion,
+            String module,
+            String kind,
+            String fileType,
+            String language,
+            String importance,
+            String summary,
+            List<String> keywords
     ) {
     }
 

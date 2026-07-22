@@ -1,0 +1,128 @@
+{
+  "id": "file-3",
+  "project_id": 1,
+  "file_id": 3,
+  "schema_version": "1.0.0",
+  "analysis_version": "file-detail-v1",
+  "generated_at": "2026-07-16T10:10:00",
+  "updated_at": "2026-07-16T10:10:00",
+  "storage_uuid": "406573de89764143",
+  "storage_name": "接口文档-406573de89764143.md",
+  "detail_ref": "system/file_details/接口文档-406573de89764143.json",
+  "original_path": "agent-service/project_test/docs/接口文档.md",
+  "minio_path": "project/接口文档-406573de89764143.md",
+  "size_bytes": 3984,
+  "content_type": "text/plain",
+  "content_hash": "5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0",
+  "module": "agent-service",
+  "kind": "documentation",
+  "file_type": "doc",
+  "language": "markdown",
+  "status": "active",
+  "importance": "medium",
+  "summary": "简易学生管理系统接口文档，描述了系统的API设计和实现情况。",
+  "keywords": [
+    "接口",
+    "学生管理",
+    "RESTful"
+  ],
+  "role": "定义了简易学生管理系统的各个阶段接口及其实现状态，包括查询、新增等操作，并列出错误码信息",
+  "content_slices": [
+    {
+      "slice_id": "api-conventions",
+      "type": "doc",
+      "summary": "介绍系统的基本约定和统一响应格式",
+      "keywords": [
+        "基础地址",
+        "业务前缀"
+      ],
+      "entities": [],
+      "source_range": {
+        "start_line": 3,
+        "end_line": 14
+      }
+    },
+    {
+      "slice_id": "stage-one-apis",
+      "type": "api",
+      "summary": "描述当前实现的阶段一接口，包括查询学生列表、详情和新增操作",
+      "keywords": [
+        "GET",
+        "POST"
+      ],
+      "entities": [],
+      "source_range": {
+        "start_line": 18,
+        "end_line": 67
+      }
+    },
+    {
+      "slice_id": "stage-two-designs",
+      "type": "doc",
+      "summary": "阶段二接口设计，未实现，包括编辑、删除学生等功能",
+      "keywords": [
+        "PUT",
+        "DELETE"
+      ],
+      "entities": [],
+      "source_range": {
+        "start_line": 69,
+        "end_line": 85
+      }
+    },
+    {
+      "slice_id": "stage-three-designs",
+      "type": "doc",
+      "summary": "阶段三接口设计，未实现，包括教师登录、当前信息查询等功能",
+      "keywords": [
+        "POST",
+        "GET"
+      ],
+      "entities": [],
+      "source_range": {
+        "start_line": 94,
+        "end_line": 106
+      }
+    },
+    {
+      "slice_id": "error-codes",
+      "type": "doc",
+      "summary": "阶段一、二和三的错误码定义",
+      "keywords": [
+        "成功",
+        "请求参数不合法"
+      ],
+      "entities": [],
+      "source_range": {
+        "start_line": 108,
+        "end_line": 123
+      }
+    }
+  ],
+  "related_topics": [
+    "API设计",
+    "系统接口",
+    "学生管理"
+  ],
+  "related_files": [
+    {
+      "path": "agent-service/project_test/controllers/studentController.go",
+      "relation": "implementation_dependency"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "当前阶段无鉴权，属于待识别问题。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "llm_enhanced",
+    "parser_version": "file-detail-v1",
+    "sampled": false,
+    "parsed_lines": 46
+  }
+}

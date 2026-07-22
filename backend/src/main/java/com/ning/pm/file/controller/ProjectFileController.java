@@ -10,7 +10,6 @@ import com.ning.pm.file.dto.file.UpdateProjectFilePathRequest;
 import com.ning.pm.file.dto.file.UploadProjectFileRequest;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.service.ProjectFileService;
-import com.ning.pm.project.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +42,6 @@ import java.util.List;
 public class ProjectFileController {
 
     private final ProjectFileService projectFileService;
-    private final ProjectService projectService;
 
     /** 单次只接收一个项目文件，上传结果不触发索引重建。 */
     @SaCheckLogin
@@ -54,14 +52,6 @@ public class ProjectFileController {
             @Valid @ModelAttribute UploadProjectFileRequest request
     ) {
         return R.success(projectFileService.uploadFile(projectId, idempotencyKey, request));
-    }
-
-    /** 文件解析入口，当前仅保留接口。 */
-    @SaCheckLogin
-    @PostMapping("/parse")
-    public R<Void> parse(@PathVariable Long projectId) {
-        projectService.requireOwnedProject(projectId);
-        return R.success(null);
     }
 
     /** 使用同一对象键覆盖文件内容。 */

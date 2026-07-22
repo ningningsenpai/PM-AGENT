@@ -1,0 +1,104 @@
+{
+  "id": "file-5",
+  "project_id": 1,
+  "file_id": 5,
+  "schema_version": "1.0.0",
+  "analysis_version": "file-detail-v1",
+  "generated_at": "2026-07-16T10:10:00",
+  "updated_at": "2026-07-16T10:10:00",
+  "storage_uuid": "1f5efc0591544535",
+  "storage_name": "StudentService-1f5efc0591544535.java",
+  "detail_ref": "system/file_details/StudentService-1f5efc0591544535.json",
+  "original_path": "agent-service/project_test/backend/src/main/java/com/ning/demo/student/student/StudentService.java",
+  "minio_path": "project/StudentService-1f5efc0591544535.java",
+  "size_bytes": 910,
+  "content_type": "text/plain",
+  "content_hash": "d07f6483b875ba849e13f0987c69d331450354c303b5c55efabd7da8b3eb973e",
+  "module": "backend",
+  "kind": "service",
+  "file_type": "java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "学生档案查询和新增业务编排服务",
+  "keywords": [
+    "StudentService",
+    "Spring Service",
+    "repository",
+    "student"
+  ],
+  "role": "提供学生信息的查询、新增等操作的服务接口",
+  "content_slices": [
+    {
+      "slice_id": "list-students",
+      "type": "service",
+      "summary": "根据名称或返回所有学生档案列表",
+      "keywords": [
+        "Student",
+        "name"
+      ],
+      "entities": [
+        "repository",
+        "StudentRepository"
+      ],
+      "source_range": {
+        "start_line": 13,
+        "end_line": 20
+      }
+    },
+    {
+      "slice_id": "get-student-by-id",
+      "type": "service",
+      "summary": "通过ID获取学生档案详情",
+      "keywords": [
+        "id",
+        "StudentNotFoundException"
+      ],
+      "entities": [
+        "repository",
+        "StudentRepository"
+      ],
+      "source_range": {
+        "start_line": 23,
+        "end_line": 28
+      }
+    },
+    {
+      "slice_id": "create-student",
+      "type": "service",
+      "summary": "创建新的学生档案记录",
+      "keywords": [
+        "CreateStudentRequest",
+        "repository"
+      ],
+      "entities": [
+        "repository",
+        "StudentRepository"
+      ],
+      "source_range": {
+        "start_line": 31,
+        "end_line": 34
+      }
+    }
+  ],
+  "related_topics": [
+    "student management",
+    "business logic"
+  ],
+  "related_files": [],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "public class StudentService { ... }"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "llm_enhanced",
+    "parser_version": "file-detail-v1",
+    "sampled": false,
+    "parsed_lines": 20
+  }
+}
