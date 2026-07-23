@@ -93,11 +93,9 @@ class FileDetailAnalysisService:
             detail=detail,
         )
 
-    def _validate_detail_identity(
-        self,
-        request: FileAnalysisRequest,
-        detail: FileDetail,
-    ) -> None:
+    @staticmethod
+    def _validate_detail_identity(request: FileAnalysisRequest, detail: FileDetail,) -> None:
+        """ 校验解析前后关键数据字段的值是否一致 """
         if (
             detail.project_id != request.project_id
             or detail.file_id != request.file_id

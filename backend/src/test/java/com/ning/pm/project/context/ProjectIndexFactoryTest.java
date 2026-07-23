@@ -3,6 +3,7 @@ package com.ning.pm.project.context;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ning.pm.file.domain.ProjectFile;
+import com.ning.pm.file.converter.ProjectFileIndexConverterImpl;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
 import com.ning.pm.file.service.FileStorageLocationFactory;
@@ -27,7 +28,8 @@ class ProjectIndexFactoryTest {
     private final FileStorageLocationFactory locationFactory = new FileStorageLocationFactory();
     private final ProjectIndexFactory factory = new ProjectIndexFactory(
             new ProjectIndexTemplateLoader(objectMapper),
-            locationFactory
+            locationFactory,
+            new ProjectFileIndexConverterImpl()
     );
 
     @Test

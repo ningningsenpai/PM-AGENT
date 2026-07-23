@@ -1,4 +1,4 @@
-package com.ning.pm.file.domain;
+package com.ning.pm.file.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

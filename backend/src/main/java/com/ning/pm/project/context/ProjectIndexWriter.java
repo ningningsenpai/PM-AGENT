@@ -1,15 +1,12 @@
 package com.ning.pm.project.context;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.util.DefaultIndenter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ning.pm.common.errorcode.ErrorCode;
 import com.ning.pm.common.exception.SystemException;
 import com.ning.pm.file.service.FileStorageLocationFactory;
 import com.ning.pm.infrastructure.storage.ObjectStorageService;
 import com.ning.pm.infrastructure.storage.StorageLocation;
 import com.ning.pm.project.context.dto.ProjectIndex;
+import com.ning.pm.project.context.json.ProjectIndexJsonCodec;
 import com.ning.pm.project.domain.SystemFilePath;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -24,34 +21,17 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ProjectIndexWriter {
 
-    private final ObjectMapper objectMapper;
+    private final ProjectIndexJsonCodec projectIndexJsonCodec;
     private final ObjectStorageService objectStorageService;
     private final FileStorageLocationFactory locationFactory;
 
     public void writeIndex(Long userId, Long projectId, ProjectIndex index) {
         validate(index);
-        try {
-            byte[] content = objectMapper.writer(createPrettyPrinter()).writeValueAsBytes(index);
-            objectStorageService.putObject(
-                    indexLocation(userId, projectId),
-                    content,
-                    "application/json"
-            );
-        } catch (JsonProcessingException exception) {
-            throw new SystemException(
-                    ErrorCode.PROJECT_INDEX_WRITE_FAILED,
-                    "项目上下文索引序列化失败",
-                    exception
-            );
-        }
-    }
-
-    private DefaultPrettyPrinter createPrettyPrinter() {
-        DefaultIndenter indenter = new DefaultIndenter("  ", "\n");
-        DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
-        prettyPrinter.indentObjectsWith(indenter);
-        prettyPrinter.indentArraysWith(indenter);
-        return prettyPrinter;
+        objectStorageService.putObject(
+                indexLocation(userId, projectId),
+                projectIndexJsonCodec.serialize(index),
+                "application/json"
+        );
     }
 
     public StorageLocation indexLocation(Long userId, Long projectId) {

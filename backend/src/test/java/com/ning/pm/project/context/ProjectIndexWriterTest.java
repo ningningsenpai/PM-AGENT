@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ning.pm.file.service.FileStorageLocationFactory;
 import com.ning.pm.infrastructure.storage.ObjectStorageService;
 import com.ning.pm.project.context.dto.ProjectIndex;
+import com.ning.pm.project.context.json.ProjectIndexJsonCodec;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -28,7 +29,7 @@ class ProjectIndexWriterTest {
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private final ObjectStorageService objectStorageService = mock(ObjectStorageService.class);
     private final ProjectIndexWriter writer = new ProjectIndexWriter(
-            objectMapper,
+            new ProjectIndexJsonCodec(objectMapper),
             objectStorageService,
             new FileStorageLocationFactory()
     );

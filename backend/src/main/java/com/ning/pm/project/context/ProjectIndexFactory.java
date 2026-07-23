@@ -1,6 +1,7 @@
 package com.ning.pm.project.context;
 
 import com.ning.pm.file.domain.ProjectFile;
+import com.ning.pm.file.converter.ProjectFileIndexConverter;
 import com.ning.pm.file.enums.FileBusinessType;
 import com.ning.pm.file.enums.ProjectFileStatus;
 import com.ning.pm.file.enums.ProjectFileUploadStatus;
@@ -28,6 +29,7 @@ public class ProjectIndexFactory {
 
     private final ProjectIndexTemplateLoader templateLoader;
     private final FileStorageLocationFactory locationFactory;
+    private final ProjectFileIndexConverter projectFileIndexConverter;
 
     public ProjectIndex createInitialIndex(Project project) {
         ProjectIndexTemplate template = templateLoader.load();
@@ -104,45 +106,29 @@ public class ProjectIndexFactory {
                 .filter(file -> file.getStatus() == ProjectFileStatus.ACTIVE)
                 .filter(file -> file.getUploadStatus() == null
                         || file.getUploadStatus() == ProjectFileUploadStatus.SUCCESS)
-                .map(file -> toFileEntry(project, file))
+                .map(file -> projectFileIndexConverter.toIndexEntry(
+                        file,
+                        storageName(file),
+                        minioPath(project, file)
+                ))
                 .toList();
     }
 
-    private ProjectIndex.FileEntry toFileEntry(Project project, ProjectFile file) {
-        String storageName = valueOrFallback(
+    private String storageName(ProjectFile file) {
+        return valueOrFallback(
                 file.getStorageName(),
                 locationFactory.buildStorageName(file.getFileName(), file.getStorageUuid())
         );
-        String minioPath = valueOrFallback(
+    }
+
+    private String minioPath(Project project, ProjectFile file) {
+        return valueOrFallback(
                 file.getMinioPath(),
                 locationFactory.relativeObjectPath(
                         project.getOwnerUserId(),
                         project.getId(),
                         file.getObjectKey()
                 )
-        );
-        return new ProjectIndex.FileEntry(
-                file.getId(),
-                file.getStorageUuid(),
-                file.getRelativePath(),
-                file.getFileName(),
-                storageName,
-                minioPath,
-                file.getSizeBytes(),
-                file.getContentType(),
-                file.getStatus().getCode(),
-                prefixHash("qf:sha256:", file.getQuickFingerprint()),
-                prefixHash("sha256:", file.getContentHash()),
-                file.getUpdatedAt(),
-                file.getDetailRef(),
-                file.getAnalysisVersion(),
-                file.getModule(),
-                file.getKind(),
-                file.getFileType(),
-                file.getLanguage(),
-                file.getImportance(),
-                file.getSummary(),
-                file.getKeywords()
         );
     }
 
@@ -202,10 +188,6 @@ public class ProjectIndexFactory {
 
     private String systemPath(String path) {
         return "system/" + path;
-    }
-
-    private String prefixHash(String prefix, String hash) {
-        return hash == null || hash.isBlank() ? null : prefix + hash;
     }
 
     private String valueOrFallback(String value, String fallback) {

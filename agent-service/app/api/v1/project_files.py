@@ -6,7 +6,7 @@ from fastapi import APIRouter, Header
 from app.project.context.detail_analysis.schemas import FileAnalysisRequest, FileAnalysisResult
 from app.project.context.detail_analysis.service import FileDetailAnalysisService
 
-router = APIRouter(prefix="/api/v1/project-files", tags=["项目文件"])
+router = APIRouter(prefix="/api/v1/project-files", tags=["项目文件解析"])
 
 
 @router.post(

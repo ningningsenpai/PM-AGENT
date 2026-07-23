@@ -2,6 +2,8 @@ package com.ning.pm.file.converter;
 
 import com.ning.pm.file.domain.ProjectFile;
 import com.ning.pm.file.dto.parse.FileAnalysisRequest;
+import com.ning.pm.file.dto.parse.FileDetail;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -25,4 +27,16 @@ public interface ParseFileDataConverter {
             String detailRef,
             String analysisVersion
     );
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "detailRef", source = "detailRef")
+    @Mapping(target = "analysisVersion", source = "analysisVersion")
+    @Mapping(target = "module", source = "module")
+    @Mapping(target = "kind", source = "kind")
+    @Mapping(target = "fileType", source = "fileType")
+    @Mapping(target = "language", source = "language")
+    @Mapping(target = "importance", source = "importance")
+    @Mapping(target = "summary", source = "summary")
+    @Mapping(target = "keywords", source = "keywords")
+    ProjectFile toProjectFileUpdate(FileDetail detail);
 }
