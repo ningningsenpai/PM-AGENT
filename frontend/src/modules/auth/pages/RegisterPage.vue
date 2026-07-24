@@ -11,20 +11,14 @@
 
     <AuthPanel title="注册账号" description="填写基础账号信息，注册成功后会自动进入项目工作台。">
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="top" size="large">
-        <n-form-item label="显示名称" path="displayName">
-          <n-input v-model:value="form.displayName" placeholder="例如：宁宁" clearable />
-        </n-form-item>
         <n-form-item label="用户名" path="username">
-          <n-input v-model:value="form.username" placeholder="用于登录，例如：ning" clearable />
+          <n-input v-model:value="form.username" placeholder="例如：ning" clearable />
         </n-form-item>
-        <n-form-item label="邮箱（可选）" path="email">
+        <n-form-item label="邮箱" path="email">
           <n-input v-model:value="form.email" placeholder="admin@pm-agent.local" clearable />
         </n-form-item>
-        <n-form-item label="手机号（可选）" path="mobile">
-          <n-input v-model:value="form.mobile" placeholder="13800000000" clearable />
-        </n-form-item>
         <n-form-item label="密码" path="password">
-          <n-input v-model:value="form.password" type="password" placeholder="请输入 8 到 64 位密码" show-password-on="click" />
+          <n-input v-model:value="form.password" type="password" placeholder="请输入 6 到 64 位密码" show-password-on="click" />
         </n-form-item>
         <n-form-item label="确认密码" path="confirmPassword">
           <n-input v-model:value="form.confirmPassword" type="password" placeholder="请再次输入密码" show-password-on="click" />
@@ -55,10 +49,8 @@ import AuthPanel from '@/modules/auth/components/AuthPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 
 interface RegisterForm {
-  displayName: string
   username: string
   email: string
-  mobile: string
   password: string
   confirmPassword: string
 }
@@ -70,38 +62,29 @@ const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
 const form = reactive<RegisterForm>({
-  displayName: '',
   username: '',
   email: '',
-  mobile: '',
   password: '',
   confirmPassword: '',
 })
 
 const rules: FormRules = {
-  displayName: { required: true, message: '请输入显示名称', trigger: 'blur' },
   username: { required: true, message: '请输入用户名', trigger: 'blur' },
-  email: {
-    trigger: 'blur',
-    validator: (_rule, value: string) => {
-      if (!value) return true
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || new Error('请输入正确的邮箱地址')
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    {
+      trigger: 'blur',
+      validator: (_rule, value: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || new Error('请输入正确的邮箱地址'),
     },
-  },
-  mobile: {
-    trigger: 'blur',
-    validator: (_rule, value: string) => {
-      if (!value) return true
-      return /^1\d{10}$/.test(value) || new Error('请输入正确的手机号')
-    },
-  },
+  ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     {
       trigger: 'blur',
       validator: (_rule, value: string) => {
         if (!value) return true
-        return (value.length >= 8 && value.length <= 64) || new Error('密码长度需为 8 到 64 位')
+        return (value.length >= 6 && value.length <= 64) || new Error('密码长度需为 6 到 64 位')
       },
     },
   ],
@@ -121,9 +104,7 @@ async function handleRegister() {
     await authStore.register({
       username: form.username,
       password: form.password,
-      displayName: form.displayName,
-      email: form.email || undefined,
-      mobile: form.mobile || undefined,
+      email: form.email,
     })
     message.success('注册成功')
     await router.push('/projects')

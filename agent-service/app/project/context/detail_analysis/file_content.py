@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from . import downloader
 from .downloader import FileDownloader
@@ -39,6 +40,25 @@ class FileContent:
         try:
             file_path = await self.file_downloader.download(temp_url)
             parser = self.parser_factory.get_parser(file_type, file_path.name)
+            return await parser.parse(file_path)
+        finally:
+            if file_path:
+                file_path.unlink(missing_ok=True)
+
+    async def get_content_from_bytes(
+        self,
+        content: bytes,
+        file_type: str,
+        file_name: str,
+    ) -> FileParseResult:
+        """解析已经从对象存储读取的文件内容。"""
+        suffix = Path(file_name).suffix
+        file_path: Path | None = None
+        try:
+            with NamedTemporaryFile(delete=False, suffix=suffix) as temporary_file:
+                temporary_file.write(content)
+                file_path = Path(temporary_file.name)
+            parser = self.parser_factory.get_parser(file_type, file_name)
             return await parser.parse(file_path)
         finally:
             if file_path:

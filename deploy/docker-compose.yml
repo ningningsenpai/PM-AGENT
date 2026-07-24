@@ -27,6 +27,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
+    profiles: ["rag"]
     restart: unless-stopped
     ports:
       - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${QDRANT_HTTP_PORT:-6333}:6333"
@@ -75,29 +76,8 @@ services:
       timeout: 5s
       retries: 10
 
-  rabbitmq:
-    image: rabbitmq:4-management
-    restart: unless-stopped
-    ports:
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_PORT:-5672}:5672"
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-pm-agent}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-pm-agent-dev}
-      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-pm-agent}
-      TZ: Asia/Shanghai
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-      - ./rabbitmq/conf/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
 volumes:
   mysql-data:
   redis-data:
   qdrant-data:
   minio-data:
-  rabbitmq-data:

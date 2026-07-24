@@ -1,97 +1,77 @@
-# Agent Service
+# PM-Agent Python 单体后端
 
-`agent-service` 是 PM-Agent 的 Python Agent 服务，可单独启动和测试，当前提供 Agent 对话与项目文件同步解析能力。
-
----
-
-## 1. 当前定位
-
-当前服务包含两条独立链路：
+`agent-service/` 现在同时承载认证、用户、项目、项目文件与 Agent 在线能力。运行时链路为：
 
 ```text
-接收用户问题 → 可选调用工具 → 构造 Prompt → 调用模型 → 返回 JSON / SSE
-接收 Java 受控文件引用 → 下载并校验文件 → 生成文件详情 → 同步返回 JSON
+Vue 3 → FastAPI → MySQL / Redis / MinIO / LLM
 ```
 
-核心边界：
+Java 不再是运行依赖。业务表只由 SQLAlchemy 访问，Schema 只由 Alembic 管理；Agent 工具必须通过 `app/modules/` 中的公开 Service 使用业务能力。
 
-1. 不连接 MySQL；
-2. 不直接操作 MinIO，文件解析只读取 Java 提供的受控地址；
-3. 不真实修改项目、任务、用户等业务数据；
-4. 必须配置当前选中 provider 对应的 API Key 才能调用（启动期不强校验，调用期才报错）；
-5. 内置工具当前返回固定演示数据，等待替换为真实工具 API。
-
----
-
-## 2. 目录结构与分层职责
+## 模块边界
 
 ```text
-agent-service/
-├── pyproject.toml                  # 项目元信息与依赖声明（FastAPI、httpx、Pydantic 等）
-├── .env.example                    # 环境变量模板（模型 Key、模型名、服务端口）
-└── app/
-    ├── main.py                     # 应用入口：创建 FastAPI 实例，组装路由
-    ├── api/
-    │   └── v1/
-    │       ├── agent.py            # Agent 对话接口
-    │       └── project_files.py    # 项目文件同步解析接口
-    ├── core/
-    │   └── config.py               # 配置层：加载 .env，提供 Settings 实例
-    ├── agents/
-    │   └── project_chat_agent.py   # Agent 编排层：串联工具调用 → Prompt 构造 → 模型调用
-    ├── prompts/
-    │   └── project_chat.py         # Prompt 层：定义系统提示与 messages 组装策略
-    ├── llm/
-    │   ├── base.py                 # BaseLLMClient 抽象基类，定义 chat / stream_chat 协议
-    │   ├── registry.py             # @register_llm 装饰器与全局注册表
-    │   ├── factory.py              # get_llm_client 工厂，按 provider 名解析客户端
-    │   ├── context_builder.py      # LLM 上下文构造器（多轮 system 维护、上下文压缩）
-    │   └── clients/                # 各厂商客户端实现
-    │       ├── openai_compatible.py # OpenAI Chat Completions 兼容客户端基类
-    │       ├── deepseek_client.py
-    │       └── doubao_client.py
-    ├── tools/
-    │   └── demo_project_tool.py    # 工具层：提供可被 Agent 调用的业务工具（当前为演示数据）
-    ├── project/context/
-    │   └── detail_analysis/        # 文件下载、校验、结构解析与可选模型增强
-    └── schemas/
-        └── chat.py                 # 数据模型层：定义请求/响应 Pydantic 模型
+app/
+├── api/v1/                 # 路由聚合
+├── core/                   # 配置、响应、异常、认证、Trace、幂等
+├── infrastructure/         # MySQL、Redis、MinIO 适配
+├── modules/
+│   ├── auth/
+│   ├── user/
+│   ├── project/
+│   └── project_file/
+└── agents、llm、memory、normalization、project、rag 等既有 Agent 能力
 ```
 
-### 各层角色
+业务模块均按 `api.py / schemas.py / models.py / domain.py / repository.py / service.py / errors.py` 拆分。API 不直接访问基础设施，Repository 不跨模块调用，MinIO 与模型调用不放在数据库事务内。
 
-| 层 | 文件 | 角色 |
-|-----|------|------|
-| 入口 | `main.py` | 创建 FastAPI 实例，注册路由 |
-| 接口层 | `api/v1/agent.py` | 解析 HTTP 请求，调度 Agent，控制响应格式 |
-| 文件接口层 | `api/v1/project_files.py` | 校验内部令牌并同步返回文件解析结果 |
-| 文件解析层 | `project/context/detail_analysis/` | 下载受控文件、校验哈希、生成完整详情 |
-| 配置层 | `core/config.py` | 从 `.env` 读取运行配置，校验 API Key |
-| 编排层 | `agents/project_chat_agent.py` | 协调工具调用、Prompt、模型三者的执行顺序 |
-| Prompt 层 | `prompts/project_chat.py` | 定义系统角色、边界约束，拼接上下文 |
-| LLM 层 | `llm/base.py` 等 | 统一 LLM 协议；通过注册表 + 工厂支持运行时切换模型 |
-| 工具层 | `tools/demo_project_tool.py` | 提供工具定义与执行逻辑，返回结构化数据 |
-| Schema 层 | `schemas/chat.py` | 定义请求体和响应体的数据结构 |
+## 本地启动
 
----
+先启动当前在线链路所需中间件：
 
-## 3. 已包含功能与接口
+```bash
+cp deploy/.env.example deploy/.env
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d mysql redis minio
+```
 
-### 接口
+安装依赖并执行数据库基线：
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/internal/health` | 健康检查，返回服务状态 |
-| `POST` | `/api/v1/agent/chat` | Agent 对话，支持 JSON 和 SSE 流式两种输出 |
-| `POST` | `/api/v1/project-files/analyze` | Java 内部调用的项目文件同步解析接口 |
+```bash
+cd agent-service
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install -e ".[dev]"
+cp .env.example .env
+python -m alembic upgrade head
+```
 
-### 功能
+启动后端：
 
-| 能力 | 说明 |
-|---|---|
-| 非流式对话 | `POST /api/v1/agent/chat`，`stream=false`，返回完整 JSON |
-| SSE 流式对话 | `POST /api/v1/agent/chat`，`stream=true`，逐 token 推送 |
-| DeepSeek 模型适配 | 默认模型 `deepseek-v4-pro`，通过 `.env` 配置 Key 和 Base URL |
-| 多模型切换 | 内置 DeepSeek / 豆包客户端；通过 `DEFAULT_LLM_PROVIDER` 或请求体 `llm_provider` 字段切换 |
-| 工具调用演示 | `demo_query_project_overview` 返回固定项目概览数据 |
-| 文件同步解析 | 校验内部令牌和文件哈希，直接返回结构化文件详情，不使用 MQ |
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+前端 Vite 已将 `/api` 代理到 `http://localhost:8000`。
+
+## 验证
+
+```bash
+python -m pytest
+python -m alembic upgrade head --sql
+```
+
+`tests/test_Qwen_output.py` 是需要真实模型和人工观察输出的实验脚本，不属于默认自动化测试集合。
+
+## 文件解析链路
+
+`POST /api/v1/projects/{projectId}/files/parse/init` 在同一 Python 进程内完成：
+
+1. 从 MySQL 查询尚未解析的活动文件；
+2. 使用对象键通过 MinIO SDK 读取内容；
+3. 调用既有本地解析器和模型适配器；
+4. 通过 Pydantic 校验结构和文件身份字段；
+5. 写入 `system/file_details/*.json`；
+6. 条件更新分析投影与解析次数；
+7. 从数据库全量重建 `system/index.json`。
+
+旧的 `/api/v1/project-files/analyze` 已移除。`index.json` 只是可重建快照，不是业务权威数据源。

@@ -8,8 +8,8 @@
 
     <AuthPanel title="登录工作台" description="使用项目账号进入 PM-Agent，继续推进项目、任务和风险线索。">
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="top" size="large">
-        <n-form-item label="用户名" path="username">
-          <n-input v-model:value="form.username" placeholder="请输入用户名" clearable />
+        <n-form-item label="邮箱" path="email">
+          <n-input v-model:value="form.email" placeholder="admin@pm-agent.local" clearable />
         </n-form-item>
         <n-form-item label="密码" path="password">
           <n-input v-model:value="form.password" type="password" placeholder="请输入密码" show-password-on="click" />
@@ -52,13 +52,20 @@ const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
 const form = reactive({
-  username: '',
+  email: '',
   password: '',
   remember: true,
 })
 
 const rules: FormRules = {
-  username: { required: true, message: '请输入用户名', trigger: 'blur' },
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    {
+      trigger: 'blur',
+      validator: (_rule, value: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || new Error('请输入正确的邮箱地址'),
+    },
+  ],
   password: { required: true, message: '请输入密码', trigger: 'blur' },
 }
 
@@ -66,12 +73,12 @@ async function handleLogin() {
   await formRef.value?.validate()
   loading.value = true
   try {
-    await authStore.login({ username: form.username, password: form.password })
+    await authStore.login({ email: form.email, password: form.password })
     message.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/projects'
     await router.push(redirect)
   } catch (error) {
-    message.error(error instanceof Error ? error.message : '登录失败，请检查用户名和密码')
+    message.error(error instanceof Error ? error.message : '登录失败，请检查邮箱和密码')
   } finally {
     loading.value = false
   }

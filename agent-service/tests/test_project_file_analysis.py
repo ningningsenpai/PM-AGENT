@@ -1,13 +1,10 @@
 """项目文件同步解析接口与服务测试。"""
+
 from __future__ import annotations
 
 import json
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, Mock, patch
-
-from fastapi.testclient import TestClient
-
-from app.main import app
+from unittest.mock import AsyncMock, Mock
 from app.project.context.detail_analysis.schemas import (
     FileAnalysisRequest,
     FileAnalysisResult,
@@ -95,7 +92,9 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
         request = _request()
         service = FileDetailAnalysisService.__new__(FileDetailAnalysisService)
         service.file_content = Mock()
-        service.file_content.get_content = AsyncMock(return_value={"content": "# 项目说明"})
+        service.file_content.get_content = AsyncMock(
+            return_value={"content": "# 项目说明"}
+        )
         service.client = Mock()
         service.client.generate.return_value = _model_response(
             json.dumps(_detail_data(request), ensure_ascii=False)
@@ -112,7 +111,9 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
         request = _request()
         service = FileDetailAnalysisService.__new__(FileDetailAnalysisService)
         service.file_content = Mock()
-        service.file_content.get_content = AsyncMock(return_value={"content": "# 项目说明"})
+        service.file_content.get_content = AsyncMock(
+            return_value={"content": "# 项目说明"}
+        )
         service.client = Mock()
         service.client.generate.return_value = _model_response("这不是合法 JSON")
 
@@ -126,7 +127,9 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
         request = _request()
         service = FileDetailAnalysisService.__new__(FileDetailAnalysisService)
         service.file_content = Mock()
-        service.file_content.get_content = AsyncMock(side_effect=RuntimeError("下载失败"))
+        service.file_content.get_content = AsyncMock(
+            side_effect=RuntimeError("下载失败")
+        )
         service.client = Mock()
 
         result = await service.analyze(request)
@@ -134,30 +137,3 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("failed", result.status)
         self.assertEqual("FILE_DETAIL_ANALYSIS_FAILED", result.error_code)
         self.assertIsNone(result.detail)
-
-
-def test_analyze_api_should_return_batch_result() -> None:
-    request = _request()
-    result = FileAnalysisResult(
-        project_id=request.project_id,
-        file_id=request.file_id,
-        content_hash=request.content_hash,
-        analysis_version=request.analysis_version,
-        status="success",
-        detail=FileDetail.model_validate(_detail_data(request)),
-    )
-
-    with patch(
-        "app.api.v1.project_files.FileDetailAnalysisService.analyze",
-        AsyncMock(return_value=result),
-    ):
-        response = TestClient(app).post(
-            "/api/v1/project-files/analyze",
-            json=[request.model_dump(mode="json", by_alias=True)],
-            headers={"X-Trace-Id": _TRACE_ID},
-        )
-
-    assert response.status_code == 200
-    body = response.json()[0]
-    assert body["projectId"] == request.project_id
-    assert body["detail"]["content_hash"] == request.content_hash

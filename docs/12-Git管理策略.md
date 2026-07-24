@@ -27,8 +27,7 @@ PM-Agent 当前采用前端、后端、Python Agent 服务与部署配置共存�
 ```text
 PM-AGENT/
 ├── frontend/        # Vue 3 前端工程
-├── backend/         # Spring Boot 后端工程
-├── agent-service/   # Python Agent 服务，按阶段引入
+├── agent-service/   # FastAPI 模块化单体后端与 Agent 能力
 ├── deploy/          # 本地中间件与部署配置
 ├── docs/            # 项目文档
 ├── .claude/         # Claude Code 项目级配置与 Skill
@@ -37,7 +36,7 @@ PM-AGENT/
 
 核心原则：
 
-- **目录区分模块**：例如前端代码放在 `frontend/`，后端代码放在 `backend/`；
+- **目录区分模块**：前端代码放在 `frontend/`，后端与 Agent 代码放在 `agent-service/`；
 - **分支区分任务**：例如登录闭环、项目接口、任务看板等；
 - **文档和部署配置跟随任务更新**：如果一个功能同时影响接口、页面和部署配置，应在同一个任务分支内同步修改。
 
@@ -108,7 +107,7 @@ git switch -c feature/auth-login
 ```text
 feature/auth-login
 ├── frontend/
-├── backend/
+├── agent-service/
 └── docs/
 ```
 
@@ -120,7 +119,7 @@ feature/auth-login
 
 ```text
 feat(frontend): 初始化 Vue 3 前端工程
-feat(backend): 初始化 Spring Boot 后端工程
+feat(backend): 增加 Python 项目文件接口
 feat(auth): 完成登录接口与前端联调
 docs(git): 更新 Git 管理策略
 chore(deploy): 添加 MySQL 本地容器配置

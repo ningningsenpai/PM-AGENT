@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.streaming.metrics import ContextLengthStatus
 
-# TODO 完善 Java 模块之后重新审查设计该模块数据结构字段的 default 值
+# TODO 对话持久化模块完成后重新审查该模块数据结构字段的默认值
 
 # 允许的消息角色，对齐 OpenAI 协议。
 MessageRole = Literal["system", "user", "assistant", "tool"]
@@ -68,10 +68,10 @@ class UserContext(BaseModel):
 class AgentChatRequest(BaseModel):
     """Agent 对话请求 —— 前端传递的完整数据结构。"""
 
-    trace_id: str = Field(..., description="Java 模块传入的链路追踪 ID")
+    trace_id: str = Field(..., description="前端传入的链路追踪 ID")
     conversation_id: int = Field(
         ...,
-        description="会话 ID；前端传递已有ID，或者在Java模块落库时生成"
+        description="会话 ID；前端传递已有 ID，或者由 Python 业务模块生成"
     )
     messages: list[ChatMessage] = Field(
         ...,

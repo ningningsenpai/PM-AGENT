@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 from pydantic import ValidationError
@@ -34,41 +35,62 @@ class FileDetailAnalysisService:
                 request.file_url,
                 request.file_type,
             )
-            content = file_content.get("content", "")
-            metadata = {
-                "project_id": request.project_id,
-                "file_id": request.file_id,
-                "business": request.business,
-                "filename": request.filename,
-                "file_type": request.file_type,
-                "storage_uuid": request.storage_uuid,
-                "storage_name": request.storage_name,
-                "detail_ref": request.detail_ref,
-                "original_path": request.original_path,
-                "minio_path": request.minio_path,
-                "size_bytes": request.size_bytes,
-                "content_type": request.content_type,
-                "content_hash": request.content_hash,
-                "analysis_version": request.analysis_version,
-            }
-            metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
-            prompt = (
-                f"{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL.value}"
-                f"\n\n# 文件元数据\n{metadata_json}"
-                f"\n\n# 待分析文件内容\n<source_file>\n{content}\n</source_file>"
-                f"\n\n{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL_FINAL_CHECK.value}"
-            )
-            response = self.client.generate(prompt, response_format="json")
         except Exception:
-            return FileAnalysisResult(
-                project_id=request.project_id,
-                file_id=request.file_id,
-                content_hash=request.content_hash,
-                analysis_version=request.analysis_version,
-                status="failed",
-                error_code="FILE_DETAIL_ANALYSIS_FAILED",
-                error_message="文件下载或模型分析失败",
+            return self._failed(request, "文件下载或解析失败")
+        return await self._analyze_content(request, file_content.get("content", ""))
+
+    async def analyze_bytes(
+        self,
+        request: FileAnalysisRequest,
+        content: bytes,
+    ) -> FileAnalysisResult:
+        """直接解析对象存储字节，不再依赖临时下载地址。"""
+        try:
+            file_content = await self.file_content.get_content_from_bytes(
+                content,
+                request.file_type,
+                request.filename,
             )
+        except Exception:
+            return self._failed(request, "文件解析失败")
+        return await self._analyze_content(request, file_content.get("content", ""))
+
+    async def _analyze_content(
+        self,
+        request: FileAnalysisRequest,
+        content: str,
+    ) -> FileAnalysisResult:
+        metadata = {
+            "project_id": request.project_id,
+            "file_id": request.file_id,
+            "business": request.business,
+            "filename": request.filename,
+            "file_type": request.file_type,
+            "storage_uuid": request.storage_uuid,
+            "storage_name": request.storage_name,
+            "detail_ref": request.detail_ref,
+            "original_path": request.original_path,
+            "minio_path": request.minio_path,
+            "size_bytes": request.size_bytes,
+            "content_type": request.content_type,
+            "content_hash": request.content_hash,
+            "analysis_version": request.analysis_version,
+        }
+        metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
+        prompt = (
+            f"{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL.value}"
+            f"\n\n# 文件元数据\n{metadata_json}"
+            f"\n\n# 待分析文件内容\n<source_file>\n{content}\n</source_file>"
+            f"\n\n{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL_FINAL_CHECK.value}"
+        )
+        try:
+            response = await asyncio.to_thread(
+                self.client.generate,
+                prompt,
+                response_format="json",
+            )
+        except Exception:
+            return self._failed(request, "模型分析失败")
 
         try:
             detail = FileDetail.model_validate_json(response.content)
@@ -91,6 +113,21 @@ class FileDetailAnalysisService:
             analysis_version=request.analysis_version,
             status="success",
             detail=detail,
+        )
+
+    @staticmethod
+    def _failed(
+        request: FileAnalysisRequest,
+        message: str,
+    ) -> FileAnalysisResult:
+        return FileAnalysisResult(
+            project_id=request.project_id,
+            file_id=request.file_id,
+            content_hash=request.content_hash,
+            analysis_version=request.analysis_version,
+            status="failed",
+            error_code="FILE_DETAIL_ANALYSIS_FAILED",
+            error_message=message,
         )
 
     @staticmethod

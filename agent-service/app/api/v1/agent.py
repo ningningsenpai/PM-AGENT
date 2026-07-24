@@ -1,10 +1,12 @@
 """Agent API。"""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from app.core.config import get_settings
+from app.core.errors import AppException, ErrorCode
+from app.core.security import AuthPrincipal, require_principal
 from app.llm.orchestration.project_chat_agent import ProjectChatAgent
 from app.streaming import SSEFormatter, StreamEventType
 from app.streaming.payloads import AgentChatRequest, ApiResponse, StreamMetaPayload
@@ -13,8 +15,13 @@ router = APIRouter(prefix="/api/v1/agent", tags=["Agent"])
 
 
 @router.post("/chat")
-async def chat(request: AgentChatRequest):
+async def chat(
+    request: AgentChatRequest,
+    principal: AuthPrincipal = Depends(require_principal),
+):
     """项目问答接口，支持普通响应和 SSE 流式响应。"""
+    if request.user.user_id != principal.user_id:
+        raise AppException(ErrorCode.FORBIDDEN, "请求用户与登录用户不一致")
     settings = get_settings()
     agent = ProjectChatAgent(settings)
 

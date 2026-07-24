@@ -9,7 +9,7 @@
 - `main` 分支：维护完整项目基线，包含文档、前端、后端、部署配置和后续 Agent 服务骨架；
 - `frontend/` 目录：维护前端工程代码，不再对应长期 `frontend` 模块分支；
 - 前端相关任务使用 `feature/*` 分支开发，例如 `feature/init-frontend`、`feature/auth-login`；
-- 前后端联调功能可以在同一个任务分支内同时修改 `frontend/`、`backend/` 和 `docs/`。
+- 前后端联调功能可以在同一个任务分支内同时修改 `frontend/`、`agent-service/` 和 `docs/`。
 
 详细规则见 `docs/12-Git管理策略.md`。
 
@@ -125,13 +125,13 @@ Authorization: Bearer <tokenValue>
 `.env` 中通过以下变量控制：
 
 ```env
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=http://localhost:8000
 VITE_USE_MOCK=true
 ```
 
 - `VITE_USE_MOCK=true`：使用本地 Mock 数据，便于纯前端演示；
 - `VITE_USE_MOCK=false`：请求真实后端接口；
-- `VITE_API_BASE_URL`：真实后端地址，开发期默认可使用 `http://localhost:8080`。
+- `VITE_API_BASE_URL`：真实后端地址，开发期默认可使用 `http://localhost:8000`。
 
 ## 第 1 阶段开发约定
 

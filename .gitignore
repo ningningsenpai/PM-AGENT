@@ -8,8 +8,6 @@
 node_modules/
 frontend/node_modules/
 .pnpm-store/
-backend/target/
-backend/data/
 
 # 构建产物
 frontend/dist/
@@ -23,7 +21,6 @@ frontend-agent/.vite/
 .env.local
 *.local
 frontend/.env
-backend/.env
 deploy/.env
 
 # IDE 与系统文件
@@ -46,6 +43,7 @@ __pycache__/
 *.py[cod]
 .venv/
 agent-service/.venv/
+*.egg-info/
 
 # 临时文件
 .tmp/

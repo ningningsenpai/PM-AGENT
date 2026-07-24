@@ -12,7 +12,7 @@ class DemoProjectTool:
     tool_name = "demo_query_project_overview"
 
     def run(self, project_id: int | None) -> ToolCallRecord:
-        """返回固定项目概览，后续真实数据应通过 Java 工具 API 获取。"""
+        """返回固定项目概览，后续真实数据应通过项目模块 Service 获取。"""
         input_data = {"project_id": project_id}
         output_data = {
             "project_id": project_id or 1,

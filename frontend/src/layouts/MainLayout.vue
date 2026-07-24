@@ -19,7 +19,7 @@
         </div>
         <div class="header-user">
           <n-tag :type="useMock ? 'success' : 'info'" round>{{ useMock ? 'Mock 数据' : '真实接口' }}</n-tag>
-          <span>{{ authStore.user?.displayName || '未命名用户' }}</span>
+          <span>{{ authStore.user?.username || '未命名用户' }}</span>
           <n-button quaternary size="small" :loading="logoutLoading" @click="handleLogout">退出</n-button>
         </div>
       </n-layout-header>

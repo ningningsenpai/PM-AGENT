@@ -1,24 +1,19 @@
 export interface LoginRequest {
-  username: string
+  email: string
   password: string
 }
 
 export interface RegisterRequest {
   username: string
   password: string
-  displayName: string
-  email?: string
-  mobile?: string
+  email: string
 }
 
 export interface UserProfile {
   id: number
-  tenantId: number
   username: string
-  displayName: string
-  email?: string | null
-  mobile?: string | null
-  status?: string | null
+  email: string
+  status: string
   lastLoginAt?: string | null
 }
 
