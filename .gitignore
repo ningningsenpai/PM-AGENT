@@ -1,6 +1,9 @@
 # Claude Code worktree
 .claude/worktrees/
 
+# CodeX Code workplace
+.codex*
+
 # 依赖目录
 node_modules/
 frontend/node_modules/
