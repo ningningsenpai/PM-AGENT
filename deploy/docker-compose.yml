@@ -5,12 +5,12 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     ports:
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${MYSQL_PORT:-3306}:3306"
+      - "${MIDDLEWARE_BIND_ADDRESS}:${MYSQL_PORT}:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456-pm-agent}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-pm_agent}
-      MYSQL_USER: ${MYSQL_USER:-pm-agent}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-123456-pm-agent}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       TZ: Asia/Shanghai
     command:
       - --character-set-server=utf8mb4
@@ -30,8 +30,8 @@ services:
     profiles: ["rag"]
     restart: unless-stopped
     ports:
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${QDRANT_GRPC_PORT:-6334}:6334"
+      - "${MIDDLEWARE_BIND_ADDRESS}:${QDRANT_HTTP_PORT}:6333"
+      - "${MIDDLEWARE_BIND_ADDRESS}:${QDRANT_GRPC_PORT}:6334"
     volumes:
       - qdrant-data:/qdrant/storage
 
@@ -39,11 +39,11 @@ services:
     image: minio/minio:latest
     restart: unless-stopped
     ports:
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${MINIO_API_PORT:-9000}:9000"
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${MIDDLEWARE_BIND_ADDRESS}:${MINIO_API_PORT}:9000"
+      - "${MIDDLEWARE_BIND_ADDRESS}:${MINIO_CONSOLE_PORT}:9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pm-agent}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-123456-pm-agent}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       TZ: Asia/Shanghai
     command: server /data --console-address ":9001"
     volumes:
@@ -58,15 +58,15 @@ services:
     image: redis:7.4-alpine
     restart: unless-stopped
     ports:
-      - "${MIDDLEWARE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+      - "${MIDDLEWARE_BIND_ADDRESS}:${REDIS_PORT}:6379"
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-pm-agent-dev}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       TZ: Asia/Shanghai
     command:
       - redis-server
       - /usr/local/etc/redis/redis.conf
       - --requirepass
-      - ${REDIS_PASSWORD:-pm-agent-dev}
+      - ${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
       - ./redis/conf/redis.conf:/usr/local/etc/redis/redis.conf:ro
