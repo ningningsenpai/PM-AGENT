@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
+from app.core.logger import get_logger
 from app.core.security import PasswordManager
 from app.modules.user.domain import UserStatus
 from app.modules.user.errors import email_exists, user_not_found, username_exists
@@ -17,6 +18,8 @@ from app.modules.user.schemas import (
     UserProfileResponse,
     to_profile,
 )
+
+logger = get_logger(__name__)
 
 
 class UserService:
@@ -50,13 +53,16 @@ class UserService:
             await self._repository.session.commit()
         except IntegrityError as exception:
             await self._repository.session.rollback()
+            logger.exception("用户创建失败 action=user.create")
             raise AppException(
                 ErrorCode.RESOURCE_CONFLICT,
                 "用户名或邮箱已存在",
             ) from exception
+        logger.info("用户创建成功 action=user.create userId=%s", user.id)
         return user
 
     async def authenticate(self, email: str, password: str) -> User:
+        logger.debug("用户认证开始 action=user.authenticate")
         user = await self._repository.get_by_email(email.strip().lower())
         if user is None or not self._passwords.verify(password, user.password_hash):
             raise AppException(ErrorCode.AUTH_LOGIN_FAILED)
@@ -64,16 +70,27 @@ class UserService:
             raise AppException(ErrorCode.USER_DISABLED)
         user.last_login_at = datetime.now()
         await self._repository.session.commit()
+        logger.debug(
+            "用户认证完成 action=user.authenticate userId=%s",
+            user.id,
+        )
         return user
 
     async def get_profile(self, user_id: int) -> UserProfileResponse:
-        return to_profile(await self.require_user(user_id))
+        logger.debug("查询用户资料 action=user.profile.get userId=%s", user_id)
+        profile = to_profile(await self.require_user(user_id))
+        logger.debug(
+            "用户资料查询完成 action=user.profile.get userId=%s",
+            user_id,
+        )
+        return profile
 
     async def update_profile(
         self,
         user_id: int,
         request: UpdateUserProfileRequest,
     ) -> UserProfileResponse:
+        logger.info("修改用户资料 action=user.profile.update userId=%s", user_id)
         user = await self.require_user(user_id)
         username = request.username.strip().lower()
         email = request.email.strip().lower()
@@ -84,10 +101,18 @@ class UserService:
             await self._repository.session.commit()
         except IntegrityError as exception:
             await self._repository.session.rollback()
+            logger.exception(
+                "用户资料修改失败 action=user.profile.update userId=%s",
+                user_id,
+            )
             raise AppException(
                 ErrorCode.RESOURCE_CONFLICT,
                 "用户名或邮箱已存在",
             ) from exception
+        logger.info(
+            "用户资料修改成功 action=user.profile.update userId=%s",
+            user_id,
+        )
         return to_profile(user)
 
     async def change_password(
@@ -95,11 +120,16 @@ class UserService:
         user_id: int,
         request: ChangePasswordRequest,
     ) -> None:
+        logger.info("修改用户密码 action=user.password.change userId=%s", user_id)
         user = await self.require_user(user_id)
         if not self._passwords.verify(request.old_password, user.password_hash):
             raise AppException(ErrorCode.PASSWORD_INVALID)
         user.password_hash = self._passwords.hash(request.new_password)
         await self._repository.session.commit()
+        logger.info(
+            "用户密码修改成功 action=user.password.change userId=%s",
+            user_id,
+        )
 
     async def require_user(self, user_id: int) -> User:
         user = await self._repository.get_by_id(user_id)

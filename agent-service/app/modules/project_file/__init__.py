@@ -1,4 +1,9 @@
-"""项目文件模块。"""
-from .service import ProjectFileService
+"""项目文件共享边界与公开服务。"""
 
-__all__ = ["ProjectFileService"]
+from .analysis import ProjectFileAnalysisService
+from .management import ProjectFileService
+
+__all__ = [
+    "ProjectFileAnalysisService",
+    "ProjectFileService",
+]

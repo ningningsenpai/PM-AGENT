@@ -13,7 +13,7 @@ class ApiResponse(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    code: int = 0
+    code: int = 200
     message: str = "成功"
     data: Any = None
     traceId: str

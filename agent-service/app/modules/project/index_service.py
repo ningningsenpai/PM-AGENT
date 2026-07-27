@@ -7,10 +7,13 @@ import json
 from typing import Any, Iterable
 
 from app.core.errors import AppException, ErrorCode
+from app.core.logger import get_logger
 from app.infrastructure.storage import (
     ObjectStorage,
     StorageLocationFactory,
 )
+
+logger = get_logger(__name__)
 
 
 class ProjectIndexService:
@@ -31,6 +34,12 @@ class ProjectIndexService:
 
     async def write(self, project, files: Iterable[Any]) -> None:
         payload = self.build(project, files)
+        total_nodes = payload["summary"]["total_nodes"]
+        logger.debug(
+            "写入项目索引 action=project.index.write projectId=%s count=%s",
+            project.id,
+            total_nodes,
+        )
         location = self._locations.system_file(
             project.owner_user_id,
             project.id,
@@ -49,7 +58,16 @@ class ProjectIndexService:
                 "application/json",
             )
         except AppException as exception:
+            logger.exception(
+                "项目索引写入失败 action=project.index.write projectId=%s",
+                project.id,
+            )
             raise AppException(ErrorCode.PROJECT_INDEX_WRITE_FAILED) from exception
+        logger.debug(
+            "项目索引写入完成 action=project.index.write projectId=%s count=%s",
+            project.id,
+            total_nodes,
+        )
 
     def build(self, project, files: Iterable[Any]) -> dict[str, Any]:
         project_entries: list[dict[str, Any]] = []

@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.core.logger import get_logger
 from app.infrastructure.redis.client import RedisProvider, get_redis_provider
 
+logger = get_logger(__name__)
 
 class SessionStore:
     def __init__(self, redis_provider: RedisProvider) -> None:

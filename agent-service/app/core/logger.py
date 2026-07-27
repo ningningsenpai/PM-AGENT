@@ -4,6 +4,16 @@ import logging
 import os
 import sys
 
+from app.core.trace import get_trace_id
+
+
+class TraceIdFilter(logging.Filter):
+    """为每条日志注入当前请求的 traceId。"""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.trace_id = get_trace_id()
+        return True
+
 
 class AgentLogger:
     """Agent 服务日志工厂。"""
@@ -26,9 +36,13 @@ class AgentLogger:
         level = getattr(logging, level_name, logging.INFO)
 
         handler = logging.StreamHandler(sys.stdout)
+        handler.addFilter(TraceIdFilter())
         handler.setFormatter(
             logging.Formatter(
-                fmt="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+                fmt=(
+                    "%(asctime)s %(levelname)s "
+                    "[traceId=%(trace_id)s] [%(name)s] %(message)s"
+                ),
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
         )

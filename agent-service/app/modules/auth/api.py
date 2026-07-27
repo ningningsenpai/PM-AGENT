@@ -54,5 +54,5 @@ async def logout(
     principal: AuthPrincipal = Depends(require_principal),
     service: AuthService = Depends(get_auth_service),
 ) -> ApiResponse:
-    await service.logout(principal.jti)
+    await service.logout(principal)
     return success()

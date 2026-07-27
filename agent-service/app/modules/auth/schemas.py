@@ -30,6 +30,7 @@ class LoginRequest(AuthSchema):
 
 class RegisterRequest(LoginRequest):
     username: str = Field(min_length=1, max_length=64)
+    email: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=6, max_length=64)
 
     @field_validator("username")
@@ -38,6 +39,14 @@ class RegisterRequest(LoginRequest):
         normalized = value.strip()
         if not normalized:
             raise ValueError("用户名不能为空")
+        return normalized
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not _EMAIL_PATTERN.fullmatch(normalized):
+            raise ValueError("邮箱格式不正确")
         return normalized
 
 
