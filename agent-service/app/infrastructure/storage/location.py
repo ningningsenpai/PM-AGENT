@@ -96,6 +96,10 @@ class StorageLocationFactory:
         project_id: int,
         object_key: str,
     ) -> str:
+        """
+        根据固定的 prefix 来从传入的完整对象键判断该路径是否合法
+        @Return: storage_name
+        """
         prefix = self.project_prefix(user_id, project_id).object_key
         if not object_key.startswith(prefix):
             raise AppException(ErrorCode.PARAM_INVALID, "对象键不属于指定项目")
@@ -107,6 +111,7 @@ class StorageLocationFactory:
         project_id: int,
         object_key: str,
     ) -> StorageLocation:
+        """ relative_object_path -> @Return: storage_name """
         self.relative_object_path(user_id, project_id, object_key)
         return StorageLocation(self._bucket, object_key)
 

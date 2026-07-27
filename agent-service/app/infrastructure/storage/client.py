@@ -23,6 +23,7 @@ class ObjectStorage:
         content: bytes,
         content_type: str,
     ) -> None:
+        """ 上传字节文件到对象存储 """
         try:
             self._ensure_bucket(location.bucket)
             self._client.put_object(
@@ -38,6 +39,7 @@ class ObjectStorage:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def get_bytes(self, location: StorageLocation) -> bytes:
+        """ 从对象存储下载字节文件 """
         response = None
         try:
             response = self._client.get_object(location.bucket, location.object_key)
@@ -50,6 +52,7 @@ class ObjectStorage:
                 response.release_conn()
 
     def copy(self, source: StorageLocation, target: StorageLocation) -> None:
+        """ 复制对象存储中的文件 """
         from minio.commonconfig import CopySource
 
         try:
@@ -63,12 +66,14 @@ class ObjectStorage:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def remove(self, location: StorageLocation) -> None:
+        """ 删除对象存储中的文件 """
         try:
             self._client.remove_object(location.bucket, location.object_key)
         except Exception as exception:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def remove_prefix(self, location: StorageLocation) -> None:
+        """ 删除对象存储中的文件前缀 """
         try:
             if not self._client.bucket_exists(location.bucket):
                 return
@@ -82,6 +87,7 @@ class ObjectStorage:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def presigned_get(self, location: StorageLocation) -> str:
+        """ 生成预签名URL，用于临时访问对象存储中的文件 """
         try:
             return self._client.presigned_get_object(
                 location.bucket,
@@ -92,6 +98,7 @@ class ObjectStorage:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def _ensure_bucket(self, bucket: str) -> None:
+        """ 确保对象存储中的 bucket 存在 """
         if not self._client.bucket_exists(bucket):
             self._client.make_bucket(bucket)
 

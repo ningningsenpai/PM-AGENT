@@ -57,6 +57,7 @@ class ProjectFileRepository:
         return list((await self.session.scalars(statement)).all())
 
     async def list_parse_candidates(self, project_id: int) -> list[ProjectFile]:
+        """ 获取未解析的文件列表 """
         statement = (
             select(ProjectFile)
             .where(

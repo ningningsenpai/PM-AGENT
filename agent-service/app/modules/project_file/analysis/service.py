@@ -128,6 +128,7 @@ class ProjectFileAnalysisService:
         file: ProjectFile,
         request: FileAnalysisRequest,
     ) -> FileAnalysisResult:
+        """ 读取文件内容并且解析 """
         try:
             content = await asyncio.to_thread(
                 self._storage.get_bytes,
@@ -201,6 +202,7 @@ class ProjectFileAnalysisService:
         user_id: int,
         file: ProjectFile,
     ) -> FileAnalysisRequest:
+        """ 构建文件分析请求 """
         detail_name = (
             file.storage_name.rsplit(".", maxsplit=1)[0]
             if "." in file.storage_name
