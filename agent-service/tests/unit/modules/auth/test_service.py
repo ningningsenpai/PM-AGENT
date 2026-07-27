@@ -19,7 +19,7 @@ def _user() -> User:
     user = User(
         username="tester",
         email="tester@example.com",
-        password_hash="hashed-password",
+        password_hash="123456",
         status="enabled",
         last_login_at=datetime(2026, 7, 27, 10, 0, 0),
     )

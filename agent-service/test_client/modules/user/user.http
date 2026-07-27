@@ -1,0 +1,87 @@
+### 查询当前用户资料
+# @name getCurrentUser
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+X-Trace-Id: http-user-me-{{$uuid}}
+
+> {%
+client.test("当前用户资料查询成功", function () {
+    client.assert(response.status === 200, "资料查询 HTTP 状态应为 200");
+    client.assert(response.body.code === 200, "资料查询业务状态应为成功");
+    client.assert(String(response.body.data.id) === client.global.get("userId"), "返回用户应与登录用户一致");
+});
+%}
+
+### 未登录查询当前用户
+# @name getCurrentUserWithoutToken
+GET {{baseUrl}}/api/v1/users/me
+X-Trace-Id: http-user-unauthorized-{{$uuid}}
+
+> {%
+client.test("未登录访问被拒绝", function () {
+    client.assert(response.body.code !== 200, "未登录访问不应成功");
+    client.assert(response.body.traceId, "错误响应应包含 traceId");
+});
+%}
+
+### 更新当前用户资料
+# 使用原邮箱以避免影响其他 HTTP 文件中的登录变量。
+# @name updateCurrentUser
+PUT {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+X-Trace-Id: http-user-update-{{$uuid}}
+
+{
+  "username": "{{testUsername}}",
+  "email": "{{testEmail}}"
+}
+
+> {%
+client.test("当前用户资料更新成功", function () {
+    client.assert(response.status === 200, "资料更新 HTTP 状态应为 200");
+    client.assert(response.body.code === 200, "资料更新业务状态应为成功");
+    client.assert(response.body.data.email, "响应应包含用户邮箱");
+});
+%}
+
+### 修改密码——可选副作用
+# 执行后应立即执行下一条恢复密码请求。
+# @name changePassword
+PUT {{baseUrl}}/api/v1/users/me/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+X-Trace-Id: http-user-password-change-{{$uuid}}
+
+{
+  "oldPassword": "{{testPassword}}",
+  "newPassword": "{{newPassword}}",
+  "confirmPassword": "{{newPassword}}"
+}
+
+> {%
+client.test("密码修改成功", function () {
+    client.assert(response.status === 200, "密码修改 HTTP 状态应为 200");
+    client.assert(response.body.code === 200, "密码修改业务状态应为成功");
+});
+%}
+
+### 恢复测试密码——仅在上一条成功后执行
+# @name restorePassword
+PUT {{baseUrl}}/api/v1/users/me/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+X-Trace-Id: http-user-password-restore-{{$uuid}}
+
+{
+  "oldPassword": "{{newPassword}}",
+  "newPassword": "{{testPassword}}",
+  "confirmPassword": "{{testPassword}}"
+}
+
+> {%
+client.test("测试密码恢复成功", function () {
+    client.assert(response.status === 200, "密码恢复 HTTP 状态应为 200");
+    client.assert(response.body.code === 200, "密码恢复业务状态应为成功");
+});
+%}
