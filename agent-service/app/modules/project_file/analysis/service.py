@@ -172,6 +172,10 @@ class ProjectFileAnalysisService:
         project_id: int,
         result: FileAnalysisResult,
     ) -> None:
+        """
+        将文件分析详情（json）写入对象存储 -> system 专用
+        @Param user_id、 project_id、 FileAnalysisResult
+        """
         detail = result.detail
         if detail is None:
             raise AppException(ErrorCode.FILE_ANALYSIS_FAILED)

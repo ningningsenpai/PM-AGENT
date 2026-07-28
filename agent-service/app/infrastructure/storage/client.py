@@ -23,7 +23,10 @@ class ObjectStorage:
         content: bytes,
         content_type: str,
     ) -> None:
-        """ 上传字节文件到对象存储 """
+        """
+        上传字节文件到对象存储
+        @Param location、 content、 content_type
+        """
         try:
             self._ensure_bucket(location.bucket)
             self._client.put_object(

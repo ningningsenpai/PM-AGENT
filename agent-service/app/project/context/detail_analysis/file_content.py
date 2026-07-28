@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from . import downloader
 from .downloader import FileDownloader
 from .parser.base import FileParseResult
 from .parser.factory import FileParserFactory
