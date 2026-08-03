@@ -43,3 +43,37 @@ export interface ProjectFileUploadResponse {
   errorCode: string | null
   errorMessage: string | null
 }
+
+export interface ProjectFileResponse {
+  id: number
+  projectId: number
+  businessCode: string
+  relativePath: string
+  fileName: string
+  storageName: string
+  minioPath: string
+  extension: string | null
+  contentType: string
+  sizeBytes: number
+  sourceMtimeMs: number
+  quickFingerprint: string
+  contentHash: string
+  status: string
+  uploadStatus: string
+  parseAttempts: number
+  lockVersion: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OverwriteProjectFilePayload extends UploadProjectFilePayload {
+  fileId: number
+  lockVersion: number
+}
+
+export interface UpdateProjectFilePathPayload {
+  fileId: number
+  relativePath: string
+  sourceMtimeMs: number
+  lockVersion: number
+}

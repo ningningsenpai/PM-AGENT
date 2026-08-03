@@ -20,6 +20,7 @@ from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 from app.modules.project_file.repository import ProjectFileRepository
 from app.project.context.detail_analysis.service import FileDetailAnalysisService
+from app.project.context.specification import ProjectSpecificationService
 
 router = APIRouter()
 
@@ -37,6 +38,7 @@ def get_project_file_analysis_service(
         locations,
         ProjectIndexService(storage, locations),
         FileDetailAnalysisService(),
+        ProjectSpecificationService(storage, locations),
     )
 
 

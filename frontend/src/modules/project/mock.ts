@@ -1,10 +1,14 @@
 import type {
   CreateProjectRequest,
+  OverwriteProjectFilePayload,
   ProjectDetail,
+  ProjectFileResponse,
   ProjectFileUploadResponse,
   ProjectSummary,
+  UpdateProjectFilePathPayload,
   UploadProjectFilePayload,
 } from '@/modules/project/types'
+import { hashProjectFile } from '@/modules/project/project-update'
 
 const projects: ProjectDetail[] = [
   {
@@ -58,12 +62,41 @@ export async function mockCreateProject(payload: CreateProjectRequest): Promise<
 }
 
 let mockFileId = 1
+const projectFiles = new Map<number, ProjectFileResponse[]>()
 
 export async function mockUploadProjectFile(
+  projectId: number,
   payload: UploadProjectFilePayload,
 ): Promise<ProjectFileUploadResponse> {
+  const now = new Date().toISOString()
+  const fileId = mockFileId++
+  const contentHash = await hashProjectFile(payload.file)
+  const record: ProjectFileResponse = {
+    id: fileId,
+    projectId,
+    businessCode: 'project',
+    relativePath: payload.relativePath,
+    fileName: payload.file.name,
+    storageName: payload.file.name,
+    minioPath: `project/${payload.file.name}`,
+    extension: payload.file.name.split('.').pop() ?? null,
+    contentType: payload.file.type || 'application/octet-stream',
+    sizeBytes: payload.file.size,
+    sourceMtimeMs: payload.sourceMtimeMs,
+    quickFingerprint: contentHash,
+    contentHash,
+    status: 'active',
+    uploadStatus: 'success',
+    parseAttempts: 0,
+    lockVersion: 0,
+    createdAt: now,
+    updatedAt: now,
+  }
+  const files = projectFiles.get(projectId) ?? []
+  files.push(record)
+  projectFiles.set(projectId, files)
   return {
-    fileId: mockFileId++,
+    fileId,
     relativePath: payload.relativePath,
     fileName: payload.file.name,
     success: true,
@@ -74,4 +107,56 @@ export async function mockUploadProjectFile(
   }
 }
 
+export async function mockListProjectFiles(projectId: number): Promise<ProjectFileResponse[]> {
+  return [...(projectFiles.get(projectId) ?? [])]
+}
+
+export async function mockOverwriteProjectFile(
+  projectId: number,
+  payload: OverwriteProjectFilePayload,
+): Promise<ProjectFileResponse> {
+  const file = requireMockFile(projectId, payload.fileId)
+  file.contentHash = await hashProjectFile(payload.file)
+  file.sizeBytes = payload.file.size
+  file.contentType = payload.file.type || 'application/octet-stream'
+  file.sourceMtimeMs = payload.sourceMtimeMs
+  file.status = 'active'
+  file.uploadStatus = 'success'
+  file.parseAttempts = 0
+  file.lockVersion += 1
+  file.updatedAt = new Date().toISOString()
+  return file
+}
+
+export async function mockUpdateProjectFilePath(
+  projectId: number,
+  payload: UpdateProjectFilePathPayload,
+): Promise<ProjectFileResponse> {
+  const file = requireMockFile(projectId, payload.fileId)
+  file.relativePath = payload.relativePath
+  file.fileName = payload.relativePath.split('/').pop() || file.fileName
+  file.sourceMtimeMs = payload.sourceMtimeMs
+  file.lockVersion += 1
+  file.updatedAt = new Date().toISOString()
+  return file
+}
+
+export async function mockDeleteProjectFile(
+  projectId: number,
+  fileId: number,
+  _lockVersion: number,
+): Promise<void> {
+  const files = projectFiles.get(projectId) ?? []
+  projectFiles.set(
+    projectId,
+    files.filter((file) => file.id !== fileId),
+  )
+}
+
 export async function mockRequestProjectFileParsing(): Promise<void> {}
+
+function requireMockFile(projectId: number, fileId: number) {
+  const file = (projectFiles.get(projectId) ?? []).find((item) => item.id === fileId)
+  if (!file) throw new Error('项目文件不存在')
+  return file
+}

@@ -2,16 +2,23 @@ import { request } from '@/api/http'
 import { useMock } from '@/mock'
 import {
   mockCreateProject,
+  mockDeleteProjectFile,
   mockGetProjectDetail,
+  mockListProjectFiles,
   mockListProjects,
+  mockOverwriteProjectFile,
   mockRequestProjectFileParsing,
+  mockUpdateProjectFilePath,
   mockUploadProjectFile,
 } from '@/modules/project/mock'
 import type {
   CreateProjectRequest,
+  OverwriteProjectFilePayload,
   ProjectDetail,
+  ProjectFileResponse,
   ProjectFileUploadResponse,
   ProjectSummary,
+  UpdateProjectFilePathPayload,
   UploadProjectFilePayload,
 } from '@/modules/project/types'
 
@@ -88,7 +95,7 @@ export async function createProject(payload: CreateProjectRequest) {
 
 export async function uploadProjectFile(projectId: number, payload: UploadProjectFilePayload) {
   if (useMock) {
-    return mockUploadProjectFile(payload)
+    return mockUploadProjectFile(projectId, payload)
   }
 
   const formData = new FormData()
@@ -104,6 +111,77 @@ export async function uploadProjectFile(projectId: number, payload: UploadProjec
       'X-Idempotency-Key': payload.idempotencyKey,
     },
     timeout: 2 * 60 * 1000,
+  })
+}
+
+export async function listProjectFiles(projectId: number) {
+  if (useMock) {
+    return mockListProjectFiles(projectId)
+  }
+
+  return request<ProjectFileResponse[]>({
+    url: `/api/v1/projects/${projectId}/files`,
+    method: 'get',
+    params: { businessCode: 'project' },
+  })
+}
+
+export async function overwriteProjectFile(
+  projectId: number,
+  payload: OverwriteProjectFilePayload,
+) {
+  if (useMock) {
+    return mockOverwriteProjectFile(projectId, payload)
+  }
+
+  const formData = new FormData()
+  formData.append('file', payload.file, payload.file.name)
+  formData.append('sourceMtimeMs', String(payload.sourceMtimeMs))
+  formData.append('lockVersion', String(payload.lockVersion))
+
+  return request<ProjectFileResponse>({
+    url: `/api/v1/projects/${projectId}/files/${payload.fileId}/content`,
+    method: 'put',
+    data: formData,
+    headers: {
+      'X-Idempotency-Key': payload.idempotencyKey,
+    },
+    timeout: 2 * 60 * 1000,
+  })
+}
+
+export async function updateProjectFilePath(
+  projectId: number,
+  payload: UpdateProjectFilePathPayload,
+) {
+  if (useMock) {
+    return mockUpdateProjectFilePath(projectId, payload)
+  }
+
+  return request<ProjectFileResponse>({
+    url: `/api/v1/projects/${projectId}/files/${payload.fileId}/path`,
+    method: 'patch',
+    data: {
+      relativePath: payload.relativePath,
+      sourceMtimeMs: payload.sourceMtimeMs,
+      lockVersion: payload.lockVersion,
+    },
+  })
+}
+
+export async function deleteProjectFile(
+  projectId: number,
+  fileId: number,
+  lockVersion: number,
+) {
+  if (useMock) {
+    return mockDeleteProjectFile(projectId, fileId, lockVersion)
+  }
+
+  return request<void>({
+    url: `/api/v1/projects/${projectId}/files/${fileId}`,
+    method: 'delete',
+    params: { lockVersion },
   })
 }
 

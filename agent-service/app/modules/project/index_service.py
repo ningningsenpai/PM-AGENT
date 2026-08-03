@@ -141,7 +141,7 @@ class ProjectIndexService:
             "quick_fingerprint": f"qf:sha256:{file.quick_fingerprint}",
             "content_hash": f"sha256:{file.content_hash}",
             "updated_at": file.updated_at,
-            "detail_ref": file.detail_ref,
+            "detail_ref": file.detail_ref if file.analysis_version else None,
             "analysis_version": file.analysis_version,
             "module": file.module,
             "kind": file.kind,

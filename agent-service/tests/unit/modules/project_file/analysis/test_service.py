@@ -41,6 +41,7 @@ def _service(
     projects=None,
     index=None,
     analyzer=None,
+    specification=None,
 ) -> ProjectFileAnalysisService:
     project_service = projects or AsyncMock()
     project_service.require_owned.return_value = project()
@@ -51,6 +52,7 @@ def _service(
         StorageLocationFactory(storage_config()),
         index or AsyncMock(),
         analyzer or AsyncMock(),
+        specification or AsyncMock(),
     )
 
 
@@ -97,11 +99,13 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             _failure_result(second),
         ]
         index = AsyncMock()
+        specification = AsyncMock()
         service = _service(
             repository,
             storage=storage,
             analyzer=analyzer,
             index=index,
+            specification=specification,
         )
 
         with patch.object(analysis_service_module, "logger") as logger:
@@ -119,6 +123,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             "模型输出不合法",
         )
         index.write.assert_awaited_once()
+        specification.refresh.assert_awaited_once()
         first_request = analyzer.analyze_bytes.await_args_list[0].args[0]
         self.assertEqual(1, first_request.user_id)
         self.assertEqual(30, first_request.file_id)
@@ -144,11 +149,13 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         storage.get_bytes.side_effect = AppException(ErrorCode.FILE_STORAGE_ERROR)
         analyzer = AsyncMock()
         index = AsyncMock()
+        specification = AsyncMock()
         service = _service(
             repository,
             storage=storage,
             analyzer=analyzer,
             index=index,
+            specification=specification,
         )
 
         await service.initialize(1, 10)
@@ -162,6 +169,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             ErrorCode.FILE_STORAGE_ERROR.message,
         )
         index.write.assert_awaited_once()
+        specification.refresh.assert_awaited_once()
 
     async def test_initialize_propagates_analyzer_exception(self) -> None:
         """验证分析器系统异常不会被错误转换为文件级成功。
@@ -234,10 +242,17 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         repository = _repository([])
         index = AsyncMock()
         analyzer = AsyncMock()
-        service = _service(repository, index=index, analyzer=analyzer)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            index=index,
+            analyzer=analyzer,
+            specification=specification,
+        )
 
         await service.initialize(1, 10)
 
         analyzer.analyze_bytes.assert_not_awaited()
         repository.list.assert_awaited_once_with(10, include_system=True)
         index.write.assert_awaited_once()
+        specification.refresh.assert_awaited_once()

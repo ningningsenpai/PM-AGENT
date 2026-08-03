@@ -6,6 +6,7 @@ from functools import lru_cache
 from io import BytesIO
 
 from minio import Minio
+from minio.error import S3Error
 
 from app.core.config import get_settings
 from app.core.errors import AppException, ErrorCode
@@ -53,6 +54,18 @@ class ObjectStorage:
             if response is not None:
                 response.close()
                 response.release_conn()
+
+    def exists(self, location: StorageLocation) -> bool:
+        """判断对象是否存在，并区分不存在与存储服务异常。"""
+        try:
+            self._client.stat_object(location.bucket, location.object_key)
+            return True
+        except S3Error as exception:
+            if exception.code in {"NoSuchBucket", "NoSuchKey", "NoSuchObject"}:
+                return False
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
+        except Exception as exception:
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def copy(self, source: StorageLocation, target: StorageLocation) -> None:
         """ 复制对象存储中的文件 """

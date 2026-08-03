@@ -36,6 +36,7 @@ class ErrorCode(Enum):
     FILE_RENAME_FAILED = (50005, "文件重命名失败")
     PROJECT_DELETE_FAILED = (50006, "项目删除失败")
     FILE_ANALYSIS_FAILED = (50007, "文件解析失败")
+    PROJECT_SPECIFICATION_BUILD_FAILED = (50008, "项目规范构建失败")
     SYSTEM_ERROR = (90001, "系统异常")
 
     @property

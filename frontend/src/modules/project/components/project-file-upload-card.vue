@@ -4,15 +4,15 @@
       <div>
         <p class="upload-eyebrow">Project Files</p>
         <div class="upload-title-row">
-          <h2>项目文件上传</h2>
+          <h2>项目文件同步</h2>
           <n-tag :type="uploadStatusType" round size="small">{{ uploadStatusLabel }}</n-tag>
         </div>
-        <p>选择项目文件夹后，前端会逐个校验并调用单文件上传接口。</p>
+        <p>选择项目文件夹后，系统会识别新增、修改、移动和删除，再复用单文件接口同步。</p>
       </div>
       <div class="upload-actions">
         <n-button :disabled="uploading" @click="openDirectoryPicker">重新选择</n-button>
         <n-button type="primary" :loading="uploading" @click="openDirectoryPicker">
-          {{ uploading ? '正在上传' : '选择文件夹' }}
+          {{ uploading ? '正在同步' : '选择文件夹' }}
         </n-button>
       </div>
       <input
@@ -27,7 +27,7 @@
     </div>
 
     <n-alert class="filter-alert" type="info" :show-icon="false">
-      文件通过前端校验后逐个上传；单文件最大 50MB，失败文件不会自动重试。
+      单文件最大 50MB；删除远端文件前会再次确认，失败记录可在重新选择目录时重试。
     </n-alert>
 
     <div v-if="viewState === 'idle'" class="upload-placeholder">
@@ -46,7 +46,7 @@
     <template v-else>
       <div class="upload-metrics">
         <div>
-          <span>文件总数</span>
+          <span>同步总项</span>
           <strong>{{ totalFileCount }}</strong>
         </div>
         <div>
@@ -54,7 +54,7 @@
           <strong>{{ processedFileCount }}</strong>
         </div>
         <div>
-          <span>上传成功</span>
+          <span>同步成功</span>
           <strong>{{ succeededFileCount }}</strong>
         </div>
         <div>
@@ -92,16 +92,16 @@
         </n-tag>
       </div>
 
-      <n-alert v-if="viewState === 'success'" type="success" title="项目文件上传完成">
-        {{ succeededFileCount }} 个文件已上传，文件解析接口已调用。
+      <n-alert v-if="viewState === 'success'" type="success" title="项目文件同步完成">
+        {{ succeededFileCount }} 个项目文件状态已同步，项目规范已刷新。
       </n-alert>
 
       <n-alert
         v-if="viewState === 'needs-update'"
         type="warning"
-        title="存在未上传成功的文件"
+        title="存在未同步成功的文件"
       >
-        共 {{ finalFailures.length }} 个文件失败或未通过校验，系统不会自动重试，请后续更新项目。
+        共 {{ finalFailures.length }} 个文件失败或未通过校验，可重新选择目录继续同步。
       </n-alert>
 
       <div v-if="finalFailures.length" class="failure-list">
@@ -127,12 +127,24 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useMessage } from 'naive-ui'
-import { requestProjectFileParsing, uploadProjectFile } from '@/modules/project/api'
+import { useDialog, useMessage } from 'naive-ui'
+import {
+  deleteProjectFile,
+  listProjectFiles,
+  overwriteProjectFile,
+  requestProjectFileParsing,
+  updateProjectFilePath,
+  uploadProjectFile,
+} from '@/modules/project/api'
 import {
   validateProjectFile,
+  type PreparedProjectFile,
   type RejectedProjectFile,
 } from '@/modules/project/file-upload'
+import {
+  buildProjectFileDiff,
+  type ProjectFileDiff,
+} from '@/modules/project/project-update'
 
 type UploadViewState = 'idle' | 'empty' | 'uploading' | 'success' | 'needs-update'
 
@@ -145,6 +157,7 @@ const props = defineProps<{
   projectId: number
 }>()
 
+const dialog = useDialog()
 const message = useMessage()
 const directoryInput = ref<HTMLInputElement | null>(null)
 const viewState = ref<UploadViewState>('idle')
@@ -172,7 +185,7 @@ const uploadProgressText = computed(() => {
     const currentFile = Math.min(processedFileCount.value + 1, totalFileCount.value)
     return `正在处理第 ${currentFile} 个文件，共 ${totalFileCount.value} 个`
   }
-  if (viewState.value === 'success') return `${succeededFileCount.value} 个文件已上传成功`
+  if (viewState.value === 'success') return `${succeededFileCount.value} 个文件已同步`
   return `${finalFailures.value.length} 个文件需要后续更新`
 })
 
@@ -180,7 +193,7 @@ const uploadStatusLabel = computed(() => {
   const labels: Record<UploadViewState, string> = {
     idle: '待选择',
     empty: '内容为空',
-    uploading: '上传中',
+    uploading: '同步中',
     success: '已完成',
     'needs-update': '待更新',
   }
@@ -213,60 +226,137 @@ async function handleDirectoryChange(event: Event) {
   }
 
   selectedDirectoryName.value = getDirectoryName(selectedFiles[0])
-  totalFileCount.value = selectedFiles.length
   uploading.value = true
   viewState.value = 'uploading'
   const acceptedPaths = new Set<string>()
+  const observedLocalPaths = new Set<string>()
+  const preparedFiles: PreparedProjectFile[] = []
 
   for (const file of selectedFiles) {
     const validation = validateProjectFile(file, acceptedPaths)
+    observedLocalPaths.add(
+      validation.valid
+        ? validation.candidate.relativePath
+        : validation.rejection.relativePath,
+    )
     if (!validation.valid) {
       rejectedFiles.value.push(validation.rejection)
       finalFailures.value.push({
         relativePath: validation.rejection.relativePath,
         errorMessage: validation.rejection.reason,
       })
-      processedFileCount.value += 1
       continue
     }
-
-    const candidate = validation.candidate
-    try {
-      const result = await uploadProjectFile(props.projectId, candidate)
-      if (result.success) {
-        succeededFileCount.value += 1
-      } else {
-        finalFailures.value.push({
-          relativePath: result.relativePath,
-          errorMessage: result.errorMessage || '文件上传失败',
-        })
-      }
-    } catch (error) {
-      finalFailures.value.push({
-        relativePath: candidate.relativePath,
-        errorMessage: error instanceof Error ? error.message : '文件上传失败',
-      })
-    } finally {
-      processedFileCount.value += 1
-    }
+    preparedFiles.push(validation.candidate)
   }
 
   try {
+    const remoteFiles = await listProjectFiles(props.projectId)
+    const diff = await buildProjectFileDiff(
+      preparedFiles,
+      remoteFiles,
+      observedLocalPaths,
+    )
+    totalFileCount.value = selectedFiles.length + diff.deleted.length
+    processedFileCount.value = rejectedFiles.value.length + diff.unchanged.length
+    succeededFileCount.value = diff.unchanged.length
+
+    if (diff.deleted.length && !(await confirmRemoteDeletion(diff))) {
+      finalFailures.value.push({
+        relativePath: '项目目录',
+        errorMessage: `已取消删除 ${diff.deleted.length} 个远端文件，本次同步未执行`,
+      })
+      viewState.value = 'needs-update'
+      message.info('已取消项目文件同步')
+      return
+    }
+
+    await executeProjectDiff(diff)
     await requestProjectFileParsing(props.projectId)
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '文件解析接口调用失败'
-    message.warning(`文件上传结果已保存，但${errorMessage}`)
+    finalFailures.value.push({
+      relativePath: 'system/project_specification.json',
+      errorMessage: error instanceof Error ? error.message : '项目文件同步或规范刷新失败',
+    })
   } finally {
     uploading.value = false
   }
 
   if (finalFailures.value.length) {
     viewState.value = 'needs-update'
-    message.warning('存在失败文件，请后续更新项目')
+    message.warning('存在未同步成功的文件，可重新选择目录重试')
   } else {
     viewState.value = 'success'
-    message.success('项目文件上传完成')
+    message.success('项目文件与项目规范同步完成')
   }
+}
+
+async function executeProjectDiff(diff: ProjectFileDiff) {
+  for (const remote of diff.deleted) {
+    await runSyncOperation(remote.relativePath, () =>
+      deleteProjectFile(props.projectId, remote.id, remote.lockVersion),
+    )
+  }
+  for (const { local, remote } of diff.moved) {
+    await runSyncOperation(local.relativePath, () =>
+      updateProjectFilePath(props.projectId, {
+        fileId: remote.id,
+        relativePath: local.relativePath,
+        sourceMtimeMs: local.sourceMtimeMs,
+        lockVersion: remote.lockVersion,
+      }),
+    )
+  }
+  for (const { local, remote } of diff.modified) {
+    await runSyncOperation(local.relativePath, () =>
+      overwriteProjectFile(props.projectId, {
+        ...local,
+        fileId: remote.id,
+        lockVersion: remote.lockVersion,
+      }),
+    )
+  }
+  for (const local of diff.added) {
+    await runSyncOperation(local.relativePath, async () => {
+      const result = await uploadProjectFile(props.projectId, local)
+      if (!result.success) throw new Error(result.errorMessage || '文件上传失败')
+    })
+  }
+}
+
+async function runSyncOperation(relativePath: string, operation: () => Promise<unknown>) {
+  try {
+    await operation()
+    succeededFileCount.value += 1
+  } catch (error) {
+    finalFailures.value.push({
+      relativePath,
+      errorMessage: error instanceof Error ? error.message : '文件同步失败',
+    })
+  } finally {
+    processedFileCount.value += 1
+  }
+}
+
+function confirmRemoteDeletion(diff: ProjectFileDiff) {
+  const preview = diff.deleted
+    .slice(0, 5)
+    .map((file) => file.relativePath)
+    .join('、')
+  return new Promise<boolean>((resolve) => {
+    dialog.warning({
+      title: '确认删除远端文件',
+      content: `本地目录中已不存在 ${diff.deleted.length} 个文件：${preview}${
+        diff.deleted.length > 5 ? ' 等' : ''
+      }。是否继续？`,
+      positiveText: '确认删除并同步',
+      negativeText: '取消',
+      closable: false,
+      maskClosable: false,
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: () => resolve(false),
+    })
+  })
 }
 
 function resetUploadView() {

@@ -40,15 +40,16 @@ Agent、LLM 和 Prompt 不直接获取数据库 Session，不跨模块访问表�
 
 项目文件解析是 Python 应用服务，不再是跨 Java/Python HTTP：
 
-1. Service 查询 `active` 且 `parse_attempts=0` 的文件；
+1. Service 查询 `active`、尚无有效分析版本且解析次数小于 3 的文件；
 2. 通过对象键使用 MinIO SDK 读取；
 3. 复用既有解析器、Prompt 和模型适配器；
 4. Pydantic 校验输出与文件身份；
 5. 写 `system/file_details/*.json`；
 6. 条件更新分析投影与解析次数；
-7. 从数据库完整生成 `system/index.json`。
+7. 从数据库完整生成 `system/index.json`；
+8. 将当前有效文件分析投影交给结构化模型生成器，经 Pydantic 校验和稳定 ID 合并后写入 `system/project_specification.json`。
 
-MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件。
+文件详情和项目规范复用同一个结构化 JSON 模型调用组件，具体 Prompt 和 Pydantic 输出模型保持独立。MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件；解析入口可重复调用，以恢复文件级失败或项目规范构建失败。
 
 ## 5. 模型与成本
 

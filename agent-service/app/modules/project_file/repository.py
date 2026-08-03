@@ -10,6 +10,8 @@ from app.modules.project_file.models import ProjectFile
 
 
 class ProjectFileRepository:
+    MAX_PARSE_ATTEMPTS = 3
+
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
@@ -57,12 +59,13 @@ class ProjectFileRepository:
         return list((await self.session.scalars(statement)).all())
 
     async def list_parse_candidates(self, project_id: int) -> list[ProjectFile]:
-        """ 获取未解析的文件列表 """
+        """获取需要首次解析或失败重试的文件列表。"""
         statement = (
             select(ProjectFile)
             .where(
                 ProjectFile.project_id == project_id,
-                ProjectFile.parse_attempts == 0,
+                ProjectFile.analysis_version.is_(None),
+                ProjectFile.parse_attempts < self.MAX_PARSE_ATTEMPTS,
                 ProjectFile.status == "active",
                 ProjectFile.business_code != "system",
             )
@@ -85,6 +88,7 @@ class ProjectFileRepository:
         project_id: int,
         file_id: int,
         expected_lock_version: int,
+        expected_statuses: tuple[str, ...],
         target_status: str,
     ) -> bool:
         statement = (
@@ -92,7 +96,7 @@ class ProjectFileRepository:
             .where(
                 ProjectFile.id == file_id,
                 ProjectFile.project_id == project_id,
-                ProjectFile.status == "active",
+                ProjectFile.status.in_(expected_statuses),
                 ProjectFile.lock_version == expected_lock_version,
             )
             .values(

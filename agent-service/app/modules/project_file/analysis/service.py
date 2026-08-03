@@ -19,6 +19,7 @@ from app.project.context.detail_analysis.schemas import (
     FileAnalysisResult,
 )
 from app.project.context.detail_analysis.service import FileDetailAnalysisService
+from app.project.context.specification import ProjectSpecificationService
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,7 @@ class ProjectFileAnalysisService:
         locations: StorageLocationFactory,
         index_service: ProjectIndexService,
         analyzer: FileDetailAnalysisService,
+        specification_service: ProjectSpecificationService,
     ) -> None:
         self._repository = repository
         self._projects = projects
@@ -43,6 +45,7 @@ class ProjectFileAnalysisService:
         self._locations = locations
         self._index = index_service
         self._analyzer = analyzer
+        self._specification = specification_service
 
     async def initialize(self, user_id: int, project_id: int) -> None:
         project = await self._projects.require_owned(user_id, project_id)
@@ -114,6 +117,7 @@ class ProjectFileAnalysisService:
         files = await self._repository.list(project_id, include_system=True)
         await self._repository.session.commit()
         await self._index.write(project, files)
+        await self._specification.refresh(project, files)
         logger.info(
             "项目文件解析完成 action=project_file.analyze "
             "userId=%s projectId=%s successCount=%s failureCount=%s",
@@ -212,7 +216,10 @@ class ProjectFileAnalysisService:
             if "." in file.storage_name
             else file.storage_name
         )
-        detail_ref = f"system/file_details/{detail_name}.json"
+        detail_ref = (
+            file.detail_ref
+            or f"system/file_details/{detail_name}.json"
+        )
         return FileAnalysisRequest(
             user_id=user_id,
             project_id=file.project_id,

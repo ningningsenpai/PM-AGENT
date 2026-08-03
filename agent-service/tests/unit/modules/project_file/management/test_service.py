@@ -249,6 +249,9 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         @SideEffect: 声明更新状态、提交元数据并重建索引，不写入 MinIO。
         """
         file = project_file()
+        file.detail_ref = "system/file_details/readme.json"
+        file.analysis_version = "file-detail-v1"
+        file.summary = "项目说明"
         repository = _repository(file)
         storage = Mock()
         index = AsyncMock()
@@ -268,6 +271,8 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("active", result.status)
         self.assertEqual(200, result.source_mtime_ms)
         storage.put_bytes.assert_not_called()
+        self.assertEqual("file-detail-v1", file.analysis_version)
+        self.assertEqual("项目说明", file.summary)
         index.write.assert_awaited_once()
 
     async def test_overwrite_retries_then_succeeds(self) -> None:
@@ -285,6 +290,9 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         @SideEffect: 第一次 MinIO 写入失败后重试，最终提交状态并重建索引。
         """
         file = project_file()
+        file.detail_ref = "system/file_details/readme.json"
+        file.analysis_version = "file-detail-v1"
+        file.summary = "旧说明"
         repository = _repository(file)
         storage = Mock()
         storage.put_bytes.side_effect = [
@@ -308,8 +316,32 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("active", result.status)
         self.assertEqual("success", result.upload_status)
         self.assertEqual(2, storage.put_bytes.call_count)
+        self.assertIsNone(file.analysis_version)
+        self.assertIsNone(file.summary)
+        self.assertEqual("system/file_details/readme.json", file.detail_ref)
         self.assertIsNone(file.last_error_code)
         index.write.assert_awaited_once()
+
+    async def test_overwrite_retries_failed_record_even_when_hash_matches(self) -> None:
+        file = project_file(status="upload_failed", upload_status="failed")
+        repository = _repository(file)
+        storage = Mock()
+        service = _service(repository, storage=storage)
+
+        result = await service.overwrite(
+            1,
+            10,
+            30,
+            "retry-key",
+            200,
+            0,
+            b"original content",
+            "text/markdown",
+        )
+
+        storage.put_bytes.assert_called_once()
+        self.assertEqual("active", result.status)
+        self.assertEqual("success", result.upload_status)
 
     async def test_overwrite_raises_after_retry_exhaustion(self) -> None:
         """验证文件覆盖连续失败后进入终态并停止重试。
@@ -400,6 +432,9 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         @SideEffect: 提交路径元数据并重建索引，不复制 MinIO 对象。
         """
         file = project_file()
+        file.detail_ref = "system/file_details/readme.json"
+        file.analysis_version = "file-detail-v1"
+        file.summary = "项目说明"
         repository = _repository(file)
         storage = Mock()
         index = AsyncMock()
@@ -413,6 +448,9 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         result = await service.update_path(1, 10, 30, request)
 
         self.assertEqual("renamed/README.md", result.relative_path)
+        self.assertIsNone(file.analysis_version)
+        self.assertIsNone(file.summary)
+        self.assertEqual("system/file_details/readme.json", file.detail_ref)
         storage.copy.assert_not_called()
         storage.remove.assert_not_called()
         index.write.assert_awaited_once()

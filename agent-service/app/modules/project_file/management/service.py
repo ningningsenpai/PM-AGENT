@@ -46,6 +46,18 @@ logger = get_logger(__name__)
 
 class ProjectFileService:
     MAX_UPLOAD_ATTEMPTS = 3
+    ACTIVE_STATUSES = (ProjectFileStatus.ACTIVE.value,)
+    OVERWRITABLE_STATUSES = (
+        ProjectFileStatus.ACTIVE.value,
+        ProjectFileStatus.UPLOAD_FAILED.value,
+        ProjectFileStatus.VERIFY_REQUIRED.value,
+    )
+    DELETABLE_STATUSES = (
+        ProjectFileStatus.ACTIVE.value,
+        ProjectFileStatus.UPLOAD_FAILED.value,
+        ProjectFileStatus.VERIFY_REQUIRED.value,
+        ProjectFileStatus.DELETE_FAILED.value,
+    )
 
     def __init__(
         self,
@@ -228,7 +240,7 @@ class ProjectFileService:
         )
         project = await self._projects.require_owned(user_id, project_id)
         file = await self._require_public_file(project_id, file_id)
-        self._require_active_version(file, lock_version)
+        self._require_version(file, lock_version, self.OVERWRITABLE_STATUSES)
         metadata = prepare_metadata(
             file.relative_path,
             source_mtime_ms,
@@ -241,13 +253,19 @@ class ProjectFileService:
             f"file:content:{project_id}:{file_id}",
             idempotency_key,
         )
+        content_changed = file.content_hash != metadata.content_hash
+        upload_required = (
+            content_changed
+            or file.upload_status != ProjectFileUploadStatus.SUCCESS.value
+        )
         await self._claim_state(
             file,
             lock_version,
             ProjectFileStatus.UPDATING,
+            self.OVERWRITABLE_STATUSES,
         )
 
-        if file.content_hash == metadata.content_hash:
+        if not upload_required:
             self._apply_content_metadata(file, metadata)
             file.status = ProjectFileStatus.ACTIVE.value
             await self._repository.session.commit()
@@ -309,6 +327,8 @@ class ProjectFileService:
                 continue
 
             self._apply_content_metadata(file, metadata)
+            if content_changed:
+                self._invalidate_analysis(file)
             file.status = ProjectFileStatus.ACTIVE.value
             file.upload_status = ProjectFileUploadStatus.SUCCESS.value
             file.upload_attempts += 1
@@ -358,7 +378,7 @@ class ProjectFileService:
         )
         project = await self._projects.require_owned(user_id, project_id)
         file = await self._require_public_file(project_id, file_id)
-        self._require_active_version(file, request.lock_version)
+        self._require_version(file, request.lock_version, self.ACTIVE_STATUSES)
         metadata = prepare_path_metadata(
             request.relative_path,
             request.source_mtime_ms,
@@ -375,11 +395,13 @@ class ProjectFileService:
             file,
             request.lock_version,
             ProjectFileStatus.UPDATING,
+            self.ACTIVE_STATUSES,
         )
 
         old_location = self._location_of(file)
         if metadata.file_name == file.file_name:
             self._apply_path_metadata(file, metadata)
+            self._invalidate_analysis(file)
             file.status = ProjectFileStatus.ACTIVE.value
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
@@ -415,6 +437,7 @@ class ProjectFileService:
             raise AppException(ErrorCode.FILE_RENAME_FAILED) from exception
 
         self._apply_path_metadata(file, metadata)
+        self._invalidate_analysis(file)
         file.storage_name = self._locations.storage_name(
             metadata.file_name,
             file.storage_uuid,
@@ -530,11 +553,21 @@ class ProjectFileService:
         )
         project = await self._projects.require_owned(user_id, project_id)
         file = await self._require_public_file(project_id, file_id)
-        self._require_active_version(file, lock_version)
+        self._require_version(file, lock_version, self.DELETABLE_STATUSES)
+        detail_location = (
+            self._locations.system_file(
+                project.owner_user_id,
+                project.id,
+                file.detail_ref.removeprefix("system/"),
+            )
+            if file.detail_ref
+            else None
+        )
         await self._claim_state(
             file,
             lock_version,
             ProjectFileStatus.DELETING,
+            self.DELETABLE_STATUSES,
         )
         try:
             await asyncio.to_thread(self._storage.remove, self._location_of(file))
@@ -554,6 +587,17 @@ class ProjectFileService:
                 current.status = ProjectFileStatus.DELETE_FAILED.value
                 await self._repository.session.commit()
             raise
+        if detail_location is not None:
+            try:
+                await asyncio.to_thread(self._storage.remove, detail_location)
+            except AppException:
+                logger.warning(
+                    "文件详情清理失败 action=project_file.delete.detail "
+                    "userId=%s projectId=%s fileId=%s",
+                    user_id,
+                    project_id,
+                    file_id,
+                )
         await self._rebuild_index(project)
         logger.info(
             "文件删除成功 action=project_file.delete "
@@ -576,8 +620,12 @@ class ProjectFileService:
         return file
 
     @staticmethod
-    def _require_active_version(file: ProjectFile, lock_version: int) -> None:
-        if file.status != ProjectFileStatus.ACTIVE.value:
+    def _require_version(
+        file: ProjectFile,
+        lock_version: int,
+        allowed_statuses: tuple[str, ...],
+    ) -> None:
+        if file.status not in allowed_statuses:
             raise file_status_invalid()
         if file.lock_version != lock_version:
             raise file_busy()
@@ -587,11 +635,13 @@ class ProjectFileService:
         file: ProjectFile,
         expected_lock_version: int,
         status: ProjectFileStatus,
+        expected_statuses: tuple[str, ...],
     ) -> None:
         claimed = await self._repository.claim_state(
             file.project_id,
             file.id,
             expected_lock_version,
+            expected_statuses,
             status.value,
         )
         if not claimed:
@@ -615,8 +665,10 @@ class ProjectFileService:
         file.source_mtime_ms = metadata.source_mtime_ms
         file.quick_fingerprint = metadata.quick_fingerprint
         file.content_hash = metadata.content_hash
+
+    @staticmethod
+    def _invalidate_analysis(file: ProjectFile) -> None:
         file.parse_attempts = 0
-        file.detail_ref = None
         file.analysis_version = None
         file.module = None
         file.kind = None

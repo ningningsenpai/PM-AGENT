@@ -1,7 +1,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 
 from pydantic import ValidationError
@@ -16,7 +15,7 @@ from app.project.context.detail_analysis.schemas import (
 
 __all__ = ["FileDetailAnalysisService"]
 
-from app.project.context.model import ProjectContextModelClient
+from app.project.context.model import StructuredJsonGenerator
 
 from app.project.inner_prompts import ProjectFileDetailPrompt
 
@@ -24,9 +23,12 @@ from app.project.inner_prompts import ProjectFileDetailPrompt
 class FileDetailAnalysisService:
     """ 负责下载并解析临时文件，并在处理结束后清理文件。"""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        generator: StructuredJsonGenerator | None = None,
+    ) -> None:
         self.file_content = FileContent(FileDownloader(), FileParserFactory())
-        self.client = ProjectContextModelClient()
+        self.generator = generator or StructuredJsonGenerator()
 
     async def analyze(self, request: FileAnalysisRequest) -> FileAnalysisResult:
         """结合请求元数据和文件内容生成结构化文件详情。"""
@@ -84,18 +86,26 @@ class FileDetailAnalysisService:
             f"\n\n{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL_FINAL_CHECK.value}"
         )
         try:
-            response = await asyncio.to_thread(
-                self.client.generate,
+            detail = await self.generator.generate(
                 prompt,
-                response_format="json",
+                FileDetail,
+            )
+        except ValidationError:
+            return FileAnalysisResult(
+                project_id=request.project_id,
+                file_id=request.file_id,
+                content_hash=request.content_hash,
+                analysis_version=request.analysis_version,
+                status="failed",
+                error_code="FILE_DETAIL_MODEL_OUTPUT_INVALID",
+                error_message="模型返回的文件详情格式不正确",
             )
         except Exception:
             return self._failed(request, "模型分析失败")
 
         try:
-            detail = FileDetail.model_validate_json(response.content)
             self._validate_detail_identity(request, detail)
-        except (ValidationError, ValueError):
+        except ValueError:
             return FileAnalysisResult(
                 project_id=request.project_id,
                 file_id=request.file_id,
