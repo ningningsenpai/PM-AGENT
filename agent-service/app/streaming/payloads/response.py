@@ -8,10 +8,15 @@ from app.streaming.metrics import LLMTokenUsage
 class ToolCallRecord(BaseModel):
     """工具调用记录。"""
 
+    call_id: str = Field(default="", description="模型生成的工具调用 ID")
     tool_name: str = Field(..., description="工具名称")
     input: dict = Field(default_factory=dict, description="工具入参")
     output: dict = Field(default_factory=dict, description="工具出参")
     status: str = Field(default="success", description="工具调用状态")
+    summary: str = Field(default="", description="面向用户的安全结果摘要")
+    error_code: str | None = Field(default=None, description="稳定错误标识")
+    error_message: str | None = Field(default=None, description="安全错误信息")
+    duration_ms: int = Field(default=0, ge=0, description="执行耗时")
 
 
 class ChatResponse(BaseModel):
@@ -49,3 +54,32 @@ class StreamDonePayload(BaseModel):
     provider: str = Field(..., description="模型提供方")
     conversationId: int = Field(..., description="会话 ID")
     usage: LLMTokenUsage | None = Field(default=None, description="本轮 LLM token 用量")
+
+
+class ToolCallPayload(BaseModel):
+    """SSE 工具调用开始事件。"""
+
+    callId: str
+    toolName: str
+    arguments: dict | None = None
+    step: int = Field(ge=1)
+
+
+class ToolResultPayload(BaseModel):
+    """SSE 工具调用完成事件，不暴露完整业务结果。"""
+
+    callId: str
+    toolName: str
+    status: str
+    summary: str
+    errorCode: str | None = None
+    durationMs: int = Field(ge=0)
+    step: int = Field(ge=1)
+
+
+class StreamErrorPayload(BaseModel):
+    """流式响应启动后的统一错误事件。"""
+
+    code: int
+    message: str
+    traceId: str

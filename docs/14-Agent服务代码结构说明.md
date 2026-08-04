@@ -17,6 +17,20 @@ agent-service/app/
 │   ├── database/
 │   ├── redis/
 │   └── storage/
+├── agents/
+│   ├── dependencies.py
+│   └── tools/
+│       ├── base.py
+│       ├── schemas.py
+│       ├── registry.py
+│       ├── executor.py
+│       └── project/
+├── llm/
+│   ├── base.py
+│   ├── contracts.py
+│   ├── clients/
+│   ├── orchestration/
+│   └── prompts/
 ├── modules/
 │   ├── auth/
 │   ├── user/
@@ -36,7 +50,7 @@ agent-service/app/
 │       └── analysis/
 │           ├── api.py
 │           └── service.py
-└── agents、llm、memory、normalization、project/context、rag
+└── memory、normalization、project/context、rag
 ```
 
 普通在线业务模块采用垂直分层：
@@ -52,6 +66,14 @@ agent-service/app/
 | `errors.py` | 模块错误 |
 
 依赖方向为 `API → Service → Repository/Infrastructure`。Repository 之间不互调，Agent 只能依赖公开 Service。
+
+## Agent 与工具边界
+
+- `agents/dependencies.py` 在 FastAPI 请求范围内完成业务 Service、工具、注册表、执行器和 Agent 的依赖装配。
+- `agents/tools/base.py` 定义模型可见的工具契约；`registry.py` 维护显式白名单；`executor.py` 统一处理参数校验、确认门禁、超时和安全错误。
+- 具体工具按业务模块放在 `agents/tools/<module>/`，只依赖对应模块公开 Service，不接收 Session 或 Repository。
+- `llm/contracts.py` 是 Provider 无关的文本、工具调用和流式增量契约；`llm/clients/` 只负责协议适配；`llm/orchestration/` 负责有限模型—工具循环。
+- 新增工具时先补齐 Pydantic 输入/输出模型和 Service 权限校验，再在请求依赖中显式注册；不得通过目录扫描自动暴露工具。
 
 ## Project File 子包边界
 

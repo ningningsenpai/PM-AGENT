@@ -9,6 +9,11 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 
 from app.core.config import Settings
+from app.llm.contracts import (
+    LLMAssistantTurn,
+    LLMCapabilities,
+    LLMTurnStreamEvent,
+)
 from app.streaming.metrics import LLMChatResult, LLMStreamChunk
 
 
@@ -21,6 +26,7 @@ class BaseLLMClient(ABC):
 
     # 厂商标识；子类必须重写。例如："deepseek" / "doubao"
     provider: str = ""
+    capabilities = LLMCapabilities()
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -44,6 +50,35 @@ class BaseLLMClient(ABC):
         async for chunk in self.stream_chat_with_usage(messages):
             if chunk.content:
                 yield chunk.content
+
+    async def complete_turn(
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict] | None = None,
+        tool_choice: str | dict | None = None,
+    ) -> LLMAssistantTurn:
+        """执行一次完整模型决策；不支持工具的客户端沿用文本协议。"""
+        if tools:
+            raise RuntimeError(f"模型提供方 {self.provider} 尚未实现原生工具调用")
+        result = await self.chat_with_usage(messages)
+        return LLMAssistantTurn(content=result.content, usage=result.usage)
+
+    async def stream_turn(
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict] | None = None,
+        tool_choice: str | dict | None = None,
+    ) -> AsyncIterator[LLMTurnStreamEvent]:
+        """流式执行一次模型决策；默认适配既有纯文本流。"""
+        if tools:
+            raise RuntimeError(f"模型提供方 {self.provider} 尚未实现流式工具调用")
+        async for chunk in self.stream_chat_with_usage(messages):
+            yield LLMTurnStreamEvent(
+                content_delta=chunk.content,
+                usage=chunk.usage,
+            )
 
     @abstractmethod
     async def chat_with_usage(self, messages: list[dict]) -> LLMChatResult:

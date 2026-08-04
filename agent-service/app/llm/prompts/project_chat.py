@@ -1,6 +1,8 @@
 """项目问答 Prompt 构造。"""
 from __future__ import annotations
 
+import json
+
 from app.streaming.payloads import AgentChatRequest, ChatMessage
 
 __all__ = [
@@ -24,7 +26,7 @@ CHAT_SYSTEM_PROMPT = """
 
 PROJECT_SYSTEM_PROMPT = """
 项目定位：
-PM-Agent 是一个基于 Java + Python + 大模型 Agent 构建的智能项目管理平台，面向项目经理、研发团队与管理层，帮助团队自动理解项目状态、识别交付风险、生成项目报告，并推动任务执行。
+PM-Agent 是一个基于 Vue 3、FastAPI 模块化单体和大模型 Agent 构建的智能项目管理平台，帮助用户理解项目状态、识别交付风险、生成项目报告并推动任务执行。
 """.strip()
 
 
@@ -112,7 +114,10 @@ def _serialize_history(history: list[ChatMessage]) -> list[dict]:
                     "type": "function",
                     "function": {
                         "name": call.name,
-                        "arguments": call.arguments,
+                        "arguments": json.dumps(
+                            call.arguments,
+                            ensure_ascii=False,
+                        ),
                     },
                 }
                 for call in message.tool_calls

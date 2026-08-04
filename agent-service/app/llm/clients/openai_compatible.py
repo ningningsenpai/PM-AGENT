@@ -17,6 +17,12 @@ from collections.abc import AsyncIterator
 import httpx
 
 from app.llm.base import BaseLLMClient
+from app.llm.contracts import (
+    LLMAssistantTurn,
+    LLMToolCall,
+    LLMToolCallDelta,
+    LLMTurnStreamEvent,
+)
 from app.streaming.metrics import LLMChatResult, LLMStreamChunk, LLMTokenUsage
 
 
@@ -37,7 +43,14 @@ class OpenAICompatibleClient(BaseLLMClient):
         self.config.require_api_key(self.provider)
         return {"Authorization": f"Bearer {self.config.api_key}"}
 
-    def _build_body(self, messages: list[dict], stream: bool) -> dict:
+    def _build_body(
+        self,
+        messages: list[dict],
+        stream: bool,
+        *,
+        tools: list[dict] | None = None,
+        tool_choice: str | dict | None = None,
+    ) -> dict:
         """构造请求体；保留为单独方法方便子类追加厂商私有字段。"""
         body = {
             "model": self.config.model,
@@ -47,6 +60,9 @@ class OpenAICompatibleClient(BaseLLMClient):
         }
         if stream and self.supports_real_usage:
             body["stream_options"] = {"include_usage": True}
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = tool_choice or "auto"
         return body
 
     def _usage_from_response(self, data: dict) -> LLMTokenUsage | None:
@@ -61,16 +77,37 @@ class OpenAICompatibleClient(BaseLLMClient):
 
     async def chat_with_usage(self, messages: list[dict]) -> LLMChatResult:
         """非流式对话，返回完整回答文本与可选 token 用量。"""
+        turn = await self.complete_turn(messages)
+        return LLMChatResult(content=turn.content, usage=turn.usage)
+
+    async def complete_turn(
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict] | None = None,
+        tool_choice: str | dict | None = None,
+    ) -> LLMAssistantTurn:
+        """非流式返回文本、工具调用和需要回传的推理字段。"""
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 self._endpoint(),
                 headers=self._headers(),
-                json=self._build_body(messages, stream=False),
+                json=self._build_body(
+                    messages,
+                    stream=False,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                ),
             )
             response.raise_for_status()
             data = response.json()
-            return LLMChatResult(
-                content=data["choices"][0]["message"]["content"],
+            choice = data["choices"][0]
+            message = choice["message"]
+            return LLMAssistantTurn(
+                content=message.get("content") or "",
+                tool_calls=self._parse_tool_calls(message.get("tool_calls")),
+                finish_reason=choice.get("finish_reason"),
+                reasoning_content=message.get("reasoning_content"),
                 usage=self._usage_from_response(data),
             )
 
@@ -79,12 +116,32 @@ class OpenAICompatibleClient(BaseLLMClient):
         messages: list[dict],
     ) -> AsyncIterator[LLMStreamChunk]:
         """流式对话，逐片段 yield 文本或 token 用量。"""
+        async for event in self.stream_turn(messages):
+            if event.content_delta or event.usage:
+                yield LLMStreamChunk(
+                    content=event.content_delta,
+                    usage=event.usage,
+                )
+
+    async def stream_turn(
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict] | None = None,
+        tool_choice: str | dict | None = None,
+    ) -> AsyncIterator[LLMTurnStreamEvent]:
+        """流式解析文本、推理内容和按 index 分片的工具参数。"""
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream(
                 "POST",
                 self._endpoint(),
                 headers=self._headers(),
-                json=self._build_body(messages, stream=True),
+                json=self._build_body(
+                    messages,
+                    stream=True,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                ),
             ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
@@ -95,13 +152,55 @@ class OpenAICompatibleClient(BaseLLMClient):
                         break
                     data = json.loads(payload)
                     usage = self._usage_from_response(data)
-                    if usage:
-                        yield LLMStreamChunk(usage=usage)
-
                     choices = data.get("choices") or []
                     if not choices:
+                        if usage:
+                            yield LLMTurnStreamEvent(usage=usage)
                         continue
-                    delta = choices[0].get("delta", {})
-                    content = delta.get("content")
-                    if content:
-                        yield LLMStreamChunk(content=content)
+                    choice = choices[0]
+                    delta = choice.get("delta", {})
+                    yield LLMTurnStreamEvent(
+                        content_delta=delta.get("content") or "",
+                        reasoning_content_delta=(
+                            delta.get("reasoning_content") or ""
+                        ),
+                        tool_call_deltas=self._parse_tool_call_deltas(
+                            delta.get("tool_calls")
+                        ),
+                        finish_reason=choice.get("finish_reason"),
+                        usage=usage,
+                    )
+
+    @staticmethod
+    def _parse_tool_calls(raw_calls: list[dict] | None) -> list[LLMToolCall]:
+        calls: list[LLMToolCall] = []
+        for item in raw_calls or []:
+            function = item.get("function") or {}
+            arguments = function.get("arguments") or "{}"
+            if not isinstance(arguments, str):
+                arguments = json.dumps(arguments, ensure_ascii=False)
+            calls.append(
+                LLMToolCall(
+                    id=str(item.get("id") or ""),
+                    name=str(function.get("name") or ""),
+                    arguments_json=arguments,
+                )
+            )
+        return calls
+
+    @staticmethod
+    def _parse_tool_call_deltas(
+        raw_calls: list[dict] | None,
+    ) -> list[LLMToolCallDelta]:
+        deltas: list[LLMToolCallDelta] = []
+        for item in raw_calls or []:
+            function = item.get("function") or {}
+            deltas.append(
+                LLMToolCallDelta(
+                    index=int(item.get("index") or 0),
+                    id=item.get("id"),
+                    name=str(function.get("name") or ""),
+                    arguments_delta=str(function.get("arguments") or ""),
+                )
+            )
+        return deltas

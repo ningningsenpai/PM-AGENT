@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -13,9 +13,12 @@ MessageRole = Literal["system", "user", "assistant", "tool"]
 class ToolCallRef(BaseModel):
     """assistant 消息中触发的工具调用引用。"""
 
-    id: int = Field(..., description="工具调用 ID，用于与 tool 角色消息关联")
+    id: str = Field(..., description="工具调用 ID，用于与 tool 角色消息关联")
     name: str = Field(..., description="工具名称")
-    arguments: dict = Field(default_factory=dict, description="工具入参，JSON 对象")
+    arguments: dict[str, Any] = Field(
+        default_factory=dict,
+        description="工具入参，JSON 对象",
+    )
 
 
 class ChatMessage(BaseModel):
@@ -28,7 +31,7 @@ class ChatMessage(BaseModel):
         default=None,
         description="assistant 触发的工具调用列表",
     )
-    tool_call_id: int | None = Field(
+    tool_call_id: str | None = Field(
         default=None,
         description="tool 消息关联的工具调用 ID, 用于保证 assistant 调用的 tool_call_id 与 tool 消息的 tool_call_id 一致",
     )
@@ -87,7 +90,6 @@ class AgentChatRequest(BaseModel):
         description="用户身份",
     )
     stream: bool = Field(default=False, description="是否流式输出")
-    use_tool_demo: bool = Field(default=False, description="是否强制演示工具调用")
     llm_provider: str | None = Field(
         default=None,
         description="本次请求使用的模型提供方；留空则使用服务端默认。"
@@ -100,11 +102,12 @@ class AgentChatRequest(BaseModel):
         from app.streaming.payloads.validators import check_all
 
         check_all(self.messages)
+        if any(
+            message.role == "tool" or message.tool_calls
+            for message in self.messages
+        ):
+            raise ValueError("客户端不得提交工具调用或工具结果消息")
         return self
-
-    def last_user_message(self) -> str:
-        """返回最后一条 user 消息的文本内容，便于工具触发判断。"""
-        return self.messages[-1].content
 
     def current_round_index(self) -> int:
         """按 user 消息数量计算当前会话轮次。"""
