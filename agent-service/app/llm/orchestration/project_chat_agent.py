@@ -1,8 +1,8 @@
 """项目问答 Agent 原生工具调用编排。"""
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 import json
+from collections.abc import AsyncIterator
 
 from app.agents.tools import (
     ToolExecutionContext,
@@ -13,7 +13,7 @@ from app.agents.tools import (
 from app.core.config import Settings
 from app.core.errors import AppException, ErrorCode
 from app.llm.base import BaseLLMClient
-from app.llm.contracts import LLMAssistantTurn, LLMTurnAccumulator, LLMToolCall
+from app.llm.contracts import LLMAssistantTurn, LLMToolCall, LLMTurnAccumulator
 from app.llm.factory import get_llm_client
 from app.llm.orchestration.context_builder import LLMContextBuilder
 from app.llm.prompts.project_chat import build_project_chat_messages

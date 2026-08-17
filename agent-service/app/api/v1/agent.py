@@ -31,6 +31,7 @@ async def chat(
     if request.user.user_id != principal.user_id:
         raise AppException(ErrorCode.FORBIDDEN, "请求用户与登录用户不一致")
     if request.stream:
+        """SSE 流式响应。"""
         async def event_generator():
             yield SSEFormatter.format(
                 StreamEventType.META,
