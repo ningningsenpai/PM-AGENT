@@ -1,0 +1,30 @@
+### 查询项目详情工具测试
+# 前置条件：先在 auth.http 中注册或登录，再在 project.http 中创建项目，确保 projectId 属于当前登录用户。
+# @name chatGetCurrentProject
+POST {{baseUrl}}/api/v1/agent/chat
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+X-Trace-Id: http-chat-project-detail-{{runId}}
+
+{
+  "trace_id": "http-chat-project-detail-{{runId}}",
+  "conversation_id": {{chatConversationId}},
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{chatGetProjectMessage}}"
+    }
+  ],
+  "context": {
+    "project_id": {{projectId}},
+    "iteration_id": {{chatIterationId}},
+    "context_total_usage": {{chatContextTotalUsage}},
+    "task_id": {{chatTaskId}}
+  },
+  "user": {
+    "user_id": {{userId}},
+    "user_name": "{{testUsername}}"
+  },
+  "llm_provider": "{{chatLlmProvider}}"
+}

@@ -20,6 +20,7 @@ class BaseAgentTool(ABC):
     timeout_seconds: float = 10.0
 
     def model_definition(self) -> dict:
+        """生成模型定义，供 Agent 注册。"""
         return {
             "type": "function",
             "function": {

@@ -33,6 +33,7 @@ class JwtManager:
         self._ttl_seconds = config.token_ttl_seconds
 
     def issue(self, user_id: int) -> IssuedToken:
+        """ 签发 JWT 令牌。"""
         now = datetime.now(timezone.utc)
         jti = uuid4().hex
         payload = {
@@ -45,6 +46,7 @@ class JwtManager:
         return IssuedToken(value=value, jti=jti, expires_in=self._ttl_seconds)
 
     def decode(self, token: str) -> TokenClaims:
+        """ 解码 JWT 令牌。"""
         try:
             payload = jwt.decode(token, self._secret, algorithms=[self._algorithm])
             user_id = int(payload["sub"])

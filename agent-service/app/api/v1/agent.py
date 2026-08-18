@@ -27,49 +27,13 @@ async def chat(
     principal: AuthPrincipal = Depends(require_principal),
     agent: ProjectChatAgent = Depends(get_project_chat_agent),
 ):
-    """项目问答接口，支持普通响应和 SSE 流式响应。"""
+    """
+    项目问答接口，目前仅支持普通响应。
+    SSE 流式响应等待后续业务流程完善之后再考虑补全。
+    """
+    logger.info("收到用户：%s 的项目问答请求：%s", request.user.user_id, request.trace_id)
     if request.user.user_id != principal.user_id:
         raise AppException(ErrorCode.FORBIDDEN, "请求用户与登录用户不一致")
-    if request.stream:
-        """SSE 流式响应。"""
-        async def event_generator():
-            yield SSEFormatter.format(
-                StreamEventType.META,
-                StreamMetaPayload(
-                    traceId=request.trace_id,
-                    conversationId=request.conversation_id,
-                    userId=request.user.user_id,
-                    tenantId=request.user.tenant_id,
-                ),
-            )
-            try:
-                async for event in agent.stream_chat(request, principal.user_id):
-                    yield SSEFormatter.format(event["event"], event["data"])
-            except AppException as exception:
-                yield SSEFormatter.format(
-                    StreamEventType.ERROR,
-                    StreamErrorPayload(
-                        code=exception.error.code,
-                        message=exception.message,
-                        traceId=request.trace_id,
-                    ),
-                )
-            except Exception:
-                logger.exception(
-                    "Agent 流式响应异常 action=agent.chat.stream userId=%s",
-                    principal.user_id,
-                )
-                yield SSEFormatter.format(
-                    StreamEventType.ERROR,
-                    StreamErrorPayload(
-                        code=ErrorCode.SYSTEM_ERROR.code,
-                        message=ErrorCode.SYSTEM_ERROR.message,
-                        traceId=request.trace_id,
-                    ),
-                )
-            yield SSEFormatter.done_marker()
-
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-
     data = await agent.chat(request, principal.user_id)
+    logger.info("项目问答响应：%s", request.trace_id)
     return ApiResponse(data=data, traceId=request.trace_id)

@@ -1,8 +1,8 @@
 """Agent 工具执行上下文与结果。"""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field

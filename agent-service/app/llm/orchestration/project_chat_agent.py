@@ -54,7 +54,7 @@ class ProjectChatAgent:
     ) -> ChatResponse:
         """执行非流式原生工具调用循环。"""
         llm = self._resolve_llm(request)
-        tools = self._tool_definitions(llm, require_streaming=False)
+        tools = self._tool_definitions(llm)
         messages = self._build_messages(request, llm)
         context = self._execution_context(request, user_id)
         records: list[ToolCallRecord] = []
@@ -96,7 +96,12 @@ class ProjectChatAgent:
     ) -> AsyncIterator[dict]:
         """执行流式原生工具调用循环并输出稳定 SSE 业务事件。"""
         llm = self._resolve_llm(request)
-        tools = self._tool_definitions(llm, require_streaming=True)
+        tools = self._tool_definitions(llm)
+        if tools and not llm.capabilities.streaming_tool_calling:
+            raise AppException(
+                ErrorCode.LLM_TOOL_CALLING_UNSUPPORTED,
+                f"模型提供方 {llm.provider} 暂不支持流式工具调用",
+            )
         messages = self._build_messages(request, llm)
         context = self._execution_context(request, user_id)
         usage_summary = LLMTokenUsageSummary()
@@ -169,19 +174,12 @@ class ProjectChatAgent:
     def _tool_definitions(
         self,
         llm: BaseLLMClient,
-        *,
-        require_streaming: bool,
     ) -> list[dict]:
         tools = self._registry.definitions()
         if tools and not llm.capabilities.native_tool_calling:
             raise AppException(
                 ErrorCode.LLM_TOOL_CALLING_UNSUPPORTED,
                 f"模型提供方 {llm.provider} 暂不支持原生工具调用",
-            )
-        if tools and require_streaming and not llm.capabilities.streaming_tool_calling:
-            raise AppException(
-                ErrorCode.LLM_TOOL_CALLING_UNSUPPORTED,
-                f"模型提供方 {llm.provider} 暂不支持流式工具调用",
             )
         return tools
 

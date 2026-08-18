@@ -2,46 +2,17 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.idempotency import IdempotencyGuard, get_idempotency_guard
 from app.core.response import ApiResponse, success
 from app.core.security import AuthPrincipal, require_principal
-from app.infrastructure.database import get_db_session
-from app.infrastructure.storage import (
-    ObjectStorage,
-    StorageLocationFactory,
-    get_object_storage,
+from app.modules.project_file.management.dependencies import (
+    get_project_file_service,
 )
-from app.modules.project.api import get_project_service
-from app.modules.project.index_service import ProjectIndexService
-from app.modules.project.service import ProjectService
 from app.modules.project_file.management.schemas import UpdateProjectFilePathRequest
 from app.modules.project_file.management.service import ProjectFileService
-from app.modules.project_file.repository import ProjectFileRepository
 
 router = APIRouter()
-
-
-def get_project_file_service(
-    session: AsyncSession = Depends(get_db_session),
-    projects: ProjectService = Depends(get_project_service),
-    storage: ObjectStorage = Depends(get_object_storage),
-    idempotency: IdempotencyGuard = Depends(get_idempotency_guard),
-) -> ProjectFileService:
-    settings = get_settings()
-    locations = StorageLocationFactory(settings.storage)
-    return ProjectFileService(
-        ProjectFileRepository(session),
-        projects,
-        storage,
-        locations,
-        ProjectIndexService(storage, locations),
-        idempotency,
-        settings.file,
-        settings.storage,
-    )
 
 
 @router.post("", response_model=ApiResponse)

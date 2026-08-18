@@ -18,6 +18,7 @@ class ToolRegistry:
             self.register(tool)
 
     def register(self, tool: BaseAgentTool) -> None:
+        """注册工具并校验名称。"""
         if not _TOOL_NAME_PATTERN.fullmatch(tool.name):
             raise ValueError(f"工具名称不合法：{tool.name!r}")
         if not tool.description.strip():

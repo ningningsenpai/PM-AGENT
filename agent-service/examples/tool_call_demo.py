@@ -6,12 +6,11 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-
 API_URL = (
     os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
     + "/chat/completions"
 )
-API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-1717e02a782945d197e758099ef780ec")
+API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-XXXXXXXXXXXXXXXX")
 MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro")
 MAX_TOOL_ROUNDS = 3
 

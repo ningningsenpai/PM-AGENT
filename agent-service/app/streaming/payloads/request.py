@@ -61,10 +61,9 @@ class ConversationContext(BaseModel):
 
 
 class UserContext(BaseModel):
-    """用户身份 —— 确认\"谁在说话\"。"""
+    """用户身份。"""
 
     user_id: int = Field(..., description="用户 ID")
-    tenant_id: int = Field(..., description="租户 ID, 预留字段")
     user_name: str = Field(..., description="用户显示名称")
 
 
@@ -89,7 +88,6 @@ class AgentChatRequest(BaseModel):
         default_factory=UserContext,
         description="用户身份",
     )
-    stream: bool = Field(default=False, description="是否流式输出")
     llm_provider: str | None = Field(
         default=None,
         description="本次请求使用的模型提供方；留空则使用服务端默认。"

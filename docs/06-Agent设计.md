@@ -2,7 +2,7 @@
 
 ## 1. 目标与范围
 
-当前版本提供模型原生工具调用、请求级工具注册表、安全执行器、有限 ReAct 循环以及 JSON/SSE 两种响应模式。首个真实工具为 `get_current_project`，只读取当前用户拥有的项目。
+当前版本提供模型原生工具调用、请求级工具注册表、安全执行器、有限 ReAct 循环以及 JSON/SSE 两种响应模式。当前已注册 `get_current_project`、`list_current_project_files` 和 `list_owned_projects` 三个真实只读工具，分别查询当前项目、当前项目公开文件和当前用户拥有的项目。
 
 当前不实现写工具、人工确认持久化、Agent Trace 数据表、并行工具执行和 Qwen/Ollama 工具协议适配。这些能力保留扩展点，但不能作为已交付能力使用。
 
@@ -37,7 +37,7 @@ Agent、LLM、Prompt 和工具不得获取数据库 Session，不跨模块访问
 ## 4. 原生工具调用链路
 
 1. FastAPI 完成 Bearer JWT 校验，并取得可信 `principal.user_id`。
-2. 请求依赖构造 `ProjectService`、`GetCurrentProjectTool`、请求级 `ToolRegistry` 和 `ToolExecutor`。
+2. 请求依赖构造项目与项目文件 Service、三个只读业务工具、请求级 `ToolRegistry` 和 `ToolExecutor`。
 3. Agent 根据 Provider 能力生成工具定义；不支持原生或流式工具调用时立即返回 `40001`。
 4. 模型返回文本或 `tool_calls`。工具调用 ID 和原始 JSON 参数保持字符串形式，不提前猜测类型。
 5. Agent 把 assistant 工具决策加入上下文，执行器按工具输入模型校验参数并调用公开 Service。
@@ -60,8 +60,10 @@ Agent、LLM、Prompt 和工具不得获取数据库 Session，不跨模块访问
 | 工具 | 类型 | 输入 | 输出 | Service |
 |---|---|---|---|---|
 | `get_current_project` | 只读 | 无模型业务参数 | 项目 ID、名称、状态、创建和更新时间 | `ProjectService.get_owned` |
+| `list_current_project_files` | 只读 | 可选 `business_code`：`project` / `user` | 公开文件总数及文件名称、相对路径、类型、大小、处理状态和更新时间 | `ProjectFileService.list_files` |
+| `list_owned_projects` | 只读 | 无模型业务参数 | 当前用户项目总数及项目 ID、名称、状态、创建和更新时间 | `ProjectService.list_owned` |
 
-工具会再次执行资源归属校验。完整项目结果只作为模型 Observation 使用，对客户端仅暴露工具状态和安全摘要。
+工具会再次执行资源归属校验。完整业务结果只作为模型 Observation 使用，对客户端仅暴露工具状态和安全摘要。项目文件工具不向模型返回 MinIO 存储路径、对象键或预签名地址。
 
 ## 7. Provider 能力
 

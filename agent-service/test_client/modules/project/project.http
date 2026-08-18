@@ -6,7 +6,7 @@ Content-Type: application/json
 X-Trace-Id: http-project-create-{{$uuid}}
 
 {
-  "projectName": "HTTP Client 验收项目 {{runId}}"
+  "projectName": "{{projectName}}"
 }
 
 > {%
