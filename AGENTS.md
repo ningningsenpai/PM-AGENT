@@ -27,11 +27,13 @@ Python is the only writer of business tables. Alembic is the only schema owner. 
 
 Do not add, delete, move, rename, reformat, or rewrite these paths unless the user explicitly expands the scope:
 
-- `agent-service/eval/**`
-- `agent-service/training/**`
-- `agent-service/normalization_demo/**`
+- `archive/agent-service-deferred/eval/**`
+- `archive/agent-service-deferred/training/**`
+- `archive/agent-service-deferred/normalization_demo/**`
+- `archive/agent-service-deferred/examples/**`
+- `archive/agent-service-deferred/resources/**`
+- `archive/agent-service-deferred/scripts/**`
 - `agent-service/project_test/**`
-- `agent-service/examples/**`
 
 Keep existing `app.normalization` public symbols compatible because evaluation code imports them.
 

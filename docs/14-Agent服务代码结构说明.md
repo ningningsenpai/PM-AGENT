@@ -84,12 +84,14 @@ agent-service/app/
 - 两个子包不得互相导入 Service。跨模块协作只依赖 `ProjectService`、`ProjectIndexService` 等公开接口，共享持久化能力只依赖根目录的 Repository。
 - MinIO 和 LLM 调用必须位于数据库事务之外，分析产物不是源文件管理接口的权威数据。
 
-以下目录是独立资产，在线业务迁移不得统一移动或重构：
+以下目录是本地留档资产，主业务完成前不得继续开发或重构：
 
-- `eval/`
-- `training/`
-- `normalization_demo/`
+- `archive/agent-service-deferred/eval/`
+- `archive/agent-service-deferred/training/`
+- `archive/agent-service-deferred/normalization_demo/`
+- `archive/agent-service-deferred/examples/`
+- `archive/agent-service-deferred/resources/`
+- `archive/agent-service-deferred/scripts/`
 - `project_test/`
-- `examples/`
 
 `app.normalization` 的公开符号保持兼容，避免影响现有评测依赖。

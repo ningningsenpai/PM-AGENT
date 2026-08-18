@@ -22,11 +22,12 @@ Python 是业务数据唯一写入者，Alembic 是数据库结构唯一迁移�
 PM-AGENT/
 ├── frontend/         # Vue 3 + TypeScript + Naive UI
 ├── agent-service/    # FastAPI 模块化单体后端与既有 Agent 能力
+├── archive/          # 本地留档资产，已通过 .gitignore 忽略
 ├── deploy/           # MySQL、Redis、MinIO 本地编排
 └── docs/             # 产品、架构、接口与验收文档
 ```
 
-`agent-service/eval/`、`training/`、`normalization_demo/`、`project_test/` 和 `examples/` 是独立评测、训练或实验资产，不属于在线业务迁移范围。
+`scripts/`、`eval/`、`training/`、`normalization_demo/`、`examples/` 和 `resources/` 已迁移至本地 `archive/agent-service-deferred/`，等待主业务完成后再优化。该目录不纳入 Git；`agent-service/project_test/` 仍是独立实验资产。
 
 ## 本地启动
 

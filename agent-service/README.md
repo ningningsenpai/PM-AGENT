@@ -73,21 +73,16 @@ agent-service/
 │   └── versions/                       数据库版本脚本
 ├── tests/unit/modules/                 按业务模块分层的单元测试
 ├── test_client/                        按业务模块分层的手工 HTTP 请求
-├── scripts/
-│   └── install_dependencies.py         当前 Python 环境的一键依赖安装脚本
-├── resources/                          在线或本地资源
 ├── docs/                               Agent 服务专项文档
-├── eval/                               受保护的评测资产
-├── training/                           受保护的训练资产
-├── normalization_demo/                 受保护的归一化演示
 ├── project_test/                       受保护的项目实验
-├── examples/                           受保护的示例
 ├── alembic.ini                         Alembic 配置
 ├── pyproject.toml                      项目信息及运行、开发依赖权威清单
 ├── pytest.ini                          pytest 配置
 ├── .env.example                        环境变量模板
 └── README.md
 ```
+
+脚本、评测、训练、归一化演示、示例和词库资源已迁移至仓库根目录的本地留档区 `archive/agent-service-deferred/`。该目录被 `.gitignore` 忽略，主业务完成后再恢复并优化。
 
 `.venv/`、`.pytest_cache/`、`.ruff_cache/`、`__pycache__/` 和 `pm_agent_service.egg-info/` 都是本地环境或工具生成目录，不属于需要维护的业务源码。`pm_agent_service.egg-info/` 会在可编辑安装时自动生成，依赖的权威来源仍是 `pyproject.toml`。
 
@@ -159,21 +154,7 @@ cp .env.example .env
 
 ## 安装所需依赖
 
-推荐执行一键安装脚本：
-
-```powershell
-python scripts/install_dependencies.py
-```
-
-该脚本会：
-
-1. 检查 Python 版本；
-2. 使用当前 `sys.executable` 执行可编辑安装；
-3. 安装 `pyproject.toml` 中的运行依赖和 `dev` 开发依赖；
-4. 执行 `pip check`；
-5. 验证关键模块可以正常导入。
-
-等价的直接安装命令为：
+在 `agent-service/` 目录执行：
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -302,6 +283,6 @@ HTTP 手工调用位于 `test_client/`。在 JetBrains HTTP Client 中选择 `de
 - 数据库结构变更只通过新的 Alembic revision 完成。
 - 不在数据库事务中执行 MinIO 或 LLM 调用。
 - 不提交 `.env`、`.venv`、缓存、`*.egg-info/`、训练数据、评测输出或模型产物。
-- `eval/`、`training/`、`normalization_demo/`、`project_test/` 和 `examples/` 是受保护资产，在线业务开发不得顺带移动或重构。
+- `archive/agent-service-deferred/` 中的本地留档和 `project_test/` 是受保护资产，在线业务开发不得顺带移动或重构。
 
 长期架构和接口口径以项目根目录的 `docs/14-Agent服务代码结构说明.md`、`docs/21-Python单体后端迁移说明.md` 和实际代码为准。

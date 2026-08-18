@@ -30,5 +30,5 @@ dev = [
 factory = false
 
 [tool.setuptools.packages.find]
-include = ["app*", "normalization_demo*"]
+include = ["app*"]
 exclude = ["eval*", "training*", "tests*"]

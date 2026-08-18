@@ -49,6 +49,9 @@ agent-service/.venv/
 .tmp/
 tmp/
 
+# 主业务完成后再优化的 Agent 留档资产
+/archive/agent-service-deferred/
+
 # RAG 原始大数据集
 agent-service/eval/chat-dataset/
 dataset

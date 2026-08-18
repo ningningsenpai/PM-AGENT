@@ -13,18 +13,20 @@ PM-Agent 在线后端全量迁移至 `agent-service/`，采用 FastAPI 模块化
 - Agent 与业务模块同进程，但继续通过公开 Service 隔离。
 - 文件解析直接使用 MinIO SDK，不使用预签名 URL 做内部下载。
 - 外部存储和模型调用不占用数据库事务。
-- 保留 `agent-service/` 目录名和既有 Agent 资产位置。
+- 保留 `agent-service/` 目录名；延期 Agent 资产统一放入本地留档区。
 - 不迁移历史数据，不建设双写或灰度双运行。
 
 ## 受保护资产
 
 迁移不得修改：
 
-- `agent-service/eval/**`
-- `agent-service/training/**`
-- `agent-service/normalization_demo/**`
+- `archive/agent-service-deferred/eval/**`
+- `archive/agent-service-deferred/training/**`
+- `archive/agent-service-deferred/normalization_demo/**`
+- `archive/agent-service-deferred/examples/**`
+- `archive/agent-service-deferred/resources/**`
+- `archive/agent-service-deferred/scripts/**`
 - `agent-service/project_test/**`
-- `agent-service/examples/**`
 
 `app.normalization` 保持公共符号兼容。
 
