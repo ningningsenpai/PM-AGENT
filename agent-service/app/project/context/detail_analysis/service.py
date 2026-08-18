@@ -1,10 +1,11 @@
-
+"""文件详情分析服务。"""
 from __future__ import annotations
 
 import json
 
 from pydantic import ValidationError
 
+from app.core.logger import get_logger
 from app.project.context.detail_analysis import FileDownloader, FileParserFactory
 from app.project.context.detail_analysis.file_content import FileContent
 from app.project.context.detail_analysis.schemas import (
@@ -12,23 +13,26 @@ from app.project.context.detail_analysis.schemas import (
     FileAnalysisResult,
     FileDetail,
 )
+from app.project.context.model import StructuredJsonGenerator
+from app.project.inner_prompts import ProjectFileDetailPrompt
 
 __all__ = ["FileDetailAnalysisService"]
 
-from app.project.context.model import StructuredJsonGenerator
-
-from app.project.inner_prompts import ProjectFileDetailPrompt
+logger = get_logger(__name__)
 
 
 class FileDetailAnalysisService:
-    """ 负责下载并解析临时文件，并在处理结束后清理文件。"""
+    """解析项目文件内容并生成经校验的结构化文件详情。"""
 
     def __init__(
         self,
-        generator: StructuredJsonGenerator | None = None,
+        generator: StructuredJsonGenerator,
+        *,
+        max_source_bytes: int,
     ) -> None:
         self.file_content = FileContent(FileDownloader(), FileParserFactory())
-        self.generator = generator or StructuredJsonGenerator()
+        self.generator = generator
+        self._max_source_bytes = max_source_bytes
 
     async def analyze(self, request: FileAnalysisRequest) -> FileAnalysisResult:
         """结合请求元数据和文件内容生成结构化文件详情。"""
@@ -62,6 +66,12 @@ class FileDetailAnalysisService:
         request: FileAnalysisRequest,
         content: str,
     ) -> FileAnalysisResult:
+        if len(content.encode("utf-8")) > self._max_source_bytes:
+            return self._failed(
+                request,
+                "文件解析文本超过模型解析上限",
+                error_code="FILE_DETAIL_SOURCE_TOO_LARGE",
+            )
         metadata = {
             "project_id": request.project_id,
             "file_id": request.file_id,
@@ -90,7 +100,13 @@ class FileDetailAnalysisService:
                 prompt,
                 FileDetail,
             )
-        except ValidationError:
+        except (ValidationError, ValueError):
+            logger.warning(
+                "文件详情模型输出无效 action=project_file.detail.generate "
+                "projectId=%s fileId=%s",
+                request.project_id,
+                request.file_id,
+            )
             return FileAnalysisResult(
                 project_id=request.project_id,
                 file_id=request.file_id,
@@ -101,6 +117,12 @@ class FileDetailAnalysisService:
                 error_message="模型返回的文件详情格式不正确",
             )
         except Exception:
+            logger.exception(
+                "文件详情模型调用失败 action=project_file.detail.generate "
+                "projectId=%s fileId=%s",
+                request.project_id,
+                request.file_id,
+            )
             return self._failed(request, "模型分析失败")
 
         try:
@@ -129,6 +151,8 @@ class FileDetailAnalysisService:
     def _failed(
         request: FileAnalysisRequest,
         message: str,
+        *,
+        error_code: str = "FILE_DETAIL_ANALYSIS_FAILED",
     ) -> FileAnalysisResult:
         return FileAnalysisResult(
             project_id=request.project_id,
@@ -136,13 +160,16 @@ class FileDetailAnalysisService:
             content_hash=request.content_hash,
             analysis_version=request.analysis_version,
             status="failed",
-            error_code="FILE_DETAIL_ANALYSIS_FAILED",
+            error_code=error_code,
             error_message=message,
         )
 
     @staticmethod
-    def _validate_detail_identity(request: FileAnalysisRequest, detail: FileDetail,) -> None:
-        """ 校验解析前后关键数据字段的值是否一致 """
+    def _validate_detail_identity(
+        request: FileAnalysisRequest,
+        detail: FileDetail,
+    ) -> None:
+        """校验模型输出与解析请求的文件身份一致。"""
         if (
             detail.project_id != request.project_id
             or detail.file_id != request.file_id

@@ -29,11 +29,11 @@ class ProjectSpecificationService:
         self,
         storage: ObjectStorage,
         locations: StorageLocationFactory,
-        generator: StructuredJsonGenerator | None = None,
+        generator: StructuredJsonGenerator,
     ) -> None:
         self._storage = storage
         self._locations = locations
-        self._generator = generator or StructuredJsonGenerator()
+        self._generator = generator
 
     async def refresh(self, project, files: Iterable[Any]) -> None:
         current_files = list(files)

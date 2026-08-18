@@ -50,12 +50,17 @@ class OpenAICompatibleClient(BaseLLMClient):
         *,
         tools: list[dict] | None = None,
         tool_choice: str | dict | None = None,
+        response_format: dict[str, str] | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> dict:
         """构造请求体；保留为单独方法方便子类追加厂商私有字段。"""
         body = {
             "model": self.config.model,
             "messages": messages,
-            "temperature": self.default_temperature,
+            "temperature": (
+                self.default_temperature if temperature is None else temperature
+            ),
             "stream": stream,
         }
         if stream and self.supports_real_usage:
@@ -63,6 +68,10 @@ class OpenAICompatibleClient(BaseLLMClient):
         if tools:
             body["tools"] = tools
             body["tool_choice"] = tool_choice or "auto"
+        if response_format is not None:
+            body["response_format"] = response_format
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         return body
 
     def _usage_from_response(self, data: dict) -> LLMTokenUsage | None:
@@ -86,9 +95,15 @@ class OpenAICompatibleClient(BaseLLMClient):
         *,
         tools: list[dict] | None = None,
         tool_choice: str | dict | None = None,
+        response_format: dict[str, str] | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        timeout_seconds: float | None = None,
     ) -> LLMAssistantTurn:
         """非流式返回文本、工具调用和需要回传的推理字段。"""
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(
+            timeout=self._timeout_seconds(timeout_seconds)
+        ) as client:
             response = await client.post(
                 self._endpoint(),
                 headers=self._headers(),
@@ -97,6 +112,9 @@ class OpenAICompatibleClient(BaseLLMClient):
                     stream=False,
                     tools=tools,
                     tool_choice=tool_choice,
+                    response_format=response_format,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
                 ),
             )
             response.raise_for_status()
@@ -110,6 +128,15 @@ class OpenAICompatibleClient(BaseLLMClient):
                 reasoning_content=message.get("reasoning_content"),
                 usage=self._usage_from_response(data),
             )
+
+    def _timeout_seconds(self, override: float | None = None) -> float:
+        if override is not None:
+            return override
+        timeout = self.config.extra.get("timeout_seconds", 60)
+        try:
+            return float(timeout)
+        except (TypeError, ValueError):
+            return 60.0
 
     async def stream_chat_with_usage(
         self,

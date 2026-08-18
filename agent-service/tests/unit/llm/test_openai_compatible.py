@@ -28,6 +28,22 @@ def test_build_body_includes_native_tool_definitions() -> None:
     assert body["tool_choice"] == "auto"
 
 
+def test_build_body_includes_structured_output_options() -> None:
+    client = DeepSeekClient(Settings())
+
+    body = client._build_body(
+        [{"role": "user", "content": "请返回 JSON"}],
+        False,
+        response_format={"type": "json_object"},
+        max_tokens=2048,
+        temperature=0,
+    )
+
+    assert body["response_format"] == {"type": "json_object"}
+    assert body["max_tokens"] == 2048
+    assert body["temperature"] == 0
+
+
 def test_parse_tool_calls_keeps_string_id_and_raw_arguments() -> None:
     calls = DeepSeekClient._parse_tool_calls(
         [

@@ -193,5 +193,7 @@ export async function requestProjectFileParsing(projectId: number) {
   return request<void>({
     url: `/api/v1/projects/${projectId}/files/parse/init`,
     method: 'post',
+    // 文件解析包含串行模型调用，单次模型超时由服务端配置控制。
+    timeout: 0,
   })
 }

@@ -100,14 +100,25 @@ Trace 落库后至少记录：
 
 1. Service 查询 `active`、尚无有效分析版本且解析次数小于 3 的文件；
 2. 通过对象键使用 MinIO SDK 读取；
-3. 复用既有解析器、Prompt 和模型适配器；
+3. 复用既有解析器和 Prompt，通过统一 `DeepSeekClient` 调用 `/chat/completions`；
 4. Pydantic 校验输出与文件身份；
 5. 写 `system/file_details/*.json`；
 6. 条件更新分析投影与解析次数；
 7. 从数据库完整生成 `system/index.json`；
 8. 将当前有效文件分析投影交给结构化模型生成器，经 Pydantic 校验和稳定 ID 合并后写入 `system/project_specification.json`。
 
-文件详情和项目规范复用同一个结构化 JSON 模型调用组件，具体 Prompt 和 Pydantic 输出模型保持独立。MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件；解析入口可重复调用，以恢复文件级失败或项目规范构建失败。
+文件详情和项目规范复用同一个 `StructuredJsonGenerator` 与 DeepSeek 客户端，具体 Prompt 和 Pydantic 输出模型保持独立。结构化调用启用 `response_format={"type":"json_object"}`，设置最大输出 token 与文件解析专用超时，并拒绝空响应和因 token 上限截断的响应。MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件；解析入口可重复调用，以恢复文件级失败或项目规范构建失败。
+
+文件解析模型通过以下环境变量显式启用：
+
+```dotenv
+PM_AGENT_FILE_DETAIL_LLM_ENABLED=true
+PM_AGENT_FILE_DETAIL_LLM_PROVIDER=deepseek
+PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS=60
+PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
+```
+
+`PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES` 约束解析后准备送入模型的 UTF-8 文本，超限文件记录 `FILE_DETAIL_SOURCE_TOO_LARGE`，不会调用模型；原始文件仍由上传限制和具体解析器限制负责门禁。旧的 Qwen/Ollama 客户端仅保留给显式选择的本地模型功能，不再参与在线文件详情和项目规范解析链路。
 
 ## 11. 模型与成本
 
@@ -115,6 +126,7 @@ Trace 落库后至少记录：
 - 关键输出必须经 Pydantic 或 JSON Schema 校验。
 - 模型路由、Prompt 缓存和 token 预算沿用既有 LLM 适配层。
 - 禁止把数据库凭据、JWT、预签名地址或敏感文件原文写入 Prompt。
+- 启用文件解析后，解析文本会离开本地运行环境并发送到 DeepSeek API；当前未实现内容级密钥自动脱敏，只能对确认允许外传的项目文件启用该能力。
 - 本次迁移不扩展完整 RAG、训练或评测能力。
 
 ## 12. 验收标准

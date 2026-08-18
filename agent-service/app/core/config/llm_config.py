@@ -15,7 +15,37 @@ import os
 
 from app.core.config.load_env_file import LoadConfig
 
-__all__ = ["get_llm_settings", "LLMProviderConfig"]
+__all__ = ["get_llm_settings", "FileDetailLLMConfig", "LLMProviderConfig"]
+
+
+@dataclass(frozen=True, slots=True)
+class FileDetailLLMConfig:
+    """文件详情与项目规范结构化生成配置。"""
+
+    enabled: bool
+    provider: str
+    request_timeout_seconds: float
+    max_source_bytes: int
+
+    @classmethod
+    def from_env(cls) -> "FileDetailLLMConfig":
+        return cls(
+            enabled=os.getenv(
+                "PM_AGENT_FILE_DETAIL_LLM_ENABLED",
+                "false",
+            ).lower()
+            == "true",
+            provider=os.getenv(
+                "PM_AGENT_FILE_DETAIL_LLM_PROVIDER",
+                "deepseek",
+            ),
+            request_timeout_seconds=float(
+                os.getenv("PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS", "60")
+            ),
+            max_source_bytes=int(
+                os.getenv("PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES", "262144")
+            ),
+        )
 
 @dataclass
 class LLMProviderConfig:
@@ -55,6 +85,17 @@ class Settings:
                 f"未支持的默认模型提供方：{self.default_llm_provider!r}，当前可选：{sorted(supported_providers)}"
             )
 
+        self.file_detail = FileDetailLLMConfig.from_env()
+        if self.file_detail.provider != "deepseek":
+            raise ValueError(
+                "未支持的文件解析模型提供方："
+                f"{self.file_detail.provider!r}，当前仅支持：'deepseek'"
+            )
+        if self.file_detail.request_timeout_seconds <= 0:
+            raise ValueError("文件解析模型请求超时必须大于 0 秒")
+        if self.file_detail.max_source_bytes <= 0:
+            raise ValueError("文件解析模型源文本上限必须大于 0 字节")
+
         # 按 provider 分组配置；新增厂商时在这里新增一项即可。
         # 注意：环境变量名仅占位，正式接入时若官方文档要求其它命名再调整。
         self.llm: dict[str, LLMProviderConfig] = {
@@ -64,8 +105,13 @@ class Settings:
                 model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"),
                 context_window_tokens=int(os.getenv("DEEPSEEK_CONTEXT_WINDOW_TOKENS", 126000)),
                 reserved_output_tokens=int(os.getenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 4096)),
+                extra={
+                    "timeout_seconds": float(
+                        os.getenv("DEEPSEEK_REQUEST_TIMEOUT_SECONDS", "60")
+                    ),
+                },
             ),
-            # Qwen：当前最小实现走 Ollama/OpenAI 兼容接口，供项目上下文链路使用。
+            # Qwen：当前最小实现走 Ollama generate 接口，供显式选择本地模型时使用。
             "qwen": LLMProviderConfig(
                 api_key=os.getenv("QWEN_API_KEY", ""),
                 base_url=os.getenv("QWEN_BASE_URL", "http://127.0.0.1:11434"),

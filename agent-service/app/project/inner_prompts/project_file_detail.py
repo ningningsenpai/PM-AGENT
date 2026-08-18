@@ -70,7 +70,7 @@ class ProjectFileDetailPrompt(str, Enum):
   "minio_path": "project/README-a1b2c3d4e5f67890.md",
   "size_bytes": 1024,
   "content_type": "text/markdown",
-  "content_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "content_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "module": "backend",
   "kind": "documentation",
   "file_type": "doc",
@@ -78,7 +78,7 @@ class ProjectFileDetailPrompt(str, Enum):
   "status": "active",
   "importance": "medium",
   "summary": "后端模块说明文档",
-  "keywords": ["Spring Boot", "MinIO"],
+  "keywords": ["FastAPI", "MinIO"],
   "role": "说明后端模块的启动、配置和存储约定",
   "content_slices": [
     {
@@ -99,14 +99,7 @@ class ProjectFileDetailPrompt(str, Enum):
   "evidence": [
     {"source": "file_content", "quote": "短证据摘要"}
   ],
-  "previous_versions": [
-    {
-      "content_hash": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
-      "role": "旧职责摘要",
-      "changed_at": "2026-07-02T00:00:00",
-      "reason": "文件内容变化后重新生成详情"
-    }
-  ],
+  "previous_versions": [],
   "parser": {
     "strategy": "llm_enhanced",
     "parser_version": "file-detail-v1",

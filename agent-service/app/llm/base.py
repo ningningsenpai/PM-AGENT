@@ -57,10 +57,24 @@ class BaseLLMClient(ABC):
         *,
         tools: list[dict] | None = None,
         tool_choice: str | dict | None = None,
+        response_format: dict[str, str] | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        timeout_seconds: float | None = None,
     ) -> LLMAssistantTurn:
         """执行一次完整模型决策；不支持工具的客户端沿用文本协议。"""
         if tools:
             raise RuntimeError(f"模型提供方 {self.provider} 尚未实现原生工具调用")
+        if any(
+            value is not None
+            for value in (
+                response_format,
+                max_tokens,
+                temperature,
+                timeout_seconds,
+            )
+        ):
+            raise RuntimeError(f"模型提供方 {self.provider} 尚未实现请求参数覆盖")
         result = await self.chat_with_usage(messages)
         return LLMAssistantTurn(content=result.content, usage=result.usage)
 

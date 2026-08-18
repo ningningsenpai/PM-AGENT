@@ -11,7 +11,7 @@ from app.llm.registry import register_llm
 
 @register_llm("deepseek")
 class DeepSeekClient(OpenAICompatibleClient):
-    """DeepSeek 模型适配器；当前默认模型 ``deepseek-v4-pro``。"""
+    """DeepSeek 模型适配器；默认模型由 ``DEEPSEEK_MODEL`` 配置。"""
 
     supports_real_usage = True
     capabilities = LLMCapabilities(
