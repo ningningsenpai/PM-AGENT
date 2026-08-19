@@ -2,7 +2,7 @@
 
 ## 1. 背景
 
-PM-Agent 的项目上下文索引与记忆系统需要在 Java 后端完成项目文件上传和权限校验后，基于受控文件事件持续维护项目规范、项目记忆、用户习惯和增量更新记录。
+PM-Agent 的项目上下文索引与记忆系统由 FastAPI 模块化单体完成项目文件权限校验、上传、解析和上下文发布，并基于受控文件状态持续维护项目规范、项目记忆、用户习惯和增量更新记录。
 
 本文件用于固定系统内部 JSON / JSONL 文件的结构，作为后续实现文件事件处理、召回、记忆演进、`project.md` 内化和调试审计的格式依据。
 
@@ -11,8 +11,20 @@ PM-Agent 的项目上下文索引与记忆系统需要在 Java 后端完成项�
 1. 固定各类 JSON 文件的字段结构，减少后续实现时的格式漂移；
 2. 明确每类文件的职责边界，避免索引、详情、规范和记忆互相污染；
 3. 支持 `index.json → file_details → 原始文件 / 记忆` 的轻量召回链路；
-4. 支持文件增量事件、内容 hash 对比、软删除和更新日志记录；
+4. 支持文件增量事件、内容 hash 对比，并为后续软删除和更新日志预留结构；
 5. 为后续 BM25、向量检索、AST 解析和更完整 RAG 预留结构。
+
+### 2.1 当前实现基线
+
+本文件包含部分面向后续阶段的完整格式。当前 MVP 实现遵循以下覆盖规则：
+
+- MySQL `pm_project_file` 是文件身份、路径、哈希、状态和分析投影的权威源；`index.json` 只是可重建快照，不参与更新差异计算；
+- MinIO 使用 `PM-AGENT/{userId}/{projectId}/project/{storageName}` 和 `PM-AGENT/{userId}/{projectId}/system/...`，对象键只能由 `StorageLocationFactory` 生成；
+- 项目更新由后端根据完整目录清单和数据库快照生成同步计划，再复用单文件上传、覆盖、移动和删除接口；
+- 当前删除采用硬删除，但只有完整目录快照和用户确认后才能执行；软删除和 `update_journal.jsonl` 后置；
+- 文件详情使用 `system/file_details/{storage-base}-{content_hash}-{analysis_version}.json` 版本化对象键，模型只生成语义字段和规则候选，身份字段由服务端构造；
+- 项目规范先发布，`index.json` 最后从数据库完整生成；不得读取旧索引做增量修改；
+- Python 单体迁移后的架构以根目录 `AGENTS.md`、`docs/21-Python单体后端迁移说明.md` 和实际代码为准，本文后续历史 Java 示例不再构成实现约束。
 
 ## 3. 总体结构
 
@@ -558,7 +570,7 @@ file_details/
   README-c1d2e3f4a5b67890.md
 ```
 
-详情对象名与源文件 `storage_name` 完全一致，固定引用为 `system/file_details/{storage_name}`。扩展名表示源文件类型，详情对象内容本身始终是 JSON。
+当前实现的详情对象名由源文件 `storage_name` 的无扩展名部分、完整 `content_hash` 和 `analysis_version` 组成，固定引用为 `system/file_details/{storage-base}-{content_hash}-{analysis_version}.json`。详情对象内容始终是 JSON；这种版本化引用用于防止并发解析的旧结果覆盖新文件版本。
 
 ### 10.3 结构
 
@@ -640,7 +652,7 @@ file_details/
 ```text
 所有成功上传文件进入 index.json 的 project 或 user 数组。
 成功上传文件生成 file_details JSON。
-file_details 使用 storage_name 作为稳定对象名。
+file_details 使用 storage-base、完整内容哈希和分析版本组成版本化对象名。
 index.json 通过 detail_ref 指向对应 file_details JSON。
 ```
 

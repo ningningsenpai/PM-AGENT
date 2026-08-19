@@ -77,3 +77,85 @@ export interface UpdateProjectFilePathPayload {
   sourceMtimeMs: number
   lockVersion: number
 }
+
+export interface ProjectFileSyncManifestItem {
+  relativePath: string
+  sizeBytes: number
+  sourceMtimeMs: number
+  contentHash: string | null
+  contentType: string | null
+}
+
+export interface ProjectFileSyncPlanRequest {
+  snapshotComplete: boolean
+  scope: 'project'
+  items: ProjectFileSyncManifestItem[]
+}
+
+export interface ProjectFileSyncLocalItem {
+  relativePath: string
+  sizeBytes: number
+  sourceMtimeMs: number
+  contentHash: string
+  contentType: string
+}
+
+export interface ProjectFileSyncRemoteItem {
+  remoteFileId: number
+  remoteRelativePath: string
+  remoteSizeBytes: number
+  remoteSourceMtimeMs: number
+  remoteContentHash: string
+  remoteContentType: string
+  lockVersion: number
+  remoteStatus: string
+  remoteUploadStatus: string
+}
+
+export interface ProjectFileSyncMatchedItem
+  extends ProjectFileSyncLocalItem,
+    ProjectFileSyncRemoteItem {}
+
+export interface ProjectFileSyncRejectedItem {
+  relativePath: string
+  errorCode: string
+  errorMessage: string
+  remoteFileId?: number | null
+  remoteRelativePath?: string | null
+  lockVersion?: number | null
+}
+
+export interface ProjectFileSyncAmbiguousItem {
+  contentHash: string
+  localItems: ProjectFileSyncLocalItem[]
+  remoteItems: ProjectFileSyncRemoteItem[]
+}
+
+export interface ProjectFileSyncPlan {
+  snapshotComplete: boolean
+  scope: 'project'
+  unchanged: ProjectFileSyncMatchedItem[]
+  modified: ProjectFileSyncMatchedItem[]
+  moved: ProjectFileSyncMatchedItem[]
+  added: ProjectFileSyncLocalItem[]
+  deleted: ProjectFileSyncRemoteItem[]
+  rejected: ProjectFileSyncRejectedItem[]
+  ambiguous: ProjectFileSyncAmbiguousItem[]
+}
+
+export interface ProjectFileParseFailure {
+  fileId: number
+  relativePath: string
+  errorCode: string
+  errorMessage: string
+}
+
+export interface ProjectFileParseResult {
+  status: 'success' | 'partial'
+  candidateCount: number
+  successCount: number
+  failureCount: number
+  failures: ProjectFileParseFailure[]
+  specificationStatus: 'updated' | 'kept' | 'failed'
+  indexStatus: 'updated' | 'failed'
+}

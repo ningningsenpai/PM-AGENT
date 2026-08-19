@@ -1,0 +1,58 @@
+"""项目文件分析服务依赖装配。"""
+
+from __future__ import annotations
+
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.errors import AppException, ErrorCode
+from app.infrastructure.database import get_db_session
+from app.infrastructure.storage import (
+    ObjectStorage,
+    StorageLocationFactory,
+    get_object_storage,
+)
+from app.llm.factory import get_llm_client
+from app.modules.project.api import get_project_service
+from app.modules.project.service import ProjectService
+from app.modules.project_file.analysis.service import ProjectFileAnalysisService
+from app.modules.project_file.repository import ProjectFileRepository
+from app.project.context.detail_analysis.service import FileDetailAnalysisService
+from app.project.context.index import ProjectIndexService
+from app.project.context.model import StructuredJsonGenerator
+from app.project.context.specification import ProjectSpecificationService
+
+
+def get_project_file_analysis_service(
+    session: AsyncSession = Depends(get_db_session),
+    projects: ProjectService = Depends(get_project_service),
+    storage: ObjectStorage = Depends(get_object_storage),
+) -> ProjectFileAnalysisService:
+    """装配请求级项目文件分析服务。"""
+    settings = get_settings()
+    file_detail_config = settings.llm.file_detail
+    if not file_detail_config.enabled:
+        raise AppException(
+            ErrorCode.FILE_ANALYSIS_FAILED,
+            "文件解析模型未启用，请先配置 DeepSeek 并开启文件详情解析",
+        )
+    llm = get_llm_client(file_detail_config.provider, settings.llm)
+    generator = StructuredJsonGenerator(
+        llm,
+        max_tokens=llm.config.reserved_output_tokens,
+        timeout_seconds=file_detail_config.request_timeout_seconds,
+    )
+    locations = StorageLocationFactory(settings.storage)
+    return ProjectFileAnalysisService(
+        ProjectFileRepository(session),
+        projects,
+        storage,
+        locations,
+        ProjectIndexService(storage, locations),
+        FileDetailAnalysisService(
+            generator,
+            max_source_bytes=file_detail_config.max_source_bytes,
+        ),
+        ProjectSpecificationService(storage, locations, generator),
+    )

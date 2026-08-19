@@ -20,6 +20,7 @@ class StorageLocation:
 
 
 class StorageLocationFactory:
+    """项目文件对象键生成规则。"""
     ROOT_PREFIX = "PM-AGENT"
 
     def __init__(self, config: StorageConfig) -> None:

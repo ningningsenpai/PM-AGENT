@@ -1,4 +1,5 @@
 """项目模块公开依赖构造。"""
+
 from __future__ import annotations
 
 from fastapi import Depends
@@ -11,9 +12,10 @@ from app.infrastructure.storage import (
     StorageLocationFactory,
     get_object_storage,
 )
-from app.modules.project.index_service import ProjectIndexService
 from app.modules.project.repository import ProjectRepository
 from app.modules.project.service import ProjectService
+from app.project.context.index import ProjectIndexService
+from app.project.context.specification import ProjectSpecificationService
 
 
 def get_project_service(
@@ -27,4 +29,5 @@ def get_project_service(
         storage,
         locations,
         ProjectIndexService(storage, locations),
+        ProjectSpecificationService(storage, locations),
     )

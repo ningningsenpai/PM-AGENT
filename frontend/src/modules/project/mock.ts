@@ -2,7 +2,13 @@ import type {
   CreateProjectRequest,
   OverwriteProjectFilePayload,
   ProjectDetail,
+  ProjectFileParseResult,
   ProjectFileResponse,
+  ProjectFileSyncLocalItem,
+  ProjectFileSyncMatchedItem,
+  ProjectFileSyncPlan,
+  ProjectFileSyncPlanRequest,
+  ProjectFileSyncRemoteItem,
   ProjectFileUploadResponse,
   ProjectSummary,
   UpdateProjectFilePathPayload,
@@ -153,7 +159,152 @@ export async function mockDeleteProjectFile(
   )
 }
 
-export async function mockRequestProjectFileParsing(): Promise<void> {}
+export async function mockPlanProjectFileSync(
+  projectId: number,
+  request: ProjectFileSyncPlanRequest,
+): Promise<ProjectFileSyncPlan> {
+  const remoteFiles = projectFiles.get(projectId) ?? []
+  const remoteByPath = new Map(remoteFiles.map((file) => [file.relativePath, file]))
+  const matchedRemoteIds = new Set<number>()
+  const unchanged: ProjectFileSyncMatchedItem[] = []
+  const modified: ProjectFileSyncMatchedItem[] = []
+  const moved: ProjectFileSyncMatchedItem[] = []
+  const added: ProjectFileSyncLocalItem[] = []
+  const rejected: ProjectFileSyncPlan['rejected'] = []
+  const ambiguous: ProjectFileSyncPlan['ambiguous'] = []
+  const unmatchedLocal: ProjectFileSyncLocalItem[] = []
+
+  for (const item of request.items) {
+    const remote = remoteByPath.get(item.relativePath)
+    if (!item.contentHash) {
+      if (remote) matchedRemoteIds.add(remote.id)
+      rejected.push({
+        relativePath: item.relativePath,
+        errorCode: 'FRONTEND_FILE_REJECTED',
+        errorMessage: '文件未通过前端筛选',
+        remoteFileId: remote?.id,
+        remoteRelativePath: remote?.relativePath,
+        lockVersion: remote?.lockVersion,
+      })
+      continue
+    }
+
+    const local = toMockLocalItem(item)
+    if (!remote) {
+      unmatchedLocal.push(local)
+      continue
+    }
+    matchedRemoteIds.add(remote.id)
+    const matched = { ...local, ...toMockRemoteItem(remote) }
+    if (
+      remote.status === 'active' &&
+      remote.uploadStatus === 'success' &&
+      remote.contentHash === local.contentHash
+    ) {
+      unchanged.push(matched)
+    } else {
+      modified.push(matched)
+    }
+  }
+
+  const unmatchedRemote = remoteFiles.filter(
+    (file) =>
+      !matchedRemoteIds.has(file.id) &&
+      file.status === 'active' &&
+      file.uploadStatus === 'success',
+  )
+  const localByHash = groupBy(unmatchedLocal, (item) => item.contentHash)
+  const remoteByHash = groupBy(unmatchedRemote, (item) => item.contentHash)
+
+  for (const [contentHash, localItems] of localByHash) {
+    const remoteItems = remoteByHash.get(contentHash) ?? []
+    if (localItems.length === 1 && remoteItems.length === 1) {
+      const [local] = localItems
+      const [remote] = remoteItems
+      moved.push({ ...local, ...toMockRemoteItem(remote) })
+      matchedRemoteIds.add(remote.id)
+      continue
+    }
+    if (remoteItems.length) {
+      ambiguous.push({
+        contentHash,
+        localItems,
+        remoteItems: remoteItems.map(toMockRemoteItem),
+      })
+      remoteItems.forEach((remote) => matchedRemoteIds.add(remote.id))
+      continue
+    }
+    added.push(...localItems)
+  }
+
+  return {
+    snapshotComplete: request.snapshotComplete,
+    scope: request.scope,
+    unchanged,
+    modified,
+    moved,
+    added,
+    deleted: request.snapshotComplete
+      ? remoteFiles
+          .filter((file) => !matchedRemoteIds.has(file.id))
+          .map(toMockRemoteItem)
+      : [],
+    rejected,
+    ambiguous,
+  }
+}
+
+export async function mockRequestProjectFileParsing(
+  projectId: number,
+): Promise<ProjectFileParseResult> {
+  const candidateCount = (projectFiles.get(projectId) ?? []).filter(
+    (file) => file.status === 'active' && file.uploadStatus === 'success',
+  ).length
+  return {
+    status: 'success',
+    candidateCount,
+    successCount: candidateCount,
+    failureCount: 0,
+    failures: [],
+    specificationStatus: 'updated',
+    indexStatus: 'updated',
+  }
+}
+
+function toMockLocalItem(
+  item: ProjectFileSyncPlanRequest['items'][number],
+): ProjectFileSyncLocalItem {
+  return {
+    relativePath: item.relativePath,
+    sizeBytes: item.sizeBytes,
+    sourceMtimeMs: item.sourceMtimeMs,
+    contentHash: item.contentHash ?? '',
+    contentType: item.contentType || 'application/octet-stream',
+  }
+}
+
+function toMockRemoteItem(file: ProjectFileResponse): ProjectFileSyncRemoteItem {
+  return {
+    remoteFileId: file.id,
+    remoteRelativePath: file.relativePath,
+    remoteSizeBytes: file.sizeBytes,
+    remoteSourceMtimeMs: file.sourceMtimeMs,
+    remoteContentHash: file.contentHash,
+    remoteContentType: file.contentType,
+    lockVersion: file.lockVersion,
+    remoteStatus: file.status,
+    remoteUploadStatus: file.uploadStatus,
+  }
+}
+
+function groupBy<T>(items: T[], keyOf: (item: T) => string) {
+  const groups = new Map<string, T[]>()
+  for (const item of items) {
+    const key = keyOf(item)
+    groups.set(key, [...(groups.get(key) ?? []), item])
+  }
+  return groups
+}
 
 function requireMockFile(projectId: number, fileId: number) {
   const file = (projectFiles.get(projectId) ?? []).find((item) => item.id === fileId)

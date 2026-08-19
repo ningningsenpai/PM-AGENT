@@ -1,17 +1,21 @@
-
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 __all__ = [
     "FileAnalysisRequest",
     "FileAnalysisResult",
     "FileDetail",
+    "FileDetailSemanticOutput",
+    "FileRuleCandidate",
 ]
+
+Keyword = Annotated[str, Field(min_length=1, max_length=128)]
+EvidenceText = Annotated[str, Field(min_length=1, max_length=500)]
 
 
 class FileAnalysisRequest(BaseModel):
@@ -41,8 +45,50 @@ class FileAnalysisRequest(BaseModel):
     analysis_version: str
 
 
+class FileRuleCandidate(BaseModel):
+    """从单文件中提取、等待项目级规范确认的结构化规则候选。"""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    category: Literal[
+        "development_approach",
+        "technical_constraint",
+        "coding_rule",
+        "document_rule",
+        "risk_rule",
+    ]
+    text: str = Field(min_length=1, max_length=1000)
+    confidence: Literal["high", "medium", "low"]
+    evidence: list[EvidenceText] = Field(default_factory=list, max_length=20)
+
+
+class FileDetailSemanticOutput(BaseModel):
+    """限制模型只生成文件语义，身份和控制字段由服务端补充。"""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    module: str = Field(max_length=128)
+    kind: str = Field(max_length=64)
+    file_type: str = Field(max_length=64)
+    language: str = Field(max_length=64)
+    importance: Literal["high", "medium", "low"]
+    summary: str = Field(max_length=4000)
+    keywords: list[Keyword] = Field(max_length=50)
+    role: str = Field(max_length=2000)
+    content_slices: list[dict[str, Any]] = Field(max_length=50)
+    related_topics: list[Keyword] = Field(max_length=50)
+    related_files: list[dict[str, Any]] = Field(max_length=50)
+    risk_flags: list[Any] = Field(max_length=50)
+    sensitive_flags: list[Any] = Field(max_length=50)
+    evidence: list[Any] = Field(max_length=50)
+    parser: dict[str, Any]
+    rule_candidates: list[FileRuleCandidate] = Field(
+        default_factory=list, max_length=100
+    )
+
+
 class FileDetail(BaseModel):
-    """文件详情模型，约束模型输出并保留索引补全所需字段。"""
+    """服务端组装的完整文件详情和索引投影来源。"""
 
     model_config = ConfigDict(
         frozen=True,
@@ -81,6 +127,7 @@ class FileDetail(BaseModel):
     evidence: list[Any]
     previous_versions: list[dict[str, Any]]
     parser: dict[str, Any]
+    rule_candidates: list[FileRuleCandidate] = Field(default_factory=list)
 
 
 class FileAnalysisResult(BaseModel):

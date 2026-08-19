@@ -1,4 +1,5 @@
 """项目文件管理模块公开依赖构造。"""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -15,10 +16,10 @@ from app.infrastructure.storage import (
     get_object_storage,
 )
 from app.modules.project.dependencies import get_project_service
-from app.modules.project.index_service import ProjectIndexService
 from app.modules.project.service import ProjectService
 from app.modules.project_file.management.service import ProjectFileService
 from app.modules.project_file.repository import ProjectFileRepository
+from app.project.context.index import ProjectIndexService
 
 
 def get_project_file_service(

@@ -50,7 +50,15 @@ agent-service/app/
 │       └── analysis/
 │           ├── api.py
 │           └── service.py
-└── memory、normalization、project/context、rag
+├── project/
+│   └── context/
+│       ├── detail_analysis/
+│       ├── index/
+│       │   ├── __init__.py
+│       │   ├── schemas.py
+│       │   └── service.py
+│       └── specification/
+└── memory、normalization、rag
 ```
 
 普通在线业务模块采用垂直分层：
@@ -75,12 +83,22 @@ agent-service/app/
 - `llm/contracts.py` 是 Provider 无关的文本、工具调用和流式增量契约；`llm/clients/` 只负责协议适配；`llm/orchestration/` 负责有限模型—工具循环。
 - 新增工具时先补齐 Pydantic 输入/输出模型和 Service 权限校验，再在请求依赖中显式注册；不得通过目录扫描自动暴露工具。
 
+## Project Context 上下文产物边界
+
+`app/project/context/` 负责文件详情、项目规范和项目索引等可重建上下文产物，不拥有业务表，也不承担数据库查询。
+
+- `index/__init__.py` 只公开 `ProjectIndexDocument` 和 `ProjectIndexService`。
+- `index/schemas.py` 定义与 `index.json` 对应的强类型 Pydantic 快照模型，不依赖 ORM、Repository 或业务状态枚举。
+- `index/service.py` 负责根据调用方传入的项目和文件数据构建、初始化并发布 `system/index.json`；不得注入 Session、调用 Repository 或自行查询 MySQL。
+- 项目、文件管理和文件解析 Service 负责查询权威数据、控制事务以及编排 `project_specification.json → index.json` 的发布顺序。`ProjectIndexService` 不调用项目规范 Service，两个上下文模块由业务 Service 协调。
+- 模块拆分只改变 Python 代码归属；`index.json` 的字段、哈希前缀、时间格式、分类规则和 MinIO 对象键保持不变。
+
 ## Project File 子包边界
 
 `project_file/` 根目录保留共享的 `ProjectFile` ORM、文件业务类型和状态枚举、`ProjectFileRepository`、路由聚合及公开 Service 导出。`pm_project_file` 仍只有一个持久化网关，两个子包不重复定义模型或跨 Repository 操作数据库。
 
 - `management/` 负责用户源文件的上传、覆盖、路径修改、删除、列表、预签名地址、幂等控制、乐观锁和状态机；可以在 MinIO 中创建、读取、复制和删除源文件对象。
-- `analysis/` 负责读取待解析源文件、调用文件分析器、写入 `system/file_details/*.json`、更新分析投影并触发项目索引重建；不得上传、改名、覆盖或删除用户源文件。
+- `analysis/` 负责读取待解析源文件、调用文件分析器、写入 `system/file_details/*.json`、更新分析投影并触发项目规范和项目索引发布；不得上传、改名、覆盖或删除用户源文件。
 - 两个子包不得互相导入 Service。跨模块协作只依赖 `ProjectService`、`ProjectIndexService` 等公开接口，共享持久化能力只依赖根目录的 Repository。
 - MinIO 和 LLM 调用必须位于数据库事务之外，分析产物不是源文件管理接口的权威数据。
 

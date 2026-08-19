@@ -1,56 +1,87 @@
 """项目规范生成与对象存储服务。"""
+
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import json
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 
 from pydantic import ValidationError
 
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
+from app.project.context.detail_analysis.schemas import FileDetail
+from app.project.context.detail_analysis.sensitive_content import (
+    SensitiveContentBlockedError,
+    sanitize_sensitive_content,
+)
 from app.project.context.model.structured import StructuredJsonGenerator
 from app.project.context.specification.schemas import (
     ProjectSpecificationDocument,
+    SpecificationSourceRef,
     merge_specifications,
 )
 from app.project.inner_prompts import ProjectSpecificationPrompt
 
 logger = get_logger(__name__)
 
+SpecificationRefreshStatus = Literal["updated", "kept"]
+
 
 class ProjectSpecificationService:
-    """使用当前有效文件投影构建并合并项目规范。"""
+    """聚合全部有效详情规则候选，并稳定合并项目规范。"""
 
-    MAX_SOURCE_FILES = 20
+    _RULE_FIELDS = (
+        "development_approach",
+        "technical_constraints",
+        "coding_rules",
+        "document_rules",
+        "risk_rules",
+    )
 
     def __init__(
         self,
         storage: ObjectStorage,
         locations: StorageLocationFactory,
-        generator: StructuredJsonGenerator,
+        generator: StructuredJsonGenerator | None = None,
     ) -> None:
         self._storage = storage
         self._locations = locations
         self._generator = generator
 
-    async def refresh(self, project, files: Iterable[Any]) -> None:
-        current_files = list(files)
-        location = self._locations.system_file(
-            project.owner_user_id,
-            project.id,
-            "project_specification.json",
-        )
+    async def initialize(self, project) -> SpecificationRefreshStatus:
+        """不调用模型，为新项目写入合法空规范。"""
+        location = self._location(project)
         existing = await self._load_existing(location, project.id)
-        sources = self._build_sources(current_files)
-        source_paths = self._build_source_paths(current_files)
-        if not sources:
-            if existing is None:
-                await self._write(location, ProjectSpecificationDocument.empty(project.id))
-                return
+        if existing is not None:
+            return "kept"
+        await self._write(location, ProjectSpecificationDocument.empty(project.id))
+        return "updated"
 
-        prompt = self._build_prompt(project, existing, sources, source_paths)
+    async def refresh(
+        self,
+        project,
+        files: Iterable[Any],
+    ) -> SpecificationRefreshStatus:
+        current_files = list(files)
+        location = self._location(project)
+        existing = await self._load_existing(location, project.id)
+        inventory = self._build_inventory(current_files)
+        sources = await self._load_rule_sources(project, current_files)
+        stale_rule_keys = self._stale_rule_keys(existing, inventory)
+        if not sources and not stale_rule_keys:
+            if existing is None:
+                await self._write(
+                    location, ProjectSpecificationDocument.empty(project.id)
+                )
+                return "updated"
+            return "kept"
+        if self._generator is None:
+            raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED)
+
+        prompt = self._build_prompt(project, existing, sources, inventory)
         try:
             generated = await self._generator.generate(
                 prompt,
@@ -59,13 +90,24 @@ class ProjectSpecificationService:
             if generated.project_id != project.id:
                 raise ValueError("项目规范中的项目 ID 与当前项目不一致")
             document = merge_specifications(existing, generated)
+            document = self._mark_unreconciled_rules(
+                document,
+                stale_rule_keys,
+                generated,
+                sources,
+                inventory,
+            )
+            document = self._enrich_source_refs(document, inventory)
             await self._write(location, document)
+            return "updated"
         except (ValidationError, ValueError) as exception:
             logger.warning(
                 "项目规范模型输出无效 action=project.specification.refresh projectId=%s",
                 project.id,
             )
-            raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED) from exception
+            raise AppException(
+                ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
+            ) from exception
         except AppException:
             raise
         except Exception as exception:
@@ -73,13 +115,27 @@ class ProjectSpecificationService:
                 "项目规范构建失败 action=project.specification.refresh projectId=%s",
                 project.id,
             )
-            raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED) from exception
+            raise AppException(
+                ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
+            ) from exception
+
+    def _location(self, project):
+        return self._locations.system_file(
+            project.owner_user_id,
+            project.id,
+            "project_specification.json",
+        )
 
     async def _load_existing(
         self,
         location,
         project_id: int,
     ) -> ProjectSpecificationDocument | None:
+        """
+        从云端读取 project_specification.json 文件，并验证项目 ID 是否一致。
+        如果文件不存在，则返回 None。
+        如果存在则加载并且验证文件归属
+        """
         exists = await asyncio.to_thread(self._storage.exists, location)
         if not exists:
             return None
@@ -87,7 +143,9 @@ class ProjectSpecificationService:
         try:
             document = ProjectSpecificationDocument.model_validate_json(content)
         except ValidationError as exception:
-            raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED) from exception
+            raise AppException(
+                ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
+            ) from exception
         if document.project_id != project_id:
             raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED)
         return document
@@ -105,80 +163,275 @@ class ProjectSpecificationService:
             "application/json",
         )
 
+    async def _load_rule_sources(
+        self,
+        project,
+        files: Iterable[Any],
+    ) -> list[dict[str, Any]]:
+        sources: list[dict[str, Any]] = []
+        eligible = [
+            file
+            for file in files
+            if self._is_current_project_file(file)
+            and file.analysis_version
+            and file.detail_ref
+        ]
+        for file in sorted(eligible, key=lambda item: item.relative_path):
+            location = self._locations.system_file(
+                project.owner_user_id,
+                project.id,
+                file.detail_ref.removeprefix("system/"),
+            )
+            if not await asyncio.to_thread(self._storage.exists, location):
+                logger.warning(
+                    "文件详情不存在，跳过规则候选 action=project.specification.source "
+                    "projectId=%s fileId=%s",
+                    project.id,
+                    file.id,
+                )
+                continue
+            content = await asyncio.to_thread(self._storage.get_bytes, location)
+            try:
+                detail = FileDetail.model_validate_json(content)
+            except ValidationError:
+                logger.warning(
+                    "文件详情格式无效，跳过规则候选 action=project.specification.source "
+                    "projectId=%s fileId=%s",
+                    project.id,
+                    file.id,
+                )
+                continue
+            if not self._matches_file(detail, file) or not detail.rule_candidates:
+                continue
+            sources.append(
+                {
+                    "source_ref": self._inventory_item(file),
+                    "summary": detail.summary,
+                    "rule_candidates": [
+                        candidate.model_dump(mode="json")
+                        for candidate in detail.rule_candidates
+                    ],
+                }
+            )
+        return sources
+
     def _build_prompt(
         self,
         project,
         existing: ProjectSpecificationDocument | None,
         sources: list[dict[str, Any]],
-        source_paths: list[str],
+        inventory: list[dict[str, Any]],
     ) -> str:
         existing_json = (
-            existing.model_dump_json(indent=2)
-            if existing is not None
-            else "null"
+            existing.model_dump_json(indent=2) if existing is not None else "null"
         )
         source_json = json.dumps(sources, ensure_ascii=False, indent=2)
         source_meta = json.dumps(
             {
                 "project_id": project.id,
                 "project_name": project.project_name,
-                "source_selection": "按重要度截取的当前有效文件分析投影",
+                "source_selection": "全部当前有效文件详情中的结构化规则候选",
                 "source_inventory_is_complete": True,
-                "current_source_paths": source_paths,
+                "current_sources": inventory,
             },
             ensure_ascii=False,
             indent=2,
         )
-        return (
+        prompt = (
             f"{ProjectSpecificationPrompt.PROJECT_SPECIFICATION.value}"
             f"\n\n# 实际输入\nexisting_specification_json：\n{existing_json}"
-            f"\n\nnew_content（当前有效文件分析投影）：\n{source_json}"
+            f"\n\nnew_content（结构化规则候选）：\n{source_json}"
             f"\n\nsource_meta：\n{source_meta}"
             "\n\n# 最终约束\n"
             f"project_id 必须为整数 {project.id}。"
-            "不得仅因本次分析投影未出现某个来源就删除或废弃旧规则；"
-            "只有规则引用的非空 path 不在完整 current_source_paths 中时，"
+            "规则引用文件时必须原样复制候选中的 file_id、path、content_hash 和 detail_ref；"
+            "不得仅因某个文件没有规则候选就删除旧规则；"
+            "只有旧规则引用的文件不在完整 current_sources 中时，"
             "才可基于来源删除将其标记为 deprecated 或 pending_review。"
         )
+        try:
+            return sanitize_sensitive_content(prompt).content
+        except SensitiveContentBlockedError as exception:
+            raise AppException(
+                ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED,
+                "项目规范来源包含禁止发送至模型的私钥内容",
+            ) from exception
 
-    def _build_sources(self, files: Iterable[Any]) -> list[dict[str, Any]]:
-        eligible = [
-            file
-            for file in files
-            if file.business_code == "project"
-            and file.status == "active"
-            and file.upload_status == "success"
-            and file.analysis_version
-            and file.summary
-        ]
-        priority = {"high": 0, "medium": 1, "low": 2, None: 3}
-        eligible.sort(
-            key=lambda file: (
-                priority.get(file.importance, 3),
-                file.relative_path,
-            )
-        )
+    def _build_inventory(self, files: Iterable[Any]) -> list[dict[str, Any]]:
         return [
-            {
-                "file_id": file.id,
-                "path": file.relative_path,
-                "module": file.module,
-                "kind": file.kind,
-                "language": file.language,
-                "importance": file.importance,
-                "summary": file.summary[:300],
-                "keywords": (file.keywords or [])[:10],
-                "detail_ref": file.detail_ref,
-            }
-            for file in eligible[: self.MAX_SOURCE_FILES]
+            self._inventory_item(file)
+            for file in sorted(files, key=lambda item: item.relative_path)
+            if self._is_current_project_file(file)
         ]
 
     @staticmethod
-    def _build_source_paths(files: Iterable[Any]) -> list[str]:
-        return sorted(
-            file.relative_path
-            for file in files
-            if file.business_code == "project"
+    def _is_current_project_file(file: Any) -> bool:
+        return (
+            file.business_code == "project"
             and file.status == "active"
             and file.upload_status == "success"
         )
+
+    @staticmethod
+    def _inventory_item(file: Any) -> dict[str, Any]:
+        file_type = "doc" if file.file_type == "doc" else "code"
+        return {
+            "type": file_type,
+            "file_id": file.id,
+            "path": file.relative_path,
+            "content_hash": file.content_hash,
+            "detail_ref": file.detail_ref or "",
+        }
+
+    @staticmethod
+    def _matches_file(detail: FileDetail, file: Any) -> bool:
+        return (
+            detail.file_id == file.id
+            and detail.content_hash == file.content_hash
+            and detail.detail_ref == file.detail_ref
+            and detail.analysis_version == file.analysis_version
+        )
+
+    def _enrich_source_refs(
+        self,
+        document: ProjectSpecificationDocument,
+        inventory: list[dict[str, Any]],
+    ) -> ProjectSpecificationDocument:
+        by_id = {item["file_id"]: item for item in inventory}
+        by_path = {item["path"]: item for item in inventory}
+
+        def enrich(ref: SpecificationSourceRef) -> SpecificationSourceRef:
+            source = by_id.get(ref.file_id) if ref.file_id is not None else None
+            source = source or by_path.get(ref.path)
+            if source is None or ref.type not in {"doc", "code"}:
+                return ref
+            return ref.model_copy(
+                update={
+                    "type": source["type"],
+                    "path": source["path"],
+                    "file_id": source["file_id"],
+                    "content_hash": source["content_hash"],
+                    "detail_ref": source["detail_ref"],
+                }
+            )
+
+        body = document.project_specification
+        updates: dict[str, Any] = {}
+        for field_name in self._RULE_FIELDS:
+            rules = getattr(body, field_name)
+            updates[field_name] = [
+                rule.model_copy(
+                    update={"source_refs": [enrich(ref) for ref in rule.source_refs]}
+                )
+                for rule in rules
+            ]
+        return document.model_copy(
+            update={"project_specification": body.model_copy(update=updates)}
+        )
+
+    def _requires_reconciliation(
+        self,
+        existing: ProjectSpecificationDocument | None,
+        inventory: list[dict[str, Any]],
+    ) -> bool:
+        return bool(self._stale_rule_keys(existing, inventory))
+
+    def _stale_rule_keys(
+        self,
+        existing: ProjectSpecificationDocument | None,
+        inventory: list[dict[str, Any]],
+    ) -> set[tuple[str, str]]:
+        if existing is None:
+            return set()
+        by_id = {item["file_id"]: item for item in inventory}
+        by_path = {item["path"]: item for item in inventory}
+        stale: set[tuple[str, str]] = set()
+        body = existing.project_specification
+        for field_name in self._RULE_FIELDS:
+            for rule in getattr(body, field_name):
+                for ref in rule.source_refs:
+                    if ref.type not in {"doc", "code"}:
+                        continue
+                    source = by_id.get(ref.file_id) if ref.file_id is not None else None
+                    source = source or by_path.get(ref.path)
+                    if source is None or self._source_ref_changed(ref, source):
+                        stale.add((field_name, rule.id))
+                        break
+        return stale
+
+    @staticmethod
+    def _source_ref_changed(
+        ref: SpecificationSourceRef,
+        source: dict[str, Any],
+    ) -> bool:
+        return (
+            ref.file_id != source["file_id"]
+            or ref.path != source["path"]
+            or ref.content_hash != source["content_hash"]
+            or ref.detail_ref != source["detail_ref"]
+        )
+
+    def _mark_unreconciled_rules(
+        self,
+        document: ProjectSpecificationDocument,
+        stale_rule_keys: set[tuple[str, str]],
+        generated: ProjectSpecificationDocument,
+        sources: list[dict[str, Any]],
+        inventory: list[dict[str, Any]],
+    ) -> ProjectSpecificationDocument:
+        generated_keys = {
+            (field_name, rule.id)
+            for field_name in self._RULE_FIELDS
+            for rule in getattr(generated.project_specification, field_name)
+        }
+        candidate_sources = {
+            (
+                item["source_ref"]["file_id"],
+                item["source_ref"]["content_hash"],
+                item["source_ref"]["detail_ref"],
+            )
+            for item in sources
+        }
+        body = document.project_specification
+        updates: dict[str, Any] = {}
+        for field_name in self._RULE_FIELDS:
+            updated_rules = []
+            for rule in getattr(body, field_name):
+                key = (field_name, rule.id)
+                unresolved_source = self._has_unresolved_source(rule, inventory)
+                confirmed = key in generated_keys and any(
+                    (ref.file_id, ref.content_hash, ref.detail_ref) in candidate_sources
+                    for ref in rule.source_refs
+                    if ref.type in {"doc", "code"}
+                )
+                needs_review = unresolved_source or (
+                    key in stale_rule_keys and not confirmed
+                )
+                if needs_review and rule.status == "active":
+                    rule = rule.model_copy(
+                        update={
+                            "status": "pending_review",
+                            "updated_at": datetime.now(),
+                        }
+                    )
+                updated_rules.append(rule)
+            updates[field_name] = updated_rules
+        return document.model_copy(
+            update={"project_specification": body.model_copy(update=updates)}
+        )
+
+    def _has_unresolved_source(
+        self,
+        rule: Any,
+        inventory: list[dict[str, Any]],
+    ) -> bool:
+        by_id = {item["file_id"]: item for item in inventory}
+        by_path = {item["path"]: item for item in inventory}
+        for ref in rule.source_refs:
+            if ref.type not in {"doc", "code"}:
+                continue
+            source = by_id.get(ref.file_id) if ref.file_id is not None else None
+            source = source or by_path.get(ref.path)
+            if source is None or self._source_ref_changed(ref, source):
+                return True
+        return False

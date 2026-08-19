@@ -45,6 +45,9 @@ def _service(
 ) -> ProjectFileAnalysisService:
     project_service = projects or AsyncMock()
     project_service.require_owned.return_value = project()
+    specification_service = specification or AsyncMock()
+    if not isinstance(specification_service.refresh.return_value, str):
+        specification_service.refresh.return_value = "updated"
     return ProjectFileAnalysisService(
         repository,
         project_service,
@@ -52,18 +55,28 @@ def _service(
         StorageLocationFactory(storage_config()),
         index or AsyncMock(),
         analyzer or AsyncMock(),
-        specification or AsyncMock(),
+        specification_service,
     )
 
 
 def _success_result(file):
+    detail_name = file.storage_name.rsplit(".", maxsplit=1)[0]
+    detail_ref = (
+        f"system/file_details/{detail_name}-{file.content_hash}-file-detail-v2.json"
+    )
+    detail = file_detail(file).model_copy(
+        update={
+            "analysis_version": ProjectFileAnalysisService.ANALYSIS_VERSION,
+            "detail_ref": detail_ref,
+        }
+    )
     return FileAnalysisResult(
         project_id=file.project_id,
         file_id=file.id,
         content_hash=file.content_hash,
-        analysis_version="file-detail-v1",
+        analysis_version=ProjectFileAnalysisService.ANALYSIS_VERSION,
         status="success",
-        detail=file_detail(file),
+        detail=detail,
     )
 
 
@@ -72,7 +85,7 @@ def _failure_result(file):
         project_id=file.project_id,
         file_id=file.id,
         content_hash=file.content_hash,
-        analysis_version="file-detail-v1",
+        analysis_version=ProjectFileAnalysisService.ANALYSIS_VERSION,
         status="failed",
         error_code="MODEL_OUTPUT_INVALID",
         error_message="模型输出不合法",
@@ -111,7 +124,13 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         with patch.object(analysis_service_module, "logger") as logger:
             result = await service.initialize(1, 10)
 
-        self.assertIsNone(result)
+        self.assertEqual("partial", result.status)
+        self.assertEqual(2, result.candidate_count)
+        self.assertEqual(1, result.success_count)
+        self.assertEqual(1, result.failure_count)
+        self.assertEqual(31, result.failures[0].file_id)
+        self.assertEqual("updated", result.specification_status)
+        self.assertEqual("updated", result.index_status)
         self.assertEqual(2, storage.get_bytes.call_count)
         storage.put_bytes.assert_called_once()
         repository.record_analysis_success.assert_awaited_once()
@@ -128,7 +147,8 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual(1, first_request.user_id)
         self.assertEqual(30, first_request.file_id)
         self.assertEqual(first.relative_path, first_request.original_path)
-        self.assertTrue(first_request.detail_ref.startswith("system/file_details/"))
+        self.assertIn(first.content_hash, first_request.detail_ref)
+        self.assertTrue(first_request.detail_ref.endswith("-file-detail-v2.json"))
         calls = repr(logger.method_calls)
         self.assertIn("successCount=%s", calls)
         self.assertIn("failureCount=%s", calls)
@@ -171,13 +191,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         index.write.assert_awaited_once()
         specification.refresh.assert_awaited_once()
 
-    async def test_initialize_propagates_analyzer_exception(self) -> None:
-        """验证分析器系统异常不会被错误转换为文件级成功。
-
-        @Param user_id: 项目所有者用户 ID。
-        @Param project_id: 待解析项目 ID。
-        @Return: 继续抛出分析器产生的 RuntimeError。
-        """
+    async def test_initialize_records_unexpected_analyzer_exception(self) -> None:
         file = project_file()
         repository = _repository([file])
         storage = Mock()
@@ -192,12 +206,19 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             index=index,
         )
 
-        with self.assertRaises(RuntimeError):
-            await service.initialize(1, 10)
+        result = await service.initialize(1, 10)
 
         repository.record_analysis_success.assert_not_awaited()
-        repository.record_analysis_failure.assert_not_awaited()
-        index.write.assert_not_awaited()
+        repository.record_analysis_failure.assert_awaited_once_with(
+            10,
+            file.id,
+            file.content_hash,
+            "FILE_DETAIL_ANALYSIS_FAILED",
+            "文件分析器执行失败",
+        )
+        index.write.assert_awaited_once()
+        self.assertEqual("partial", result.status)
+        self.assertEqual("FILE_DETAIL_ANALYSIS_FAILED", result.failures[0].error_code)
 
     async def test_initialize_rolls_back_concurrent_analysis_conflict(self) -> None:
         """验证文件内容并发变化时拒绝落库旧分析结果。
@@ -230,6 +251,40 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         self.assertIs(ErrorCode.SYSTEM_ERROR, caught.exception.error)
         repository.session.rollback.assert_awaited_once()
         index.write.assert_not_awaited()
+        detail_location = storage.put_bytes.call_args.args[0]
+        self.assertIn(file.content_hash, detail_location.object_key)
+
+    async def test_initialize_records_detail_storage_failure_and_continues(
+        self,
+    ) -> None:
+        file = project_file()
+        repository = _repository([file])
+        storage = Mock()
+        storage.get_bytes.return_value = b"content"
+        storage.put_bytes.side_effect = AppException(ErrorCode.FILE_STORAGE_ERROR)
+        analyzer = AsyncMock(return_value=_success_result(file))
+        analyzer.analyze_bytes.return_value = _success_result(file)
+        index = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            analyzer=analyzer,
+            index=index,
+        )
+
+        result = await service.initialize(1, 10)
+
+        repository.record_analysis_success.assert_not_awaited()
+        repository.record_analysis_failure.assert_awaited_once_with(
+            10,
+            file.id,
+            file.content_hash,
+            "FILE_STORAGE_ERROR",
+            ErrorCode.FILE_STORAGE_ERROR.message,
+        )
+        self.assertEqual("partial", result.status)
+        self.assertEqual("FILE_STORAGE_ERROR", result.failures[0].error_code)
+        index.write.assert_awaited_once()
 
     async def test_initialize_rebuilds_index_without_candidates(self) -> None:
         """验证无候选文件时仍从数据库重建完整索引。
@@ -250,9 +305,69 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             specification=specification,
         )
 
-        await service.initialize(1, 10)
+        result = await service.initialize(1, 10)
 
         analyzer.analyze_bytes.assert_not_awaited()
+        repository.list_parse_candidates.assert_awaited_once_with(
+            10,
+            "file-detail-v2",
+        )
         repository.list.assert_awaited_once_with(10, include_system=True)
         index.write.assert_awaited_once()
         specification.refresh.assert_awaited_once()
+        self.assertEqual("success", result.status)
+        self.assertEqual(0, result.candidate_count)
+
+    async def test_initialize_keeps_old_specification_and_publishes_index(self) -> None:
+        file = project_file()
+        repository = _repository([file])
+        storage = Mock()
+        storage.get_bytes.return_value = b"content"
+        analyzer = AsyncMock()
+        analyzer.analyze_bytes.return_value = _success_result(file)
+        specification = AsyncMock()
+        specification.refresh.side_effect = AppException(
+            ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
+        )
+        index = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            analyzer=analyzer,
+            specification=specification,
+            index=index,
+        )
+
+        result = await service.initialize(1, 10)
+
+        self.assertEqual("partial", result.status)
+        self.assertEqual("failed", result.specification_status)
+        self.assertEqual("updated", result.index_status)
+        index.write.assert_awaited_once()
+
+    async def test_initialize_publishes_specification_before_index(self) -> None:
+        repository = _repository([])
+        calls: list[str] = []
+        specification = AsyncMock()
+
+        async def refresh(*_args):
+            calls.append("specification")
+            return "kept"
+
+        specification.refresh.side_effect = refresh
+        index = AsyncMock()
+
+        async def write(*_args):
+            calls.append("index")
+
+        index.write.side_effect = write
+        service = _service(
+            repository,
+            specification=specification,
+            index=index,
+        )
+
+        result = await service.initialize(1, 10)
+
+        self.assertEqual(["specification", "index"], calls)
+        self.assertEqual("kept", result.specification_status)

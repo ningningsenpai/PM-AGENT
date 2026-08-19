@@ -1,4 +1,5 @@
 """项目文件解析编排服务。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -10,8 +11,11 @@ from app.infrastructure.storage import (
     ObjectStorage,
     StorageLocationFactory,
 )
-from app.modules.project.index_service import ProjectIndexService
 from app.modules.project.service import ProjectService
+from app.modules.project_file.analysis.schemas import (
+    ProjectFileAnalysisBatchResult,
+    ProjectFileAnalysisFailure,
+)
 from app.modules.project_file.models import ProjectFile
 from app.modules.project_file.repository import ProjectFileRepository
 from app.project.context.detail_analysis.schemas import (
@@ -19,6 +23,7 @@ from app.project.context.detail_analysis.schemas import (
     FileAnalysisResult,
 )
 from app.project.context.detail_analysis.service import FileDetailAnalysisService
+from app.project.context.index import ProjectIndexService
 from app.project.context.specification import ProjectSpecificationService
 
 logger = get_logger(__name__)
@@ -27,7 +32,7 @@ logger = get_logger(__name__)
 class ProjectFileAnalysisService:
     """在 Python 进程内完成读取、解析、落库和索引重建。"""
 
-    ANALYSIS_VERSION = "file-detail-v1"
+    ANALYSIS_VERSION = "file-detail-v1.0"
 
     def __init__(
         self,
@@ -47,9 +52,16 @@ class ProjectFileAnalysisService:
         self._analyzer = analyzer
         self._specification = specification_service
 
-    async def initialize(self, user_id: int, project_id: int) -> None:
+    async def initialize(
+        self,
+        user_id: int,
+        project_id: int,
+    ) -> ProjectFileAnalysisBatchResult:
         project = await self._projects.require_owned(user_id, project_id)
-        candidates = await self._repository.list_parse_candidates(project_id)
+        candidates = await self._repository.list_parse_candidates(
+            project_id,
+            self.ANALYSIS_VERSION,
+        )
         await self._repository.session.commit()
         logger.info(
             "开始解析项目文件 action=project_file.analyze "
@@ -61,11 +73,17 @@ class ProjectFileAnalysisService:
 
         success_count = 0
         failure_count = 0
+        failures: list[ProjectFileAnalysisFailure] = []
         for file in candidates:
             request = self._build_request(project.owner_user_id, file)
             result = await self._analyze_file(file, request)
             if result.status == "success" and result.detail is not None:
-                await self._write_detail(project.owner_user_id, project.id, result)
+                result = await self._write_detail_or_failure(
+                    project.owner_user_id,
+                    project.id,
+                    result,
+                )
+            if result.status == "success" and result.detail is not None:
                 updated = await self._repository.record_analysis_success(
                     project_id,
                     file.id,
@@ -105,6 +123,14 @@ class ProjectFileAnalysisService:
                 )
             else:
                 failure_count += 1
+                failures.append(
+                    ProjectFileAnalysisFailure(
+                        file_id=file.id,
+                        relative_path=file.relative_path,
+                        error_code=(result.error_code or "FILE_DETAIL_ANALYSIS_FAILED"),
+                        error_message=result.error_message or "文件解析失败",
+                    )
+                )
                 logger.warning(
                     "文件解析失败 action=project_file.analyze "
                     "userId=%s projectId=%s fileId=%s errorCode=%s",
@@ -116,8 +142,34 @@ class ProjectFileAnalysisService:
 
         files = await self._repository.list(project_id, include_system=True)
         await self._repository.session.commit()
-        await self._index.write(project, files)
-        await self._specification.refresh(project, files)
+        specification_status = "updated"
+        try:
+            specification_status = await self._specification.refresh(project, files)
+        except Exception:
+            specification_status = "failed"
+            logger.exception(
+                "项目规范刷新失败，保留原有规范 action=project_file.analyze "
+                "userId=%s projectId=%s",
+                user_id,
+                project_id,
+            )
+        index_status = "updated"
+        try:
+            await self._index.write(project, files)
+        except Exception:
+            index_status = "failed"
+            logger.exception(
+                "项目索引发布失败 action=project_file.analyze userId=%s projectId=%s",
+                user_id,
+                project_id,
+            )
+        status = (
+            "partial"
+            if failure_count
+            or specification_status == "failed"
+            or index_status == "failed"
+            else "success"
+        )
         logger.info(
             "项目文件解析完成 action=project_file.analyze "
             "userId=%s projectId=%s successCount=%s failureCount=%s",
@@ -126,13 +178,22 @@ class ProjectFileAnalysisService:
             success_count,
             failure_count,
         )
+        return ProjectFileAnalysisBatchResult(
+            status=status,
+            candidate_count=len(candidates),
+            success_count=success_count,
+            failure_count=failure_count,
+            failures=failures,
+            specification_status=specification_status,
+            index_status=index_status,
+        )
 
     async def _analyze_file(
         self,
         file: ProjectFile,
         request: FileAnalysisRequest,
     ) -> FileAnalysisResult:
-        """ 读取文件内容并且解析 """
+        """读取文件内容并且解析"""
         try:
             content = await asyncio.to_thread(
                 self._storage.get_bytes,
@@ -163,12 +224,19 @@ class ProjectFileAnalysisService:
             return await self._analyzer.analyze_bytes(request, content)
         except Exception:
             logger.exception(
-                "文件分析器执行失败 action=project_file.analyze "
-                "projectId=%s fileId=%s",
+                "文件分析器执行失败 action=project_file.analyze projectId=%s fileId=%s",
                 file.project_id,
                 file.id,
             )
-            raise
+            return FileAnalysisResult(
+                project_id=file.project_id,
+                file_id=file.id,
+                content_hash=file.content_hash,
+                analysis_version=self.ANALYSIS_VERSION,
+                status="failed",
+                error_code="FILE_DETAIL_ANALYSIS_FAILED",
+                error_message="文件分析器执行失败",
+            )
 
     async def _write_detail(
         self,
@@ -176,10 +244,7 @@ class ProjectFileAnalysisService:
         project_id: int,
         result: FileAnalysisResult,
     ) -> None:
-        """
-        将文件分析详情（json）写入对象存储 -> system 专用
-        @Param user_id、 project_id、 FileAnalysisResult
-        """
+        """将服务端组装的文件详情写入 system 区域。"""
         detail = result.detail
         if detail is None:
             raise AppException(ErrorCode.FILE_ANALYSIS_FAILED)
@@ -205,20 +270,59 @@ class ProjectFileAnalysisService:
             result.file_id,
         )
 
+    async def _write_detail_or_failure(
+        self,
+        user_id: int,
+        project_id: int,
+        result: FileAnalysisResult,
+    ) -> FileAnalysisResult:
+        try:
+            await self._write_detail(user_id, project_id, result)
+            return result
+        except AppException as exception:
+            error_code = exception.error.name
+            error_message = exception.message
+            logger.warning(
+                "文件详情写入失败 action=project_file.analyze.detail "
+                "projectId=%s fileId=%s errorCode=%s",
+                project_id,
+                result.file_id,
+                error_code,
+            )
+        except Exception:
+            error_code = "FILE_DETAIL_WRITE_FAILED"
+            error_message = "文件详情写入失败"
+            logger.exception(
+                "文件详情写入失败 action=project_file.analyze.detail "
+                "projectId=%s fileId=%s errorCode=%s",
+                project_id,
+                result.file_id,
+                error_code,
+            )
+        return FileAnalysisResult(
+            project_id=result.project_id,
+            file_id=result.file_id,
+            content_hash=result.content_hash,
+            analysis_version=result.analysis_version,
+            status="failed",
+            error_code=error_code,
+            error_message=error_message,
+        )
+
     def _build_request(
         self,
         user_id: int,
         file: ProjectFile,
     ) -> FileAnalysisRequest:
-        """ 构建文件分析请求 """
+        """构建包含当前文件版本身份的分析请求。"""
         detail_name = (
             file.storage_name.rsplit(".", maxsplit=1)[0]
             if "." in file.storage_name
             else file.storage_name
         )
         detail_ref = (
-            file.detail_ref
-            or f"system/file_details/{detail_name}.json"
+            f"system/file_details/{detail_name}-"
+            f"{file.content_hash}-{self.ANALYSIS_VERSION}.json"
         )
         return FileAnalysisRequest(
             user_id=user_id,

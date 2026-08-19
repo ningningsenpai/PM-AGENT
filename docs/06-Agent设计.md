@@ -98,16 +98,16 @@ Trace 落库后至少记录：
 
 项目文件解析是 Python 应用服务，不再是跨 Java/Python HTTP：
 
-1. Service 查询 `active`、尚无有效分析版本且解析次数小于 3 的文件；
+1. Service 查询 `active/success`、尚无有效分析版本、失败可重试或需要升级到当前分析版本的文件；
 2. 通过对象键使用 MinIO SDK 读取；
 3. 复用既有解析器和 Prompt，通过统一 `DeepSeekClient` 调用 `/chat/completions`；
-4. Pydantic 校验输出与文件身份；
-5. 写 `system/file_details/*.json`；
-6. 条件更新分析投影与解析次数；
-7. 从数据库完整生成 `system/index.json`；
-8. 将当前有效文件分析投影交给结构化模型生成器，经 Pydantic 校验和稳定 ID 合并后写入 `system/project_specification.json`。
+4. 在 Prompt 前阻断明确凭据内容并脱敏常见密钥、令牌和连接串；
+5. Pydantic 校验模型返回的语义字段和结构化规则候选，文件身份字段由服务端构造；
+6. 以完整内容哈希和分析版本写 `system/file_details/*.json`，再条件更新分析投影与解析次数；
+7. 将当前有效详情中的规则候选、文件投影和完整来源清单交给结构化模型生成器，经 Pydantic 校验和稳定 ID 合并后写入 `system/project_specification.json`；
+8. 最后从数据库完整生成 `system/index.json`。
 
-文件详情和项目规范复用同一个 `StructuredJsonGenerator` 与 DeepSeek 客户端，具体 Prompt 和 Pydantic 输出模型保持独立。结构化调用启用 `response_format={"type":"json_object"}`，设置最大输出 token 与文件解析专用超时，并拒绝空响应和因 token 上限截断的响应。MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件；解析入口可重复调用，以恢复文件级失败或项目规范构建失败。
+文件详情和项目规范复用同一个 `StructuredJsonGenerator` 与 DeepSeek 客户端，具体 Prompt 和 Pydantic 输出模型保持独立。结构化调用启用 `response_format={"type":"json_object"}`，设置最大输出 token 与文件解析专用超时，并拒绝空响应和因 token 上限截断的响应。MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件；项目规范刷新失败保留旧对象；解析接口通过结构化批次结果返回文件、规范和索引的实际状态，不把部分失败报告为完整成功。
 
 文件解析模型通过以下环境变量显式启用：
 
@@ -125,8 +125,8 @@ PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
 - 模型输出优先使用结构化 JSON。
 - 关键输出必须经 Pydantic 或 JSON Schema 校验。
 - 模型路由、Prompt 缓存和 token 预算沿用既有 LLM 适配层。
-- 禁止把数据库凭据、JWT、预签名地址或敏感文件原文写入 Prompt。
-- 启用文件解析后，解析文本会离开本地运行环境并发送到 DeepSeek API；当前未实现内容级密钥自动脱敏，只能对确认允许外传的项目文件启用该能力。
+- 禁止把数据库凭据、JWT、预签名地址、私钥或明确凭据原文写入 Prompt。
+- 文件解析在调用 DeepSeek 前执行确定性敏感检查：私钥等高风险内容直接阻断模型分析，常见密钥、令牌和连接串先脱敏。该能力是 MVP 安全门禁，不替代专业 DLP，启用文件解析时仍只应选择允许外传的项目文件。
 - 本次迁移不扩展完整 RAG、训练或评测能力。
 
 ## 12. 验收标准

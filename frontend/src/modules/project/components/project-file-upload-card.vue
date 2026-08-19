@@ -7,9 +7,12 @@
           <h2>项目文件同步</h2>
           <n-tag :type="uploadStatusType" round size="small">{{ uploadStatusLabel }}</n-tag>
         </div>
-        <p>选择项目文件夹后，系统会识别新增、修改、移动和删除，再复用单文件接口同步。</p>
+        <p>选择项目文件夹后，后端会统一规划新增、修改、移动和删除，再按计划同步。</p>
       </div>
       <div class="upload-actions">
+        <n-button type="error" secondary :disabled="uploading" @click="clearProjectFiles">
+          清空项目文件
+        </n-button>
         <n-button :disabled="uploading" @click="openDirectoryPicker">重新选择</n-button>
         <n-button type="primary" :loading="uploading" @click="openDirectoryPicker">
           {{ uploading ? '正在同步' : '选择文件夹' }}
@@ -27,7 +30,7 @@
     </div>
 
     <n-alert class="filter-alert" type="info" :show-icon="false">
-      单文件最大 50MB；删除远端文件前会再次确认，失败记录可在重新选择目录时重试。
+      单文件最大 50MB；文件内容使用 SHA-256 比对，删除远端文件前会再次确认。
     </n-alert>
 
     <div v-if="viewState === 'idle'" class="upload-placeholder">
@@ -93,7 +96,7 @@
       </div>
 
       <n-alert v-if="viewState === 'success'" type="success" title="项目文件同步完成">
-        {{ succeededFileCount }} 个项目文件状态已同步，项目规范已刷新。
+        {{ completionSummary }}
       </n-alert>
 
       <n-alert
@@ -101,7 +104,7 @@
         type="warning"
         title="存在未同步成功的文件"
       >
-        共 {{ finalFailures.length }} 个文件失败或未通过校验，可重新选择目录继续同步。
+        {{ completionSummary }} 共 {{ finalFailures.length }} 个文件失败或未通过校验，可重新选择目录继续同步。
       </n-alert>
 
       <div v-if="finalFailures.length" class="failure-list">
@@ -130,21 +133,19 @@ import { computed, ref } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import {
   deleteProjectFile,
-  listProjectFiles,
   overwriteProjectFile,
+  planProjectFileSync,
   requestProjectFileParsing,
   updateProjectFilePath,
   uploadProjectFile,
 } from '@/modules/project/api'
-import {
-  validateProjectFile,
-  type PreparedProjectFile,
-  type RejectedProjectFile,
-} from '@/modules/project/file-upload'
-import {
-  buildProjectFileDiff,
-  type ProjectFileDiff,
-} from '@/modules/project/project-update'
+import type { PreparedProjectFile, RejectedProjectFile } from '@/modules/project/file-upload'
+import { prepareProjectFileSync } from '@/modules/project/project-sync'
+import type {
+  ProjectFileParseResult,
+  ProjectFileSyncPlan,
+  ProjectFileSyncRemoteItem,
+} from '@/modules/project/types'
 
 type UploadViewState = 'idle' | 'empty' | 'uploading' | 'success' | 'needs-update'
 
@@ -168,6 +169,7 @@ const processedFileCount = ref(0)
 const succeededFileCount = ref(0)
 const rejectedFiles = ref<RejectedProjectFile[]>([])
 const finalFailures = ref<UploadFailure[]>([])
+const parseResult = ref<ProjectFileParseResult | null>(null)
 
 const rejectedReasonSummary = computed(() => {
   const counts = new Map<string, number>()
@@ -177,7 +179,7 @@ const rejectedReasonSummary = computed(() => {
 
 const uploadPercentage = computed(() => {
   if (!totalFileCount.value) return 0
-  return Math.round((processedFileCount.value / totalFileCount.value) * 100)
+  return Math.min(100, Math.round((processedFileCount.value / totalFileCount.value) * 100))
 })
 
 const uploadProgressText = computed(() => {
@@ -187,6 +189,17 @@ const uploadProgressText = computed(() => {
   }
   if (viewState.value === 'success') return `${succeededFileCount.value} 个文件已同步`
   return `${finalFailures.value.length} 个文件需要后续更新`
+})
+
+const completionSummary = computed(() => {
+  if (!parseResult.value) return `${succeededFileCount.value} 个项目文件状态已同步。`
+  const specificationText = {
+    updated: '项目规范已刷新',
+    kept: '项目规范保持不变',
+    failed: '项目规范刷新失败',
+  }[parseResult.value.specificationStatus]
+  const indexText = parseResult.value.indexStatus === 'updated' ? '索引已发布' : '索引发布失败'
+  return `文件解析 ${parseResult.value.successCount}/${parseResult.value.candidateCount} 成功，${specificationText}，${indexText}。`
 })
 
 const uploadStatusLabel = computed(() => {
@@ -226,130 +239,309 @@ async function handleDirectoryChange(event: Event) {
   }
 
   selectedDirectoryName.value = getDirectoryName(selectedFiles[0])
+  totalFileCount.value = selectedFiles.length
   uploading.value = true
   viewState.value = 'uploading'
-  const acceptedPaths = new Set<string>()
-  const observedLocalPaths = new Set<string>()
-  const preparedFiles: PreparedProjectFile[] = []
-
-  for (const file of selectedFiles) {
-    const validation = validateProjectFile(file, acceptedPaths)
-    observedLocalPaths.add(
-      validation.valid
-        ? validation.candidate.relativePath
-        : validation.rejection.relativePath,
-    )
-    if (!validation.valid) {
-      rejectedFiles.value.push(validation.rejection)
-      finalFailures.value.push({
-        relativePath: validation.rejection.relativePath,
-        errorMessage: validation.rejection.reason,
-      })
-      continue
-    }
-    preparedFiles.push(validation.candidate)
-  }
 
   try {
-    const remoteFiles = await listProjectFiles(props.projectId)
-    const diff = await buildProjectFileDiff(
-      preparedFiles,
-      remoteFiles,
-      observedLocalPaths,
-    )
-    totalFileCount.value = selectedFiles.length + diff.deleted.length
-    processedFileCount.value = rejectedFiles.value.length + diff.unchanged.length
-    succeededFileCount.value = diff.unchanged.length
+    const selection = await prepareProjectFileSync(selectedFiles)
+    rejectedFiles.value = selection.localRejections
+    const plan = await planProjectFileSync(props.projectId, selection.request)
+    const localIssueCount = recordPlanIssues(plan, selection.localRejections)
+    const deletionItems = getDeletionItems(plan)
+    totalFileCount.value = countPlanItems(plan) + localIssueCount
+    processedFileCount.value =
+      plan.unchanged.length +
+      plan.rejected.length +
+      countUnresolvedAmbiguousItems(plan) +
+      localIssueCount
+    succeededFileCount.value = plan.unchanged.length
 
-    if (diff.deleted.length && !(await confirmRemoteDeletion(diff))) {
-      finalFailures.value.push({
-        relativePath: '项目目录',
-        errorMessage: `已取消删除 ${diff.deleted.length} 个远端文件，本次同步未执行`,
-      })
-      viewState.value = 'needs-update'
-      message.info('已取消项目文件同步')
-      return
+    const deletionApproved = deletionItems.length
+      ? await confirmRemoteDeletion(plan, deletionItems)
+      : true
+    const nonDeletionSucceeded = await executeNonDeletionPlan(plan, selection.filesByPath)
+    const canDelete =
+      deletionApproved &&
+      nonDeletionSucceeded &&
+      plan.rejected.length === 0 &&
+      localIssueCount === 0
+
+    if (canDelete) {
+      await executeDeletionPlan(deletionItems)
+    } else if (deletionItems.length) {
+      const reason = deletionApproved
+        ? '存在非删除动作失败或拒绝项，已跳过删除'
+        : '用户取消删除，远端文件已保留'
+      recordSkippedDeletions(deletionItems, reason)
     }
 
-    await executeProjectDiff(diff)
-    await requestProjectFileParsing(props.projectId)
+    const result = await requestProjectFileParsing(props.projectId)
+    applyParseResult(result)
   } catch (error) {
-    finalFailures.value.push({
-      relativePath: 'system/project_specification.json',
-      errorMessage: error instanceof Error ? error.message : '项目文件同步或规范刷新失败',
-    })
+    recordFailure(
+      '项目文件同步',
+      error instanceof Error ? error.message : '项目文件同步或上下文刷新失败',
+    )
   } finally {
     uploading.value = false
   }
 
-  if (finalFailures.value.length) {
+  finishUploadView()
+}
+
+async function clearProjectFiles() {
+  if (uploading.value) return
+  resetUploadView()
+  selectedDirectoryName.value = '项目全部文件'
+  uploading.value = true
+  viewState.value = 'uploading'
+
+  try {
+    const plan = await planProjectFileSync(props.projectId, {
+      snapshotComplete: true,
+      scope: 'project',
+      items: [],
+    })
+    totalFileCount.value = plan.deleted.length
+    if (plan.deleted.length && !(await confirmClearProjectFiles(plan))) {
+      resetUploadView()
+      message.info('已取消清空项目文件')
+      return
+    }
+
+    await executeDeletionPlan(plan.deleted)
+    const result = await requestProjectFileParsing(props.projectId)
+    applyParseResult(result)
+  } catch (error) {
+    recordFailure(
+      '项目文件清空',
+      error instanceof Error ? error.message : '项目文件清空或上下文刷新失败',
+    )
+  } finally {
+    uploading.value = false
+  }
+
+  finishUploadView()
+}
+
+function finishUploadView() {
+  if (finalFailures.value.length || parseResult.value?.status === 'partial') {
     viewState.value = 'needs-update'
-    message.warning('存在未同步成功的文件，可重新选择目录重试')
+    message.warning('存在未同步或未解析成功的文件，可重新选择目录重试')
   } else {
     viewState.value = 'success'
-    message.success('项目文件与项目规范同步完成')
+    message.success('项目文件与项目上下文同步完成')
   }
 }
 
-async function executeProjectDiff(diff: ProjectFileDiff) {
-  for (const remote of diff.deleted) {
-    await runSyncOperation(remote.relativePath, () =>
-      deleteProjectFile(props.projectId, remote.id, remote.lockVersion),
+function recordPlanIssues(plan: ProjectFileSyncPlan, localRejections: RejectedProjectFile[]) {
+  const serverRejectedPaths = new Set(plan.rejected.map((item) => item.relativePath))
+  const localReasonByPath = new Map(localRejections.map((item) => [item.relativePath, item.reason]))
+
+  for (const item of plan.rejected) {
+    const errorMessage = localReasonByPath.get(item.relativePath) ?? item.errorMessage
+    recordFailure(item.relativePath, errorMessage)
+    if (!rejectedFiles.value.some((file) => file.relativePath === item.relativePath)) {
+      rejectedFiles.value.push({ relativePath: item.relativePath, reason: errorMessage })
+    }
+  }
+  if (!plan.snapshotComplete) {
+    for (const item of plan.ambiguous) {
+      const remotePaths = item.remoteItems.map((remote) => remote.remoteRelativePath).join('、')
+      for (const local of item.localItems) {
+        recordFailure(
+          local.relativePath,
+          `存在多个相同内容文件，无法确认是否由 ${remotePaths} 移动而来；当前不是完整快照，未执行新增或删除`,
+        )
+      }
+    }
+  }
+
+  const localOnlyRejections = localRejections.filter(
+    (item) => !serverRejectedPaths.has(item.relativePath),
+  )
+  localOnlyRejections.forEach((item) => recordFailure(item.relativePath, item.reason))
+  return localOnlyRejections.length
+}
+
+async function executeNonDeletionPlan(
+  plan: ProjectFileSyncPlan,
+  filesByPath: Map<string, PreparedProjectFile>,
+) {
+  let allSucceeded = true
+
+  for (const item of plan.moved) {
+    allSucceeded =
+      (await runSyncOperation(item.relativePath, () =>
+        updateProjectFilePath(props.projectId, {
+          fileId: item.remoteFileId,
+          relativePath: item.relativePath,
+          sourceMtimeMs: item.sourceMtimeMs,
+          lockVersion: item.lockVersion,
+        }),
+      )) && allSucceeded
+  }
+  for (const item of plan.modified) {
+    const local = filesByPath.get(item.relativePath)
+    allSucceeded =
+      (await runLocalFileOperation(item.relativePath, local, (file) =>
+        overwriteProjectFile(props.projectId, {
+          ...file,
+          fileId: item.remoteFileId,
+          lockVersion: item.lockVersion,
+        }),
+      )) && allSucceeded
+  }
+  const addedItems = [
+    ...plan.added,
+    ...(plan.snapshotComplete ? plan.ambiguous.flatMap((item) => item.localItems) : []),
+  ]
+  for (const item of addedItems) {
+    const local = filesByPath.get(item.relativePath)
+    allSucceeded =
+      (await runLocalFileOperation(item.relativePath, local, async (file) => {
+        const result = await uploadProjectFile(props.projectId, file)
+        if (!result.success) throw new Error(result.errorMessage || '文件上传失败')
+      })) && allSucceeded
+  }
+
+  return allSucceeded
+}
+
+async function executeDeletionPlan(files: ProjectFileSyncRemoteItem[]) {
+  for (const item of files) {
+    await runSyncOperation(item.remoteRelativePath, () =>
+      deleteProjectFile(props.projectId, item.remoteFileId, item.lockVersion),
     )
   }
-  for (const { local, remote } of diff.moved) {
-    await runSyncOperation(local.relativePath, () =>
-      updateProjectFilePath(props.projectId, {
-        fileId: remote.id,
-        relativePath: local.relativePath,
-        sourceMtimeMs: local.sourceMtimeMs,
-        lockVersion: remote.lockVersion,
-      }),
-    )
+}
+
+async function runLocalFileOperation(
+  relativePath: string,
+  local: PreparedProjectFile | undefined,
+  operation: (file: PreparedProjectFile) => Promise<unknown>,
+) {
+  if (!local) {
+    recordFailure(relativePath, '同步计划中的本地文件已不可用，请重新选择目录')
+    processedFileCount.value += 1
+    return false
   }
-  for (const { local, remote } of diff.modified) {
-    await runSyncOperation(local.relativePath, () =>
-      overwriteProjectFile(props.projectId, {
-        ...local,
-        fileId: remote.id,
-        lockVersion: remote.lockVersion,
-      }),
-    )
-  }
-  for (const local of diff.added) {
-    await runSyncOperation(local.relativePath, async () => {
-      const result = await uploadProjectFile(props.projectId, local)
-      if (!result.success) throw new Error(result.errorMessage || '文件上传失败')
-    })
-  }
+  return runSyncOperation(relativePath, () => operation(local))
 }
 
 async function runSyncOperation(relativePath: string, operation: () => Promise<unknown>) {
   try {
     await operation()
     succeededFileCount.value += 1
+    return true
   } catch (error) {
-    finalFailures.value.push({
-      relativePath,
-      errorMessage: error instanceof Error ? error.message : '文件同步失败',
-    })
+    recordFailure(relativePath, error instanceof Error ? error.message : '文件同步失败')
+    return false
   } finally {
     processedFileCount.value += 1
   }
 }
 
-function confirmRemoteDeletion(diff: ProjectFileDiff) {
-  const preview = diff.deleted
+function applyParseResult(result: ProjectFileParseResult) {
+  parseResult.value = result
+  result.failures.forEach((failure) => recordFailure(failure.relativePath, failure.errorMessage))
+  if (result.failureCount > result.failures.length) {
+    recordFailure('文件解析', `另有 ${result.failureCount - result.failures.length} 个文件解析失败`)
+  }
+  if (result.specificationStatus === 'failed') {
+    recordFailure('system/project_specification.json', '项目规范刷新失败，已保留原有规范')
+  }
+  if (result.indexStatus === 'failed') {
+    recordFailure('system/index.json', '项目索引发布失败')
+  }
+  if (result.status === 'partial' && !result.failureCount && !finalFailures.value.length) {
+    recordFailure('项目上下文', '项目上下文仅部分刷新成功')
+  }
+}
+
+function recordSkippedDeletions(files: ProjectFileSyncRemoteItem[], reason: string) {
+  files.forEach((file) => recordFailure(file.remoteRelativePath, reason))
+  processedFileCount.value += files.length
+}
+
+function recordFailure(relativePath: string, errorMessage: string) {
+  finalFailures.value.push({ relativePath, errorMessage })
+}
+
+function countPlanItems(plan: ProjectFileSyncPlan) {
+  const ambiguousItemCount = plan.snapshotComplete
+    ? plan.ambiguous.reduce(
+        (count, item) => count + item.localItems.length + item.remoteItems.length,
+        0,
+      )
+    : countUnresolvedAmbiguousItems(plan)
+  return (
+    plan.unchanged.length +
+    plan.modified.length +
+    plan.moved.length +
+    plan.added.length +
+    plan.deleted.length +
+    plan.rejected.length +
+    ambiguousItemCount
+  )
+}
+
+function countUnresolvedAmbiguousItems(plan: ProjectFileSyncPlan) {
+  if (plan.snapshotComplete) return 0
+  return plan.ambiguous.reduce((count, item) => count + Math.max(1, item.localItems.length), 0)
+}
+
+function getDeletionItems(plan: ProjectFileSyncPlan) {
+  return [
+    ...plan.deleted,
+    ...(plan.snapshotComplete ? plan.ambiguous.flatMap((item) => item.remoteItems) : []),
+  ]
+}
+
+function confirmRemoteDeletion(
+  plan: ProjectFileSyncPlan,
+  files: ProjectFileSyncRemoteItem[],
+) {
+  const preview = files
     .slice(0, 5)
-    .map((file) => file.relativePath)
+    .map((file) => file.remoteRelativePath)
     .join('、')
+  const ambiguousLocalCount = plan.ambiguous.reduce(
+    (count, item) => count + item.localItems.length,
+    0,
+  )
+  const ambiguityNotice = ambiguousLocalCount
+    ? `其中有 ${ambiguousLocalCount} 个本地文件存在重复内容，无法确定移动关系，将按新增+删除处理，文件ID会变化。`
+    : ''
   return new Promise<boolean>((resolve) => {
     dialog.warning({
       title: '确认删除远端文件',
-      content: `本地目录中已不存在 ${diff.deleted.length} 个文件：${preview}${
-        diff.deleted.length > 5 ? ' 等' : ''
-      }。是否继续？`,
+      content: `${ambiguityNotice}计划删除 ${files.length} 个远端文件：${preview}${
+        files.length > 5 ? ' 等' : ''
+      }。确认后仍会先执行新增、修改和移动，全部成功才会删除。`,
       positiveText: '确认删除并同步',
+      negativeText: '保留远端文件',
+      closable: false,
+      maskClosable: false,
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: () => resolve(false),
+    })
+  })
+}
+
+function confirmClearProjectFiles(plan: ProjectFileSyncPlan) {
+  const preview = plan.deleted
+    .slice(0, 5)
+    .map((file) => file.remoteRelativePath)
+    .join('、')
+  return new Promise<boolean>((resolve) => {
+    dialog.error({
+      title: '确认清空项目文件',
+      content: `将从项目中删除 ${plan.deleted.length} 个文件：${preview}${
+        plan.deleted.length > 5 ? ' 等' : ''
+      }。文件源对象及其解析详情将被删除，此操作不可撤销。`,
+      positiveText: '确认清空',
       negativeText: '取消',
       closable: false,
       maskClosable: false,
@@ -367,6 +559,7 @@ function resetUploadView() {
   succeededFileCount.value = 0
   rejectedFiles.value = []
   finalFailures.value = []
+  parseResult.value = null
 }
 
 function getDirectoryName(file: File) {

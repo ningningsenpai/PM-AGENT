@@ -1,9 +1,10 @@
 """项目文件数据访问。"""
+
 from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.project_file.models import ProjectFile
@@ -55,18 +56,35 @@ class ProjectFileRepository:
             statement = statement.where(ProjectFile.business_code == business_code)
         elif not include_system:
             statement = statement.where(ProjectFile.business_code != "system")
-        statement = statement.order_by(ProjectFile.relative_path.asc())
+        statement = statement.order_by(
+            ProjectFile.relative_path.asc()
+        ).execution_options(populate_existing=True)
         return list((await self.session.scalars(statement)).all())
 
-    async def list_parse_candidates(self, project_id: int) -> list[ProjectFile]:
-        """获取需要首次解析或失败重试的文件列表。"""
+    async def list_parse_candidates(
+        self,
+        project_id: int,
+        target_version: str,
+    ) -> list[ProjectFile]:
+        """获取未解析、失败重试或需要升级分析版本的文件。"""
         statement = (
             select(ProjectFile)
             .where(
                 ProjectFile.project_id == project_id,
-                ProjectFile.analysis_version.is_(None),
-                ProjectFile.parse_attempts < self.MAX_PARSE_ATTEMPTS,
+                or_(
+                    ProjectFile.analysis_version.is_(None),
+                    ProjectFile.analysis_version != target_version,
+                ),
+                or_(
+                    ProjectFile.parse_attempts < self.MAX_PARSE_ATTEMPTS,
+                    and_(
+                        ProjectFile.analysis_version.is_not(None),
+                        ProjectFile.analysis_version != target_version,
+                        ProjectFile.last_error_code.is_(None),
+                    ),
+                ),
                 ProjectFile.status == "active",
+                ProjectFile.upload_status == "success",
                 ProjectFile.business_code != "system",
             )
             .order_by(ProjectFile.relative_path.asc())
@@ -79,9 +97,7 @@ class ProjectFileRepository:
         return file
 
     async def delete(self, file_id: int) -> None:
-        await self.session.execute(
-            delete(ProjectFile).where(ProjectFile.id == file_id)
-        )
+        await self.session.execute(delete(ProjectFile).where(ProjectFile.id == file_id))
 
     async def claim_state(
         self,

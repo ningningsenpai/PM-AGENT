@@ -15,7 +15,6 @@ from app.infrastructure.storage import (
     StorageLocation,
     StorageLocationFactory,
 )
-from app.modules.project.index_service import ProjectIndexService
 from app.modules.project.service import ProjectService
 from app.modules.project_file.domain import (
     FileBusinessType,
@@ -40,6 +39,7 @@ from app.modules.project_file.management.schemas import (
 )
 from app.modules.project_file.models import ProjectFile
 from app.modules.project_file.repository import ProjectFileRepository
+from app.project.context.index import ProjectIndexService
 
 logger = get_logger(__name__)
 

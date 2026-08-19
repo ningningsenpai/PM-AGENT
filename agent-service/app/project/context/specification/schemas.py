@@ -1,4 +1,5 @@
 """项目规范结构化模型。"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,6 +17,9 @@ class SpecificationSchema(BaseModel):
 class SpecificationSourceRef(SpecificationSchema):
     type: Literal["doc", "code", "project_rule", "conversation", "model_inference"]
     path: str = ""
+    file_id: int | None = None
+    content_hash: str = ""
+    detail_ref: str = ""
 
 
 class SpecificationRule(SpecificationSchema):
@@ -57,6 +61,7 @@ class DevelopmentStage(SpecificationSchema):
 
 
 class ProjectSpecificationBody(SpecificationSchema):
+    """ project_specification.json 文件中主体部分的结构化模型"""
     development_stage: DevelopmentStage = Field(default_factory=DevelopmentStage)
     development_approach: list[DevelopmentApproachRule] = Field(default_factory=list)
     technical_constraints: list[TechnicalConstraintRule] = Field(default_factory=list)
@@ -85,6 +90,7 @@ class SpecificationIgnoredItem(SpecificationSchema):
 
 
 class ProjectSpecificationDocument(SpecificationSchema):
+    """ 项目规则文件 project_specification.json 的结构化模型 """
     project_id: int
     schema_version: str = "1.0.0"
     updated_at: datetime

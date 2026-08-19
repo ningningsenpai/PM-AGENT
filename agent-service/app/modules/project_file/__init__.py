@@ -2,8 +2,10 @@
 
 from .analysis import ProjectFileAnalysisService
 from .management import ProjectFileService
+from .sync import ProjectFileSyncService
 
 __all__ = [
     "ProjectFileAnalysisService",
     "ProjectFileService",
+    "ProjectFileSyncService",
 ]

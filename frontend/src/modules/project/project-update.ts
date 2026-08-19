@@ -62,15 +62,23 @@ export async function buildProjectFileDiff(
     movableByHash.set(remote.contentHash, candidates)
   }
 
+  const localByHash = new Map<string, HashedProjectFile[]>()
   for (const local of unmatchedLocal) {
-    const candidates = movableByHash.get(local.contentHash)
-    const remote = candidates?.shift()
-    if (!remote) {
-      added.push(local)
+    const candidates = localByHash.get(local.contentHash) ?? []
+    candidates.push(local)
+    localByHash.set(local.contentHash, candidates)
+  }
+
+  for (const [contentHash, localCandidates] of localByHash) {
+    const remoteCandidates = movableByHash.get(contentHash) ?? []
+    if (localCandidates.length === 1 && remoteCandidates.length === 1) {
+      const local = localCandidates[0]
+      const remote = remoteCandidates[0]
+      matchedRemoteIds.add(remote.id)
+      moved.push({ local, remote })
       continue
     }
-    matchedRemoteIds.add(remote.id)
-    moved.push({ local, remote })
+    added.push(...localCandidates)
   }
 
   return {
@@ -95,7 +103,6 @@ function isUnchanged(local: HashedProjectFile, remote: ProjectFileResponse) {
   return (
     remote.status === 'active' &&
     remote.uploadStatus === 'success' &&
-    remote.contentHash === local.contentHash &&
-    remote.sourceMtimeMs === local.sourceMtimeMs
+    remote.contentHash === local.contentHash
   )
 }

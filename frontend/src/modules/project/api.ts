@@ -7,6 +7,7 @@ import {
   mockListProjectFiles,
   mockListProjects,
   mockOverwriteProjectFile,
+  mockPlanProjectFileSync,
   mockRequestProjectFileParsing,
   mockUpdateProjectFilePath,
   mockUploadProjectFile,
@@ -16,6 +17,9 @@ import type {
   OverwriteProjectFilePayload,
   ProjectDetail,
   ProjectFileResponse,
+  ProjectFileParseResult,
+  ProjectFileSyncPlan,
+  ProjectFileSyncPlanRequest,
   ProjectFileUploadResponse,
   ProjectSummary,
   UpdateProjectFilePathPayload,
@@ -185,12 +189,27 @@ export async function deleteProjectFile(
   })
 }
 
-export async function requestProjectFileParsing(projectId: number) {
+export async function planProjectFileSync(
+  projectId: number,
+  payload: ProjectFileSyncPlanRequest,
+) {
   if (useMock) {
-    return mockRequestProjectFileParsing()
+    return mockPlanProjectFileSync(projectId, payload)
   }
 
-  return request<void>({
+  return request<ProjectFileSyncPlan>({
+    url: `/api/v1/projects/${projectId}/files/sync/plan`,
+    method: 'post',
+    data: payload,
+  })
+}
+
+export async function requestProjectFileParsing(projectId: number) {
+  if (useMock) {
+    return mockRequestProjectFileParsing(projectId)
+  }
+
+  return request<ProjectFileParseResult>({
     url: `/api/v1/projects/${projectId}/files/parse/init`,
     method: 'post',
     // 文件解析包含串行模型调用，单次模型超时由服务端配置控制。

@@ -14,6 +14,7 @@ from app.infrastructure.storage.location import StorageLocation
 
 
 class ObjectStorage:
+    """封装 MinIO 客户端，并提供便捷的文件上传下载接口。"""
     def __init__(self, client: Minio, read_url_expiry_seconds: int) -> None:
         self._client = client
         self._read_url_expiry_seconds = read_url_expiry_seconds
@@ -56,7 +57,7 @@ class ObjectStorage:
                 response.release_conn()
 
     def exists(self, location: StorageLocation) -> bool:
-        """判断对象是否存在，并区分不存在与存储服务异常。"""
+        """根据 bucket 和 object_key，判断对象是否存在，同时区分不存在与存储服务异常。"""
         try:
             self._client.stat_object(location.bucket, location.object_key)
             return True

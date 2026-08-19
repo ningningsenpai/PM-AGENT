@@ -1,4 +1,5 @@
 """项目规范 Prompt。"""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -80,7 +81,10 @@ class ProjectSpecificationPrompt(str, Enum):
         "source_refs": [
           {
             "type": "doc | code | project_rule | conversation | model_inference",
-            "path": "来源文件路径，可为空字符串"
+            "path": "来源文件路径，可为空字符串",
+            "file_id": 30,
+            "content_hash": "来源文件 SHA-256，可为空字符串",
+            "detail_ref": "system/file_details/来源详情.json，可为空字符串"
           }
         ],
         "created_at": "2026-07-02T00:00:00",

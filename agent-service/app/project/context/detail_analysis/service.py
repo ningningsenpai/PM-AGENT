@@ -1,7 +1,9 @@
 """文件详情分析服务。"""
+
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 from pydantic import ValidationError
 
@@ -12,6 +14,11 @@ from app.project.context.detail_analysis.schemas import (
     FileAnalysisRequest,
     FileAnalysisResult,
     FileDetail,
+    FileDetailSemanticOutput,
+)
+from app.project.context.detail_analysis.sensitive_content import (
+    SensitiveContentBlockedError,
+    sanitize_sensitive_content,
 )
 from app.project.context.model import StructuredJsonGenerator
 from app.project.inner_prompts import ProjectFileDetailPrompt
@@ -72,6 +79,14 @@ class FileDetailAnalysisService:
                 "文件解析文本超过模型解析上限",
                 error_code="FILE_DETAIL_SOURCE_TOO_LARGE",
             )
+        try:
+            safe_content = sanitize_sensitive_content(content)
+        except SensitiveContentBlockedError:
+            return self._failed(
+                request,
+                "文件包含私钥内容，已阻止发送至模型",
+                error_code="FILE_DETAIL_SENSITIVE_CONTENT_BLOCKED",
+            )
         metadata = {
             "project_id": request.project_id,
             "file_id": request.file_id,
@@ -92,13 +107,13 @@ class FileDetailAnalysisService:
         prompt = (
             f"{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL.value}"
             f"\n\n# 文件元数据\n{metadata_json}"
-            f"\n\n# 待分析文件内容\n<source_file>\n{content}\n</source_file>"
+            f"\n\n# 待分析文件内容\n<source_file>\n{safe_content.content}\n</source_file>"
             f"\n\n{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL_FINAL_CHECK.value}"
         )
         try:
-            detail = await self.generator.generate(
+            semantic = await self.generator.generate(
                 prompt,
-                FileDetail,
+                FileDetailSemanticOutput,
             )
         except (ValidationError, ValueError):
             logger.warning(
@@ -125,18 +140,32 @@ class FileDetailAnalysisService:
             )
             return self._failed(request, "模型分析失败")
 
-        try:
-            self._validate_detail_identity(request, detail)
-        except ValueError:
-            return FileAnalysisResult(
-                project_id=request.project_id,
-                file_id=request.file_id,
-                content_hash=request.content_hash,
-                analysis_version=request.analysis_version,
-                status="failed",
-                error_code="FILE_DETAIL_MODEL_OUTPUT_INVALID",
-                error_message="模型返回的文件详情格式不正确",
-            )
+        now = datetime.now()
+        semantic_fields = semantic.model_dump()
+        semantic_fields["sensitive_flags"] = [
+            *safe_content.flags,
+            *semantic.sensitive_flags,
+        ]
+        detail = FileDetail(
+            id=f"file-{request.file_id}",
+            project_id=request.project_id,
+            file_id=request.file_id,
+            schema_version="1.0.0",
+            analysis_version=request.analysis_version,
+            generated_at=now,
+            updated_at=now,
+            storage_uuid=request.storage_uuid,
+            storage_name=request.storage_name,
+            detail_ref=request.detail_ref,
+            original_path=request.original_path,
+            minio_path=request.minio_path,
+            size_bytes=request.size_bytes,
+            content_type=request.content_type,
+            content_hash=request.content_hash,
+            status="active",
+            previous_versions=[],
+            **semantic_fields,
+        )
 
         return FileAnalysisResult(
             project_id=request.project_id,
@@ -163,24 +192,3 @@ class FileDetailAnalysisService:
             error_code=error_code,
             error_message=message,
         )
-
-    @staticmethod
-    def _validate_detail_identity(
-        request: FileAnalysisRequest,
-        detail: FileDetail,
-    ) -> None:
-        """校验模型输出与解析请求的文件身份一致。"""
-        if (
-            detail.project_id != request.project_id
-            or detail.file_id != request.file_id
-            or detail.storage_uuid != request.storage_uuid
-            or detail.storage_name != request.storage_name
-            or detail.detail_ref != request.detail_ref
-            or detail.original_path != request.original_path
-            or detail.minio_path != request.minio_path
-            or detail.size_bytes != request.size_bytes
-            or detail.content_type != request.content_type
-            or detail.content_hash != request.content_hash
-            or detail.analysis_version != request.analysis_version
-        ):
-            raise ValueError("文件详情身份字段与请求不一致")

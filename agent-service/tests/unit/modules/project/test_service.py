@@ -64,12 +64,18 @@ def _repository(**overrides):
     return SimpleNamespace(**defaults)
 
 
-def _service(repository, storage=None, index=None) -> ProjectService:
+def _service(
+    repository,
+    storage=None,
+    index=None,
+    specification=None,
+) -> ProjectService:
     return ProjectService(
         repository,
         storage or Mock(),
         StorageLocationFactory(_storage_config()),
         index or AsyncMock(),
+        specification or AsyncMock(),
     )
 
 
@@ -92,7 +98,22 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
 
         repository.add.side_effect = assign_id
         index = AsyncMock()
-        service = _service(repository, index=index)
+        specification = AsyncMock()
+        order: list[str] = []
+
+        async def initialize_specification(*_args):
+            order.append("specification")
+
+        async def initialize_index(*_args):
+            order.append("index")
+
+        specification.initialize.side_effect = initialize_specification
+        index.initialize.side_effect = initialize_index
+        service = _service(
+            repository,
+            index=index,
+            specification=specification,
+        )
 
         with patch.object(project_service_module, "logger") as logger:
             result = await service.create(
@@ -103,8 +124,10 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         created = repository.add.await_args.args[0]
         self.assertEqual("active", created.status)
         self.assertEqual("active", result.status)
+        specification.initialize.assert_awaited_once_with(created)
         index.initialize.assert_awaited_once_with(created)
-        self.assertEqual(2, repository.session.commit.await_count)
+        self.assertEqual(["specification", "index"], order)
+        self.assertEqual(3, repository.session.commit.await_count)
         self.assertIn("action=project.create", repr(logger.method_calls))
         self.assertNotIn("PM-Agent", repr(logger.method_calls))
 
@@ -142,7 +165,12 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
             find_by_owner_and_name=AsyncMock(return_value=existing)
         )
         index = AsyncMock()
-        service = _service(repository, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            index=index,
+            specification=specification,
+        )
 
         result = await service.create(
             7,
@@ -151,9 +179,10 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
 
         self.assertEqual(12, result.id)
         self.assertEqual("active", result.status)
+        specification.initialize.assert_awaited_once_with(existing)
         index.initialize.assert_awaited_once_with(existing)
         repository.add.assert_not_awaited()
-        repository.session.commit.assert_awaited_once()
+        self.assertEqual(2, repository.session.commit.await_count)
 
     async def test_create_rolls_back_database_conflict(self) -> None:
         """验证项目记录唯一约束冲突会回滚事务。
@@ -179,13 +208,15 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         self.assertIs(ErrorCode.PROJECT_NAME_EXISTS, caught.exception.error)
         repository.session.rollback.assert_awaited_once()
 
-    async def test_create_removes_record_when_index_initialization_fails(self) -> None:
-        """验证索引初始化失败时清理未完成的项目记录。
+    async def test_create_keeps_retryable_record_when_index_initialization_fails(
+        self,
+    ) -> None:
+        """验证索引初始化失败时保留可重试项目记录。
 
         @Param owner_user_id: 项目所有者用户 ID。
         @Param request: 合法且名称唯一的项目创建请求。
         @Return: 继续抛出索引初始化阶段的 AppException。
-        @SideEffect: 删除已创建项目记录并提交清理事务。
+        @SideEffect: 将项目标记为 init_failed 并保留已生成的规范对象。
         """
         repository = _repository()
 
@@ -199,7 +230,12 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         index = AsyncMock()
         expected = AppException(ErrorCode.PROJECT_INDEX_WRITE_FAILED)
         index.initialize.side_effect = expected
-        service = _service(repository, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            index=index,
+            specification=specification,
+        )
 
         with self.assertRaises(AppException) as caught:
             await service.create(
@@ -208,8 +244,11 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
             )
 
         self.assertIs(expected, caught.exception)
-        repository.delete.assert_awaited_once_with(12)
-        self.assertEqual(2, repository.session.commit.await_count)
+        specification.initialize.assert_awaited_once()
+        repository.delete.assert_not_awaited()
+        created = repository.add.await_args.args[0]
+        self.assertEqual("init_failed", created.status)
+        self.assertEqual(3, repository.session.commit.await_count)
 
     async def test_list_owned_maps_repository_projects(self) -> None:
         """验证项目列表只映射当前用户的仓储结果。
