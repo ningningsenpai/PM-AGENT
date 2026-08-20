@@ -22,7 +22,7 @@ PM-Agent 的项目上下文索引与记忆系统由 FastAPI 模块化单体完�
 - MinIO 使用 `PM-AGENT/{userId}/{projectId}/project/{storageName}` 和 `PM-AGENT/{userId}/{projectId}/system/...`，对象键只能由 `StorageLocationFactory` 生成；
 - 项目更新由后端根据完整目录清单和数据库快照生成同步计划，再复用单文件上传、覆盖、移动和删除接口；
 - 当前删除采用硬删除，但只有完整目录快照和用户确认后才能执行；软删除和 `update_journal.jsonl` 后置；
-- 文件详情使用 `system/file_details/{storage-base}-{content_hash}-{analysis_version}.json` 版本化对象键，模型只生成语义字段和规则候选，身份字段由服务端构造；
+- 文件详情使用 `system/file_details/{storage_uuid}-{content_hash}-{path_hash}.json` 快照对象键，模型只生成语义字段和规则候选，身份字段由服务端构造；
 - 项目规范先发布，`index.json` 最后从数据库完整生成；不得读取旧索引做增量修改；
 - Python 单体迁移后的架构以根目录 `AGENTS.md`、`docs/21-Python单体后端迁移说明.md` 和实际代码为准，本文后续历史 Java 示例不再构成实现约束。
 
@@ -565,12 +565,12 @@ life.json：生活类偏好，项目 Agent 默认不主动读取。
 
 ```text
 file_details/
-  AuthController-a1b2c3d4e5f67890.java
-  LoginPage-b1c2d3e4f5a67890.vue
-  README-c1d2e3f4a5b67890.md
+  a1b2c3d4e5f67890-{content_hash}-{path_hash}.json
+  b1c2d3e4f5a67890-{content_hash}-{path_hash}.json
+  c1d2e3f4a5b67890-{content_hash}-{path_hash}.json
 ```
 
-当前实现的详情对象名由源文件 `storage_name` 的无扩展名部分、完整 `content_hash` 和 `analysis_version` 组成，固定引用为 `system/file_details/{storage-base}-{content_hash}-{analysis_version}.json`。详情对象内容始终是 JSON；这种版本化引用用于防止并发解析的旧结果覆盖新文件版本。
+当前实现的详情对象名由 `storage_uuid`、完整 `content_hash` 和 `path_hash` 组成，固定引用为 `system/file_details/{storage_uuid}-{content_hash}-{path_hash}.json`。详情对象内容始终是 JSON；内容与路径身份共同隔离分析快照，数据库再通过 `content_hash + lock_version` 条件回填，防止文件变化期间的旧结果生效。
 
 ### 10.3 结构
 
@@ -579,13 +579,12 @@ file_details/
   "id": "file-30",
   "project_id": 10,
   "file_id": 30,
-  "schema_version": "1.0.0",
-  "analysis_version": "file-detail-v1",
+  "schema_version": "2.0.0",
   "generated_at": "2026-07-02T00:00:00",
   "updated_at": "2026-07-02T00:00:00",
   "storage_uuid": "a1b2c3d4e5f67890",
   "storage_name": "AuthController-a1b2c3d4e5f67890.java",
-  "detail_ref": "system/file_details/AuthController-a1b2c3d4e5f67890.java",
+  "detail_ref": "system/file_details/a1b2c3d4e5f67890-{content_hash}-{path_hash}.json",
   "original_path": "backend/src/main/java/com/ning/pm/auth/controller/AuthController.java",
   "minio_path": "project/AuthController-a1b2c3d4e5f67890.java",
   "size_bytes": 4096,
@@ -645,14 +644,14 @@ file_details/
 }
 ```
 
-其中 `module`、`kind`、`language`、`importance`、`summary`、`keywords` 是 `index.json` 的顶层投影来源；它们只是完整详情的一部分，不能替代 `role`、`content_slices`、关联、风险、证据和版本信息。
+其中 `module`、`kind`、`language`、`importance`、`summary`、`keywords` 是 `index.json` 的顶层投影来源；它们只是完整详情的一部分，不能替代 `role`、`content_slices`、关联、风险、证据和历史信息。
 
 ### 10.4 生成范围
 
 ```text
 所有成功上传文件进入 index.json 的 project 或 user 数组。
 成功上传文件生成 file_details JSON。
-file_details 使用 storage-base、完整内容哈希和分析版本组成版本化对象名。
+file_details 使用 storage_uuid、完整内容哈希和路径哈希组成快照对象名。
 index.json 通过 detail_ref 指向对应 file_details JSON。
 ```
 
@@ -664,7 +663,7 @@ index.json 通过 detail_ref 指向对应 file_details JSON。
 | `project[].logical_path` / `user[].logical_path` | `original_path` | 文件移动后同步更新 |
 | `project[].content_hash` / `user[].content_hash` | `content_hash` | 必须一致，否则详情已过期 |
 | `project[].detail_ref` / `user[].detail_ref` | `detail_ref` | 用于读取该详情文件 |
-| 六个详情投影字段 | 同名顶层字段 | Java 从 MySQL 批量回填索引，不逐个读取详情对象 |
+| 六个详情投影字段 | 同名顶层字段 | Python 从 MySQL 批量回填索引，不逐个读取详情对象 |
 
 ## 11. project_specification.json
 

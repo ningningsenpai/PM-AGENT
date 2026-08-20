@@ -1,12 +1,19 @@
-"""单文件完整详情解析链路。"""
+"""单文件内容提取与语义分析链路。"""
 
 from .downloader import FileDownloader
-from .parser import FileParseResult, FileParser, FileParserFactory
+from .extraction import (
+    ExtractedFileContent,
+    FileContentExtractionService,
+    FileContentExtractor,
+    FileContentExtractorFactory,
+)
+from .service import FileSemanticAnalysisService
 
 __all__ = [
-    "FileDetailAnalysisService",
+    "ExtractedFileContent",
+    "FileContentExtractionService",
+    "FileContentExtractor",
+    "FileContentExtractorFactory",
     "FileDownloader",
-    "FileParseResult",
-    "FileParser",
-    "FileParserFactory",
+    "FileSemanticAnalysisService",
 ]

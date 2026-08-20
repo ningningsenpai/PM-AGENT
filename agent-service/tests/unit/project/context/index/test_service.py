@@ -47,7 +47,6 @@ def _file(
     business_code: str = "project",
     status: str = "active",
     upload_status: str = "success",
-    analysis_version: str | None = "file-detail-v1",
     detail_ref: str | None = "system/file_details/detail.json",
 ):
     return SimpleNamespace(
@@ -68,7 +67,6 @@ def _file(
         upload_attempts=2,
         last_error_code="FILE_STORAGE_ERROR",
         detail_ref=detail_ref,
-        analysis_version=analysis_version,
         module="docs",
         kind="documentation",
         file_type="doc",
@@ -185,7 +183,7 @@ class ProjectIndexServiceTest(IsolatedAsyncioTestCase):
             payload["summary"],
         )
 
-    def test_build_hides_stale_detail_ref_without_analysis_version(self) -> None:
+    def test_build_preserves_detail_ref(self) -> None:
         service = ProjectIndexService(
             Mock(),
             StorageLocationFactory(_storage_config()),
@@ -196,14 +194,15 @@ class ProjectIndexServiceTest(IsolatedAsyncioTestCase):
             [
                 _file(
                     file_id=1,
-                    analysis_version=None,
                     detail_ref="system/file_details/stale.json",
                 )
             ],
         )
 
-        self.assertIsNone(document.project[0].analysis_version)
-        self.assertIsNone(document.project[0].detail_ref)
+        self.assertEqual(
+            "system/file_details/stale.json",
+            document.project[0].detail_ref,
+        )
 
     def test_package_exports_only_public_document_and_service(self) -> None:
         self.assertIs(ProjectIndexDocument, SchemaProjectIndexDocument)
@@ -266,7 +265,6 @@ class ProjectIndexServiceTest(IsolatedAsyncioTestCase):
                 "content_hash",
                 "updated_at",
                 "detail_ref",
-                "analysis_version",
                 "module",
                 "kind",
                 "file_type",
@@ -315,7 +313,7 @@ class ProjectIndexServiceTest(IsolatedAsyncioTestCase):
             ],
             list(payload["system"]),
         )
-        self.assertEqual("1.0.0", payload["schema_version"])
+        self.assertEqual("2.0.0", payload["schema_version"])
         self.assertEqual("2026-07-27T09:00:00", payload["generated_at"])
         datetime.fromisoformat(payload["updated_at"])
         self.assertEqual([1], [item["id"] for item in payload["project"]])

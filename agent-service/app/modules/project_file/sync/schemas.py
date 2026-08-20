@@ -25,6 +25,7 @@ class SyncSchema(BaseModel):
 
 
 class ProjectFileManifestItem(SyncSchema):
+    """单文件元信息"""
     relative_path: str
     size_bytes: int
     source_mtime_ms: int
@@ -33,6 +34,7 @@ class ProjectFileManifestItem(SyncSchema):
 
 
 class ProjectFileSyncPlanRequest(SyncSchema):
+    """前端传递项目文件信息汇总。"""
     snapshot_complete: bool
     scope: Literal["project"]
     items: list[ProjectFileManifestItem]

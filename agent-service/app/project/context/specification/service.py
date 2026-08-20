@@ -139,9 +139,9 @@ class ProjectSpecificationService:
         exists = await asyncio.to_thread(self._storage.exists, location)
         if not exists:
             return None
-        content = await asyncio.to_thread(self._storage.get_bytes, location)
+        document_bytes = await asyncio.to_thread(self._storage.read_bytes, location)
         try:
-            document = ProjectSpecificationDocument.model_validate_json(content)
+            document = ProjectSpecificationDocument.model_validate_json(document_bytes)
         except ValidationError as exception:
             raise AppException(
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
@@ -151,7 +151,7 @@ class ProjectSpecificationService:
         return document
 
     async def _write(self, location, document: ProjectSpecificationDocument) -> None:
-        content = json.dumps(
+        document_bytes = json.dumps(
             document.model_dump(mode="json"),
             ensure_ascii=False,
             indent=2,
@@ -159,7 +159,7 @@ class ProjectSpecificationService:
         await asyncio.to_thread(
             self._storage.put_bytes,
             location,
-            content,
+            document_bytes,
             "application/json",
         )
 
@@ -172,9 +172,7 @@ class ProjectSpecificationService:
         eligible = [
             file
             for file in files
-            if self._is_current_project_file(file)
-            and file.analysis_version
-            and file.detail_ref
+            if self._is_current_project_file(file) and file.detail_ref
         ]
         for file in sorted(eligible, key=lambda item: item.relative_path):
             location = self._locations.system_file(
@@ -190,9 +188,9 @@ class ProjectSpecificationService:
                     file.id,
                 )
                 continue
-            content = await asyncio.to_thread(self._storage.get_bytes, location)
+            detail_bytes = await asyncio.to_thread(self._storage.read_bytes, location)
             try:
-                detail = FileDetail.model_validate_json(content)
+                detail = FileDetail.model_validate_json(detail_bytes)
             except ValidationError:
                 logger.warning(
                     "文件详情格式无效，跳过规则候选 action=project.specification.source "
@@ -250,7 +248,7 @@ class ProjectSpecificationService:
             "才可基于来源删除将其标记为 deprecated 或 pending_review。"
         )
         try:
-            return sanitize_sensitive_content(prompt).content
+            return sanitize_sensitive_content(prompt).text
         except SensitiveContentBlockedError as exception:
             raise AppException(
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED,
@@ -289,7 +287,6 @@ class ProjectSpecificationService:
             detail.file_id == file.id
             and detail.content_hash == file.content_hash
             and detail.detail_ref == file.detail_ref
-            and detail.analysis_version == file.analysis_version
         )
 
     def _enrich_source_refs(

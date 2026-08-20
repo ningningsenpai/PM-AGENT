@@ -18,7 +18,12 @@ from app.modules.project.api import get_project_service
 from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 from app.modules.project_file.repository import ProjectFileRepository
-from app.project.context.detail_analysis.service import FileDetailAnalysisService
+from app.project.context.detail_analysis import FileDownloader
+from app.project.context.detail_analysis.extraction import (
+    FileContentExtractionService,
+    FileContentExtractorFactory,
+)
+from app.project.context.detail_analysis.service import FileSemanticAnalysisService
 from app.project.context.index import ProjectIndexService
 from app.project.context.model import StructuredJsonGenerator
 from app.project.context.specification import ProjectSpecificationService
@@ -35,7 +40,7 @@ def get_project_file_analysis_service(
     if not file_detail_config.enabled:
         raise AppException(
             ErrorCode.FILE_ANALYSIS_FAILED,
-            "文件解析模型未启用，请先配置 DeepSeek 并开启文件详情解析",
+            "文件语义分析模型未启用，请先配置 DeepSeek 并开启文件详情分析",
         )
     llm = get_llm_client(file_detail_config.provider, settings.llm)
     generator = StructuredJsonGenerator(
@@ -50,9 +55,13 @@ def get_project_file_analysis_service(
         storage,
         locations,
         ProjectIndexService(storage, locations),
-        FileDetailAnalysisService(
+        FileContentExtractionService(
+            FileDownloader(),
+            FileContentExtractorFactory(),
+        ),
+        FileSemanticAnalysisService(
             generator,
-            max_source_bytes=file_detail_config.max_source_bytes,
+            max_semantic_input_bytes=file_detail_config.max_semantic_input_bytes,
         ),
         ProjectSpecificationService(storage, locations, generator),
     )

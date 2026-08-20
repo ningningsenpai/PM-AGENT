@@ -134,9 +134,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         @Param supplied_content_type: 合法 MIME 类型。
         @Return: 抛出 FILE_PATH_CONFLICT 的 AppException。
         """
-        repository = _repository(
-            find_path=AsyncMock(return_value=project_file())
-        )
+        repository = _repository(find_path=AsyncMock(return_value=project_file()))
         storage = Mock()
         service = _service(repository, storage=storage)
 
@@ -250,8 +248,17 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         """
         file = project_file()
         file.detail_ref = "system/file_details/readme.json"
-        file.analysis_version = "file-detail-v1"
+        file.parse_attempts = 2
+        file.module = "docs"
+        file.kind = "document"
+        file.file_type = "doc"
+        file.language = "zh-CN"
+        file.importance = "high"
         file.summary = "项目说明"
+        file.keywords = ["说明"]
+        file.last_error_code = "OLD_ANALYSIS_ERROR"
+        file.last_error_message = "旧分析错误"
+        file.last_failed_at = datetime(2026, 8, 20, 8, 0, 0)
         repository = _repository(file)
         storage = Mock()
         index = AsyncMock()
@@ -271,7 +278,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("active", result.status)
         self.assertEqual(200, result.source_mtime_ms)
         storage.put_bytes.assert_not_called()
-        self.assertEqual("file-detail-v1", file.analysis_version)
+        self.assertEqual("system/file_details/readme.json", file.detail_ref)
         self.assertEqual("项目说明", file.summary)
         index.write.assert_awaited_once()
 
@@ -291,7 +298,6 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         """
         file = project_file()
         file.detail_ref = "system/file_details/readme.json"
-        file.analysis_version = "file-detail-v1"
         file.summary = "旧说明"
         repository = _repository(file)
         storage = Mock()
@@ -316,11 +322,36 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("active", result.status)
         self.assertEqual("success", result.upload_status)
         self.assertEqual(2, storage.put_bytes.call_count)
-        self.assertIsNone(file.analysis_version)
         self.assertIsNone(file.summary)
-        self.assertEqual("system/file_details/readme.json", file.detail_ref)
+        self.assertIsNone(file.detail_ref)
+        storage.remove.assert_called_once()
         self.assertIsNone(file.last_error_code)
         index.write.assert_awaited_once()
+
+    async def test_overwrite_keeps_success_when_stale_detail_cleanup_fails(
+        self,
+    ) -> None:
+        file = project_file()
+        file.detail_ref = "system/file_details/readme.json"
+        repository = _repository(file)
+        storage = Mock()
+        storage.remove.side_effect = AppException(ErrorCode.FILE_STORAGE_ERROR)
+        service = _service(repository, storage=storage)
+
+        result = await service.overwrite(
+            1,
+            10,
+            30,
+            "overwrite-key",
+            200,
+            0,
+            b"updated content",
+            "text/plain",
+        )
+
+        self.assertEqual("active", result.status)
+        self.assertIsNone(file.detail_ref)
+        storage.remove.assert_called_once()
 
     async def test_overwrite_retries_failed_record_even_when_hash_matches(self) -> None:
         file = project_file(status="upload_failed", upload_status="failed")
@@ -433,7 +464,6 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         """
         file = project_file()
         file.detail_ref = "system/file_details/readme.json"
-        file.analysis_version = "file-detail-v1"
         file.summary = "项目说明"
         repository = _repository(file)
         storage = Mock()
@@ -448,9 +478,48 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         result = await service.update_path(1, 10, 30, request)
 
         self.assertEqual("renamed/README.md", result.relative_path)
-        self.assertIsNone(file.analysis_version)
-        self.assertIsNone(file.summary)
+        self.assertIsNone(file.detail_ref)
+        self.assertEqual(0, file.parse_attempts)
+        for field_name in (
+            "module",
+            "kind",
+            "file_type",
+            "language",
+            "importance",
+            "summary",
+            "keywords",
+            "last_error_code",
+            "last_error_message",
+            "last_failed_at",
+        ):
+            self.assertIsNone(getattr(file, field_name))
+        storage.copy.assert_not_called()
+        storage.remove.assert_called_once()
+        index.write.assert_awaited_once()
+
+    async def test_update_path_preserves_detail_when_path_is_unchanged(self) -> None:
+        file = project_file()
+        file.detail_ref = "system/file_details/readme.json"
+        file.parse_attempts = 1
+        file.module = "docs"
+        file.summary = "项目说明"
+        repository = _repository(file)
+        storage = Mock()
+        index = AsyncMock()
+        service = _service(repository, storage=storage, index=index)
+        request = UpdateProjectFilePathRequest(
+            relative_path=file.relative_path,
+            source_mtime_ms=200,
+            lock_version=0,
+        )
+
+        result = await service.update_path(1, 10, 30, request)
+
+        self.assertEqual(file.relative_path, result.relative_path)
         self.assertEqual("system/file_details/readme.json", file.detail_ref)
+        self.assertEqual(1, file.parse_attempts)
+        self.assertEqual("docs", file.module)
+        self.assertEqual("项目说明", file.summary)
         storage.copy.assert_not_called()
         storage.remove.assert_not_called()
         index.write.assert_awaited_once()
@@ -466,6 +535,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         @SideEffect: 复制 MinIO 对象、提交新位置、删除旧对象并重建索引。
         """
         file = project_file()
+        file.detail_ref = "system/file_details/readme.json"
         old_object_key = file.object_key
         repository = _repository(file)
         storage = Mock()
@@ -481,8 +551,9 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
 
         self.assertEqual("GUIDE.md", result.file_name)
         self.assertNotEqual(old_object_key, file.object_key)
+        self.assertIsNone(file.detail_ref)
         storage.copy.assert_called_once()
-        storage.remove.assert_called_once()
+        self.assertEqual(2, storage.remove.call_count)
         index.write.assert_awaited_once()
 
     async def test_update_path_rejects_target_conflict(self) -> None:
@@ -542,7 +613,9 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("active", file.status)
         storage.remove.assert_not_called()
 
-    async def test_update_path_marks_verify_required_when_old_remove_fails(self) -> None:
+    async def test_update_path_marks_verify_required_when_old_remove_fails(
+        self,
+    ) -> None:
         """验证旧对象删除失败时保留待核验状态。
 
         @Param user_id: 项目所有者用户 ID。

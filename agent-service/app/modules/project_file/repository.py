@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.project_file.models import ProjectFile
@@ -61,34 +61,25 @@ class ProjectFileRepository:
         ).execution_options(populate_existing=True)
         return list((await self.session.scalars(statement)).all())
 
-    async def list_parse_candidates(
+    async def list_analysis_candidates(
         self,
         project_id: int,
-        target_version: str,
+        *,
+        force: bool = False,
     ) -> list[ProjectFile]:
-        """获取未解析、失败重试或需要升级分析版本的文件。"""
-        statement = (
-            select(ProjectFile)
-            .where(
-                ProjectFile.project_id == project_id,
-                or_(
-                    ProjectFile.analysis_version.is_(None),
-                    ProjectFile.analysis_version != target_version,
-                ),
-                or_(
-                    ProjectFile.parse_attempts < self.MAX_PARSE_ATTEMPTS,
-                    and_(
-                        ProjectFile.analysis_version.is_not(None),
-                        ProjectFile.analysis_version != target_version,
-                        ProjectFile.last_error_code.is_(None),
-                    ),
-                ),
-                ProjectFile.status == "active",
-                ProjectFile.upload_status == "success",
-                ProjectFile.business_code != "system",
-            )
-            .order_by(ProjectFile.relative_path.asc())
+        """获取待分析文件；强制模式会忽略详情状态和重试次数。"""
+        statement = select(ProjectFile).where(
+            ProjectFile.project_id == project_id,
+            ProjectFile.status == "active",
+            ProjectFile.upload_status == "success",
+            ProjectFile.business_code != "system",
         )
+        if not force:
+            statement = statement.where(
+                ProjectFile.detail_ref.is_(None),
+                ProjectFile.parse_attempts < self.MAX_PARSE_ATTEMPTS,
+            )
+        statement = statement.order_by(ProjectFile.relative_path.asc())
         return list((await self.session.scalars(statement)).all())
 
     async def add(self, file: ProjectFile) -> ProjectFile:
@@ -129,6 +120,7 @@ class ProjectFileRepository:
         project_id: int,
         file_id: int,
         content_hash: str,
+        expected_lock_version: int,
         detail,
     ) -> bool:
         statement = (
@@ -137,11 +129,11 @@ class ProjectFileRepository:
                 ProjectFile.id == file_id,
                 ProjectFile.project_id == project_id,
                 ProjectFile.content_hash == content_hash,
+                ProjectFile.lock_version == expected_lock_version,
             )
             .values(
                 parse_attempts=ProjectFile.parse_attempts + 1,
                 detail_ref=detail.detail_ref,
-                analysis_version=detail.analysis_version,
                 module=detail.module,
                 kind=detail.kind,
                 file_type=detail.file_type,
@@ -162,6 +154,7 @@ class ProjectFileRepository:
         project_id: int,
         file_id: int,
         content_hash: str,
+        expected_lock_version: int,
         error_code: str,
         error_message: str,
     ) -> bool:
@@ -171,6 +164,7 @@ class ProjectFileRepository:
                 ProjectFile.id == file_id,
                 ProjectFile.project_id == project_id,
                 ProjectFile.content_hash == content_hash,
+                ProjectFile.lock_version == expected_lock_version,
             )
             .values(
                 parse_attempts=ProjectFile.parse_attempts + 1,

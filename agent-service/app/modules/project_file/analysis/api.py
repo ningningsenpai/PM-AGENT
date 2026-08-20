@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.response import ApiResponse, success
 from app.core.security import AuthPrincipal, require_principal
@@ -15,9 +15,16 @@ router = APIRouter()
 
 
 @router.post("/parse/init", response_model=ApiResponse)
-async def initialize_project_file_parse(
+async def initialize_project_file_analysis(
     project_id: int,
+    force: bool = Query(default=False),
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectFileAnalysisService = Depends(get_project_file_analysis_service),
 ) -> ApiResponse:
-    return success(await service.initialize(principal.user_id, project_id))
+    return success(
+        await service.analyze_pending_files(
+            principal.user_id,
+            project_id,
+            force=force,
+        )
+    )

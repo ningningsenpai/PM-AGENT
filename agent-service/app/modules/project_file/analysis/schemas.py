@@ -1,4 +1,4 @@
-"""项目文件批次解析响应模型。"""
+"""项目文件批次分析响应模型。"""
 
 from __future__ import annotations
 

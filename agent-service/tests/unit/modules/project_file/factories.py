@@ -63,7 +63,6 @@ def project_file(
         upload_attempts=1,
         parse_attempts=0,
         detail_ref=None,
-        analysis_version=None,
         module=None,
         kind=None,
         file_type=None,

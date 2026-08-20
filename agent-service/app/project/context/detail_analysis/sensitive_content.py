@@ -18,7 +18,7 @@ class SensitiveContentBlockedError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class SensitiveContentResult:
-    content: str
+    text: str
     flags: list[dict[str, object]]
 
 
@@ -62,9 +62,9 @@ _KNOWN_TOKEN = re.compile(
 _REDACTED = "[已脱敏]"
 
 
-def sanitize_sensitive_content(content: str) -> SensitiveContentResult:
+def sanitize_sensitive_content(text: str) -> SensitiveContentResult:
     """阻断私钥并替换常见明文凭据，避免原始秘密进入 Prompt。"""
-    if _PRIVATE_KEY_BEGIN.search(content):
+    if _PRIVATE_KEY_BEGIN.search(text):
         raise SensitiveContentBlockedError("文件包含私钥内容")
 
     redacted_count = 0
@@ -91,14 +91,14 @@ def sanitize_sensitive_content(content: str) -> SensitiveContentResult:
         redacted_count += 1
         return f"{match.group('prefix')}{_REDACTED}"
 
-    sanitized = _BEARER_TOKEN.sub(
+    sanitized_text = _BEARER_TOKEN.sub(
         lambda match: f"Bearer {replace_fixed(match)}",
-        content,
+        text,
     )
-    sanitized = _URI_PASSWORD.sub(replace_uri, sanitized)
-    sanitized = _KNOWN_TOKEN.sub(replace_fixed, sanitized)
-    sanitized = _QUOTED_ASSIGNMENT.sub(replace_quoted, sanitized)
-    sanitized = _PLAIN_ASSIGNMENT.sub(replace_plain, sanitized)
+    sanitized_text = _URI_PASSWORD.sub(replace_uri, sanitized_text)
+    sanitized_text = _KNOWN_TOKEN.sub(replace_fixed, sanitized_text)
+    sanitized_text = _QUOTED_ASSIGNMENT.sub(replace_quoted, sanitized_text)
+    sanitized_text = _PLAIN_ASSIGNMENT.sub(replace_plain, sanitized_text)
     flags: list[dict[str, object]] = []
     if redacted_count:
         flags.append(
@@ -108,4 +108,4 @@ def sanitize_sensitive_content(content: str) -> SensitiveContentResult:
                 "message": "模型输入前已脱敏明文凭据",
             }
         )
-    return SensitiveContentResult(content=sanitized, flags=flags)
+    return SensitiveContentResult(text=sanitized_text, flags=flags)

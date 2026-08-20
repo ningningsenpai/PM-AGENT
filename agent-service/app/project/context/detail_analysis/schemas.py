@@ -7,8 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 __all__ = [
-    "FileAnalysisRequest",
-    "FileAnalysisResult",
+    "FileSemanticAnalysisRequest",
+    "FileSemanticAnalysisResult",
     "FileDetail",
     "FileDetailSemanticOutput",
     "FileRuleCandidate",
@@ -18,8 +18,8 @@ Keyword = Annotated[str, Field(min_length=1, max_length=128)]
 EvidenceText = Annotated[str, Field(min_length=1, max_length=500)]
 
 
-class FileAnalysisRequest(BaseModel):
-    """文件分析接口接收的完整元数据。"""
+class FileSemanticAnalysisRequest(BaseModel):
+    """文件语义分析所需的完整元数据。"""
 
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -42,11 +42,10 @@ class FileAnalysisRequest(BaseModel):
     size_bytes: int
     content_type: str
     content_hash: str
-    analysis_version: str
 
 
 class FileRuleCandidate(BaseModel):
-    """从单文件中提取、等待项目级规范确认的结构化规则候选。"""
+    """由单文件语义分析生成、等待项目级规范确认的结构化规则候选。"""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -99,7 +98,6 @@ class FileDetail(BaseModel):
     project_id: int
     file_id: int
     schema_version: str
-    analysis_version: str
     generated_at: datetime
     updated_at: datetime
     storage_uuid: str
@@ -130,8 +128,8 @@ class FileDetail(BaseModel):
     rule_candidates: list[FileRuleCandidate] = Field(default_factory=list)
 
 
-class FileAnalysisResult(BaseModel):
-    """文件分析接口返回的结构化结果或文件级失败信息。"""
+class FileSemanticAnalysisResult(BaseModel):
+    """文件语义分析返回的结构化结果或失败信息。"""
 
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -142,7 +140,6 @@ class FileAnalysisResult(BaseModel):
     project_id: int
     file_id: int
     content_hash: str
-    analysis_version: str
     status: Literal["success", "failed"]
     detail: FileDetail | None = None
     error_code: str | None = None

@@ -22,6 +22,7 @@ _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 @dataclass(frozen=True, slots=True)
 class LocalFileSnapshot:
+    """本地文件快照，用于与服务端进行比较。"""
     relative_path: str
     size_bytes: int
     source_mtime_ms: int
@@ -31,6 +32,7 @@ class LocalFileSnapshot:
 
 @dataclass(frozen=True, slots=True)
 class RemoteFileSnapshot:
+    """服务端已经存在的对象快照，用于与本地快照进行匹配。"""
     file_id: int
     relative_path: str
     size_bytes: int
@@ -44,6 +46,7 @@ class RemoteFileSnapshot:
 
 @dataclass(frozen=True, slots=True)
 class RejectedFileSnapshot:
+    """被拒绝文件具体情况"""
     relative_path: str
     error_code: str
     error_message: str
@@ -130,6 +133,16 @@ class ProjectFileSyncPlanner:
         *,
         snapshot_complete: bool,
     ) -> ProjectFileSyncPlan:
+        """
+        将 local_files 和 remote_files 作为输入，生成下面七种状态的 tuple
+        unchanged: 未改变
+        modified: 文件内容修改
+        moved: 文件路径改变
+        added: 新增
+        deleted: 删除
+        rejected: 拒绝
+        ambiguous: 未知文件
+        """
         remote_by_path = {file.relative_path: file for file in remote_files}
         remaining_remote = dict(remote_by_path)
         remaining_local: dict[str, LocalFileSnapshot] = {}
@@ -224,6 +237,7 @@ class ProjectFileSyncPlanner:
 
     @staticmethod
     def _is_healthy_remote(file: RemoteFileSnapshot) -> bool:
+        """检测远程文件健康状态是否可访问"""
         return file.status == "active" and file.upload_status == "success"
 
     @staticmethod

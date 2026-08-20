@@ -116,6 +116,7 @@ class ProjectFileSyncService:
 
     @staticmethod
     def _remote_snapshot(file) -> RemoteFileSnapshot:
+        """构建服务端已存在的文件元信息列表"""
         return RemoteFileSnapshot(
             file_id=file.id,
             relative_path=file.relative_path,

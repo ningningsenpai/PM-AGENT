@@ -36,6 +36,19 @@ python -m alembic upgrade head
 
 本次迁移不导入历史业务数据。开发库如果还包含旧 Flyway 结构，应先确认数据可丢弃，再重建空库并执行 Alembic。
 
+### 移除旧分析版本字段
+
+已有项目数据升级到不含 `analysis_version` 的上下文协议时，需要维护窗口。先停止 Agent 服务和文件写入，在新代码目录执行只读检查和对象迁移，确认成功后再删除数据库字段：
+
+```bash
+cd agent-service
+python -m app.maintenance.remove_analysis_version --dry-run
+python -m app.maintenance.remove_analysis_version --apply
+python -m alembic upgrade head
+```
+
+维护命令会迁移有效详情、更新项目规范引用、重建 `index.json` 并清理旧详情对象。缺失或格式错误的旧详情会失效，后续由普通文件分析重新生成。命令失败时不得继续执行 Alembic；修复 MinIO 或数据库问题后可重复运行。
+
 ## 停止与重置
 
 ```bash

@@ -1,4 +1,5 @@
 """MinIO 对象存储客户端。"""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -14,7 +15,8 @@ from app.infrastructure.storage.location import StorageLocation
 
 
 class ObjectStorage:
-    """封装 MinIO 客户端，并提供便捷的文件上传下载接口。"""
+    """封装 MinIO 客户端，并提供对象字节读写和生命周期操作。"""
+
     def __init__(self, client: Minio, read_url_expiry_seconds: int) -> None:
         self._client = client
         self._read_url_expiry_seconds = read_url_expiry_seconds
@@ -25,10 +27,7 @@ class ObjectStorage:
         content: bytes,
         content_type: str,
     ) -> None:
-        """
-        上传字节文件到对象存储
-        @Param location、 content、 content_type
-        """
+        """将字节内容写入指定对象位置。"""
         try:
             self._ensure_bucket(location.bucket)
             self._client.put_object(
@@ -43,8 +42,8 @@ class ObjectStorage:
         except Exception as exception:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
-    def get_bytes(self, location: StorageLocation) -> bytes:
-        """ 从对象存储下载字节文件 """
+    def read_bytes(self, location: StorageLocation) -> bytes:
+        """从对象存储读取源文件原始字节，不执行内容提取或语义分析。"""
         response = None
         try:
             response = self._client.get_object(location.bucket, location.object_key)
@@ -69,7 +68,7 @@ class ObjectStorage:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def copy(self, source: StorageLocation, target: StorageLocation) -> None:
-        """ 复制对象存储中的文件 """
+        """复制对象存储中的文件"""
         from minio.commonconfig import CopySource
 
         try:
@@ -83,14 +82,14 @@ class ObjectStorage:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def remove(self, location: StorageLocation) -> None:
-        """ 删除对象存储中的文件 """
+        """删除对象存储中的文件"""
         try:
             self._client.remove_object(location.bucket, location.object_key)
         except Exception as exception:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def remove_prefix(self, location: StorageLocation) -> None:
-        """ 删除对象存储中的文件前缀 """
+        """删除对象存储中的文件前缀"""
         try:
             if not self._client.bucket_exists(location.bucket):
                 return
@@ -103,8 +102,24 @@ class ObjectStorage:
         except Exception as exception:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
+    def list_prefix(self, location: StorageLocation) -> list[StorageLocation]:
+        """列出指定前缀下的全部对象位置，不读取对象内容。"""
+        try:
+            if not self._client.bucket_exists(location.bucket):
+                return []
+            return [
+                StorageLocation(location.bucket, item.object_name)
+                for item in self._client.list_objects(
+                    location.bucket,
+                    prefix=location.object_key,
+                    recursive=True,
+                )
+            ]
+        except Exception as exception:
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
+
     def presigned_get(self, location: StorageLocation) -> str:
-        """ 生成预签名URL，用于临时访问对象存储中的文件 """
+        """生成预签名URL，用于临时访问对象存储中的文件"""
         try:
             return self._client.presigned_get_object(
                 location.bucket,
@@ -115,7 +130,7 @@ class ObjectStorage:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
 
     def _ensure_bucket(self, bucket: str) -> None:
-        """ 确保对象存储中的 bucket 存在 """
+        """确保对象存储中的 bucket 存在"""
         if not self._client.bucket_exists(bucket):
             self._client.make_bucket(bucket)
 

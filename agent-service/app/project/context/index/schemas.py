@@ -26,6 +26,7 @@ class ProjectIndexSummary(ProjectIndexSchema):
 
 class ProjectIndexFileEntry(ProjectIndexSchema):
     """系统文件或者用户文件在 index.json 中的 payload。"""
+
     id: int
     storage_uuid: str
     logical_path: str
@@ -39,7 +40,6 @@ class ProjectIndexFileEntry(ProjectIndexSchema):
     content_hash: str
     updated_at: datetime
     detail_ref: str | None
-    analysis_version: str | None
     module: str | None
     kind: str | None
     file_type: str | None
@@ -51,6 +51,7 @@ class ProjectIndexFileEntry(ProjectIndexSchema):
 
 class ProjectIndexUploadFailure(ProjectIndexSchema):
     """上传失败文件在 index.json 的 payload。"""
+
     file_id: int
     business: str
     logical_path: str

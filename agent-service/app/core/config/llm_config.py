@@ -25,7 +25,7 @@ class FileDetailLLMConfig:
     enabled: bool
     provider: str
     request_timeout_seconds: float
-    max_source_bytes: int
+    max_semantic_input_bytes: int
 
     @classmethod
     def from_env(cls) -> "FileDetailLLMConfig":
@@ -42,10 +42,11 @@ class FileDetailLLMConfig:
             request_timeout_seconds=float(
                 os.getenv("PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS", "60")
             ),
-            max_source_bytes=int(
+            max_semantic_input_bytes=int(
                 os.getenv("PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES", "262144")
             ),
         )
+
 
 @dataclass
 class LLMProviderConfig:
@@ -73,6 +74,7 @@ class LLMProviderConfig:
                 f"未配置 {provider} 的 API Key，请在 .env 文件中设置后重启服务。"
             )
 
+
 class Settings:
     """Agent 服务运行配置。"""
 
@@ -88,13 +90,13 @@ class Settings:
         self.file_detail = FileDetailLLMConfig.from_env()
         if self.file_detail.provider != "deepseek":
             raise ValueError(
-                "未支持的文件解析模型提供方："
+                "未支持的文件语义分析模型提供方："
                 f"{self.file_detail.provider!r}，当前仅支持：'deepseek'"
             )
         if self.file_detail.request_timeout_seconds <= 0:
-            raise ValueError("文件解析模型请求超时必须大于 0 秒")
-        if self.file_detail.max_source_bytes <= 0:
-            raise ValueError("文件解析模型源文本上限必须大于 0 字节")
+            raise ValueError("文件语义分析模型请求超时必须大于 0 秒")
+        if self.file_detail.max_semantic_input_bytes <= 0:
+            raise ValueError("文件语义分析输入上限必须大于 0 字节")
 
         # 按 provider 分组配置；新增厂商时在这里新增一项即可。
         # 注意：环境变量名仅占位，正式接入时若官方文档要求其它命名再调整。
@@ -103,8 +105,12 @@ class Settings:
                 api_key=os.getenv("DEEPSEEK_API_KEY", ""),
                 base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
                 model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"),
-                context_window_tokens=int(os.getenv("DEEPSEEK_CONTEXT_WINDOW_TOKENS", 126000)),
-                reserved_output_tokens=int(os.getenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 4096)),
+                context_window_tokens=int(
+                    os.getenv("DEEPSEEK_CONTEXT_WINDOW_TOKENS", 126000)
+                ),
+                reserved_output_tokens=int(
+                    os.getenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 4096)
+                ),
                 extra={
                     "timeout_seconds": float(
                         os.getenv("DEEPSEEK_REQUEST_TIMEOUT_SECONDS", "60")
@@ -116,10 +122,16 @@ class Settings:
                 api_key=os.getenv("QWEN_API_KEY", ""),
                 base_url=os.getenv("QWEN_BASE_URL", "http://127.0.0.1:11434"),
                 model=os.getenv("QWEN_MODEL", "qwen2.5:7b-instruct"),
-                context_window_tokens=int(os.getenv("QWEN_CONTEXT_WINDOW_TOKENS", 4096)),
-                reserved_output_tokens=int(os.getenv("QWEN_RESERVED_OUTPUT_TOKENS", 1024)),
+                context_window_tokens=int(
+                    os.getenv("QWEN_CONTEXT_WINDOW_TOKENS", 4096)
+                ),
+                reserved_output_tokens=int(
+                    os.getenv("QWEN_RESERVED_OUTPUT_TOKENS", 1024)
+                ),
                 extra={
-                    "timeout_seconds": float(os.getenv("QWEN_TIMEOUT_SECONDS", "120.0")),
+                    "timeout_seconds": float(
+                        os.getenv("QWEN_TIMEOUT_SECONDS", "120.0")
+                    ),
                 },
             ),
             # 豆包（火山方舟）：OpenAI 兼容协议，model 实际为 endpoint id。
@@ -147,5 +159,3 @@ class Settings:
 def get_llm_settings() -> Settings:
     LoadConfig()
     return Settings()
-
-

@@ -1,4 +1,5 @@
 """项目文件生命周期服务。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -159,8 +160,7 @@ class ProjectFileService:
         except IntegrityError as exception:
             await self._repository.session.rollback()
             logger.exception(
-                "文件记录创建失败 action=project_file.upload "
-                "userId=%s projectId=%s",
+                "文件记录创建失败 action=project_file.upload userId=%s projectId=%s",
                 user_id,
                 project_id,
             )
@@ -232,8 +232,7 @@ class ProjectFileService:
         supplied_content_type: str | None,
     ) -> ProjectFileResponse:
         logger.info(
-            "覆盖文件 action=project_file.overwrite "
-            "userId=%s projectId=%s fileId=%s",
+            "覆盖文件 action=project_file.overwrite userId=%s projectId=%s fileId=%s",
             user_id,
             project_id,
             file_id,
@@ -326,9 +325,10 @@ class ProjectFileService:
                     await self._repository.session.commit()
                 continue
 
+            stale_detail_ref = None
             self._apply_content_metadata(file, metadata)
             if content_changed:
-                self._invalidate_analysis(file)
+                stale_detail_ref = self._invalidate_analysis(file)
             file.status = ProjectFileStatus.ACTIVE.value
             file.upload_status = ProjectFileUploadStatus.SUCCESS.value
             file.upload_attempts += 1
@@ -337,6 +337,11 @@ class ProjectFileService:
             file.last_failed_at = None
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
+            await self._remove_invalidated_detail(
+                project,
+                file.id,
+                stale_detail_ref,
+            )
             await self._rebuild_index(project)
             logger.info(
                 "文件覆盖成功 action=project_file.overwrite "
@@ -384,6 +389,7 @@ class ProjectFileService:
             request.source_mtime_ms,
             self._file_config,
         )
+        path_changed = metadata.path_hash != file.path_hash
         existing = await self._repository.find_path(
             project_id,
             file.business_code,
@@ -401,10 +407,15 @@ class ProjectFileService:
         old_location = self._location_of(file)
         if metadata.file_name == file.file_name:
             self._apply_path_metadata(file, metadata)
-            self._invalidate_analysis(file)
+            stale_detail_ref = self._invalidate_analysis(file) if path_changed else None
             file.status = ProjectFileStatus.ACTIVE.value
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
+            await self._remove_invalidated_detail(
+                project,
+                file.id,
+                stale_detail_ref,
+            )
             await self._rebuild_index(project)
             logger.info(
                 "文件路径修改成功 action=project_file.path.update "
@@ -437,7 +448,7 @@ class ProjectFileService:
             raise AppException(ErrorCode.FILE_RENAME_FAILED) from exception
 
         self._apply_path_metadata(file, metadata)
-        self._invalidate_analysis(file)
+        stale_detail_ref = self._invalidate_analysis(file)
         file.storage_name = self._locations.storage_name(
             metadata.file_name,
             file.storage_uuid,
@@ -451,6 +462,11 @@ class ProjectFileService:
         file.status = ProjectFileStatus.ACTIVE.value
         await self._repository.session.commit()
         await self._repository.session.refresh(file)
+        await self._remove_invalidated_detail(
+            project,
+            file.id,
+            stale_detail_ref,
+        )
         try:
             await asyncio.to_thread(self._storage.remove, old_location)
         except AppException as exception:
@@ -483,8 +499,7 @@ class ProjectFileService:
         business_code: str | None,
     ) -> list[ProjectFileResponse]:
         logger.debug(
-            "查询文件列表 action=project_file.list "
-            "userId=%s projectId=%s business=%s",
+            "查询文件列表 action=project_file.list userId=%s projectId=%s business=%s",
             user_id,
             project_id,
             business_code,
@@ -499,8 +514,7 @@ class ProjectFileService:
             raise AppException(ErrorCode.PARAM_INVALID, "文件业务类型不合法")
         files = await self._repository.list(project_id, business_code)
         logger.debug(
-            "文件列表查询完成 action=project_file.list "
-            "userId=%s projectId=%s count=%s",
+            "文件列表查询完成 action=project_file.list userId=%s projectId=%s count=%s",
             user_id,
             project_id,
             len(files),
@@ -545,8 +559,7 @@ class ProjectFileService:
         lock_version: int,
     ) -> None:
         logger.info(
-            "删除文件 action=project_file.delete "
-            "userId=%s projectId=%s fileId=%s",
+            "删除文件 action=project_file.delete userId=%s projectId=%s fileId=%s",
             user_id,
             project_id,
             file_id,
@@ -600,8 +613,7 @@ class ProjectFileService:
                 )
         await self._rebuild_index(project)
         logger.info(
-            "文件删除成功 action=project_file.delete "
-            "userId=%s projectId=%s fileId=%s",
+            "文件删除成功 action=project_file.delete userId=%s projectId=%s fileId=%s",
             user_id,
             project_id,
             file_id,
@@ -667,9 +679,11 @@ class ProjectFileService:
         file.content_hash = metadata.content_hash
 
     @staticmethod
-    def _invalidate_analysis(file: ProjectFile) -> None:
+    def _invalidate_analysis(file: ProjectFile) -> str | None:
+        """清除当前详情引用，使变化后的文件重新进入分析候选。"""
+        stale_detail_ref = file.detail_ref
         file.parse_attempts = 0
-        file.analysis_version = None
+        file.detail_ref = None
         file.module = None
         file.kind = None
         file.file_type = None
@@ -677,6 +691,34 @@ class ProjectFileService:
         file.importance = None
         file.summary = None
         file.keywords = None
+        file.last_error_code = None
+        file.last_error_message = None
+        file.last_failed_at = None
+        return stale_detail_ref
+
+    async def _remove_invalidated_detail(
+        self,
+        project,
+        file_id: int,
+        detail_ref: str | None,
+    ) -> None:
+        """数据库解除引用后尽力清理旧详情，清理失败不回滚文件变更。"""
+        if detail_ref is None:
+            return
+        location = self._locations.system_file(
+            project.owner_user_id,
+            project.id,
+            detail_ref.removeprefix("system/"),
+        )
+        try:
+            await asyncio.to_thread(self._storage.remove, location)
+        except AppException:
+            logger.warning(
+                "失效文件详情清理失败 action=project_file.detail.cleanup "
+                "projectId=%s fileId=%s",
+                project.id,
+                file_id,
+            )
 
     @staticmethod
     def _apply_path_metadata(file: ProjectFile, metadata) -> None:
@@ -686,8 +728,7 @@ class ProjectFileService:
         file.extension = metadata.extension
         file.source_mtime_ms = metadata.source_mtime_ms
         raw = (
-            f"{metadata.relative_path}\0{file.size_bytes}\0"
-            f"{metadata.source_mtime_ms}"
+            f"{metadata.relative_path}\0{file.size_bytes}\0{metadata.source_mtime_ms}"
         ).encode()
         from hashlib import sha256
 

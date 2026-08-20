@@ -93,7 +93,6 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
             generator,
         )
         file = project_file()
-        file.analysis_version = "file-detail-v1"
         file.summary = "项目采用 FastAPI 单体架构"
         file.importance = "high"
         file.file_type = "doc"
@@ -110,7 +109,7 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
                 ]
             }
         )
-        storage.get_bytes.return_value = detail.model_dump_json().encode()
+        storage.read_bytes.return_value = detail.model_dump_json().encode()
 
         status = await service.refresh(project(), [file])
 
@@ -169,7 +168,6 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
                 relative_path=f"docs/{offset}.md",
                 file_name=f"{offset}.md",
             )
-            file.analysis_version = "file-detail-v1"
             file.file_type = "doc"
             file.detail_ref = f"system/file_details/{offset}.json"
             detail = file_detail(file).model_copy(
@@ -187,7 +185,7 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
             )
             files.append(file)
             details.append(detail.model_dump_json().encode())
-        storage.get_bytes.side_effect = [
+        storage.read_bytes.side_effect = [
             content
             for _, content in sorted(
                 zip(files, details, strict=True),
@@ -226,7 +224,7 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
         )
         storage = Mock()
         storage.exists.return_value = True
-        storage.get_bytes.return_value = existing.model_dump_json().encode()
+        storage.read_bytes.return_value = existing.model_dump_json().encode()
         generator = SimpleNamespace(
             generate=AsyncMock(return_value=_document("已处理删除来源"))
         )
@@ -259,7 +257,6 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
             ],
         )
         file = project_file(content=b"new content")
-        file.analysis_version = "file-detail-v1"
         file.file_type = "doc"
         file.detail_ref = "system/file_details/new.json"
         detail = file_detail(file).model_copy(
@@ -270,7 +267,7 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
         )
         storage = Mock()
         storage.exists.side_effect = [True, True]
-        storage.get_bytes.side_effect = [
+        storage.read_bytes.side_effect = [
             existing.model_dump_json().encode(),
             detail.model_dump_json().encode(),
         ]
@@ -295,7 +292,6 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
 
     async def test_refresh_redacts_historical_candidate_before_model_call(self) -> None:
         file = project_file()
-        file.analysis_version = "file-detail-v1"
         file.file_type = "doc"
         file.detail_ref = "system/file_details/current.json"
         secret = "github_pat_1234567890abcdefghijklmnop"
@@ -314,7 +310,7 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
         )
         storage = Mock()
         storage.exists.side_effect = [False, True]
-        storage.get_bytes.return_value = detail.model_dump_json().encode()
+        storage.read_bytes.return_value = detail.model_dump_json().encode()
         generator = SimpleNamespace(
             generate=AsyncMock(return_value=_document("安全规则"))
         )

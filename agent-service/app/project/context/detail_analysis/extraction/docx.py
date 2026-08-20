@@ -5,23 +5,23 @@ from pathlib import Path
 from xml.etree import ElementTree
 from zipfile import BadZipFile, ZipFile
 
-from .base import FileParseResult
+from .base import ExtractedFileContent
 
-__all__ = ["DocxFileParser"]
+__all__ = ["DocxFileExtractor"]
 
 _DOCUMENT_PATH = "word/document.xml"
 _MAX_DOCUMENT_XML_BYTES = 20 * 1024 * 1024
 _WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
-class DocxFileParser:
+class DocxFileExtractor:
     """从 DOCX 主文档中提取段落和表格文本。"""
 
-    async def parse(self, file_path: Path) -> FileParseResult:
-        content = await asyncio.to_thread(self._extract_text, file_path)
+    async def extract(self, file_path: Path) -> ExtractedFileContent:
+        extracted_text = await asyncio.to_thread(self._extract_text, file_path)
         return {
             "type": "doc",
-            "content": content,
+            "text": extracted_text,
         }
 
     def _extract_text(self, file_path: Path) -> str:
@@ -32,7 +32,9 @@ class DocxFileParser:
                     raise ValueError("DOCX 文档内容超过允许上限")
                 document_xml = archive.read(document_info)
         except (BadZipFile, KeyError) as exception:
-            raise ValueError("无法解析 Word 文档，仅支持有效的 DOCX 文件") from exception
+            raise ValueError(
+                "无法提取 Word 文档，仅支持有效的 DOCX 文件"
+            ) from exception
 
         try:
             document = ElementTree.fromstring(document_xml)

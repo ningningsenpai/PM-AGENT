@@ -1,4 +1,4 @@
-"""文件详情分析服务测试。"""
+"""文件语义分析服务测试。"""
 
 from __future__ import annotations
 
@@ -8,16 +8,17 @@ from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
+from app.project.context.detail_analysis.extraction import ExtractedFileContent
 from app.project.context.detail_analysis.schemas import (
-    FileAnalysisRequest,
     FileDetailSemanticOutput,
     FileRuleCandidate,
+    FileSemanticAnalysisRequest,
 )
-from app.project.context.detail_analysis.service import FileDetailAnalysisService
+from app.project.context.detail_analysis.service import FileSemanticAnalysisService
 
 
-def _request() -> FileAnalysisRequest:
-    return FileAnalysisRequest(
+def _request() -> FileSemanticAnalysisRequest:
+    return FileSemanticAnalysisRequest(
         user_id=1,
         project_id=10,
         business="project",
@@ -33,8 +34,11 @@ def _request() -> FileAnalysisRequest:
         size_bytes=4,
         content_type="text/markdown",
         content_hash="hash",
-        analysis_version="file-detail-v1",
     )
+
+
+def _extracted(text: str) -> ExtractedFileContent:
+    return ExtractedFileContent(type="text", text=text)
 
 
 def _semantic() -> FileDetailSemanticOutput:
@@ -65,7 +69,7 @@ def _semantic() -> FileDetailSemanticOutput:
     )
 
 
-class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
+class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
     def test_semantic_output_rejects_database_field_overflow(self) -> None:
         payload = _semantic().model_dump()
         payload["module"] = "x" * 129
@@ -73,49 +77,47 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
         with self.assertRaises(ValidationError):
             FileDetailSemanticOutput.model_validate(payload)
 
-    async def test_analyze_bytes_rejects_source_over_limit_before_model_call(
+    async def test_analyze_rejects_source_over_limit_before_model_call(
         self,
     ) -> None:
         generator = SimpleNamespace(generate=AsyncMock())
-        service = FileDetailAnalysisService(generator, max_source_bytes=3)
-        service.file_content.get_content_from_bytes = AsyncMock(
-            return_value={"content": "four"}
-        )
+        service = FileSemanticAnalysisService(generator, max_semantic_input_bytes=3)
 
-        result = await service.analyze_bytes(_request(), b"four")
+        result = await service.analyze(_request(), _extracted("four"))
 
         self.assertEqual("failed", result.status)
         self.assertEqual("FILE_DETAIL_SOURCE_TOO_LARGE", result.error_code)
         generator.generate.assert_not_awaited()
 
-    async def test_analyze_bytes_records_invalid_structured_response(self) -> None:
+    async def test_analyze_records_invalid_structured_response(self) -> None:
         generator = SimpleNamespace(
             generate=AsyncMock(side_effect=ValueError("模型输出被截断"))
         )
-        service = FileDetailAnalysisService(generator, max_source_bytes=1024)
-        service.file_content.get_content_from_bytes = AsyncMock(
-            return_value={"content": "project content"}
-        )
+        service = FileSemanticAnalysisService(generator, max_semantic_input_bytes=1024)
 
-        result = await service.analyze_bytes(_request(), b"content")
+        result = await service.analyze(
+            _request(),
+            _extracted("project content"),
+        )
 
         self.assertEqual("failed", result.status)
         self.assertEqual("FILE_DETAIL_MODEL_OUTPUT_INVALID", result.error_code)
 
-    async def test_analyze_bytes_assembles_identity_on_server(self) -> None:
+    async def test_analyze_assembles_identity_on_server(self) -> None:
         generator = SimpleNamespace(generate=AsyncMock(return_value=_semantic()))
-        service = FileDetailAnalysisService(generator, max_source_bytes=1024)
-        service.file_content.get_content_from_bytes = AsyncMock(
-            return_value={"content": "项目后端使用 FastAPI"}
-        )
+        service = FileSemanticAnalysisService(generator, max_semantic_input_bytes=1024)
 
-        result = await service.analyze_bytes(_request(), b"content")
+        result = await service.analyze(
+            _request(),
+            _extracted("项目后端使用 FastAPI"),
+        )
 
         self.assertEqual("success", result.status)
         self.assertIsNotNone(result.detail)
         assert result.detail is not None
         self.assertEqual(30, result.detail.file_id)
         self.assertEqual("file-30", result.detail.id)
+        self.assertEqual("2.0.0", result.detail.schema_version)
         self.assertEqual("hash", result.detail.content_hash)
         self.assertEqual(
             "后端使用 FastAPI",
@@ -124,31 +126,27 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
         generated_type = generator.generate.await_args.args[1]
         self.assertIs(FileDetailSemanticOutput, generated_type)
 
-    async def test_analyze_bytes_redacts_credentials_before_model_call(self) -> None:
+    async def test_analyze_redacts_credentials_before_model_call(self) -> None:
         generator = SimpleNamespace(generate=AsyncMock(return_value=_semantic()))
-        service = FileDetailAnalysisService(generator, max_source_bytes=4096)
+        service = FileSemanticAnalysisService(generator, max_semantic_input_bytes=4096)
         secret = "deepseek-secret-value"
         plain_secret = "plain-secret-value"
         json_secret = "json-secret-value"
         github_token = "github_pat_1234567890abcdefghijklmnop"
         slack_token = "xoxp-1234567890-abcdefghijklmnop"
         gitlab_token = "glpat-1234567890abcdefghijkl"
-        service.file_content.get_content_from_bytes = AsyncMock(
-            return_value={
-                "content": (
-                    f'api_key="{secret}"\n'
-                    f"password={plain_secret}\n"
-                    f'{{"client_secret": "{json_secret}"}}\n'
-                    "database_url=postgres://admin:database-pass@example.com/app\n"
-                    "Authorization: Bearer abcdefghijklmnop\n"
-                    f"github token: {github_token}\n"
-                    f"slack token: {slack_token}\n"
-                    f"gitlab token: {gitlab_token}"
-                )
-            }
+        extracted_content = _extracted(
+            f'api_key="{secret}"\n'
+            f"password={plain_secret}\n"
+            f'{{"client_secret": "{json_secret}"}}\n'
+            "database_url=postgres://admin:database-pass@example.com/app\n"
+            "Authorization: Bearer abcdefghijklmnop\n"
+            f"github token: {github_token}\n"
+            f"slack token: {slack_token}\n"
+            f"gitlab token: {gitlab_token}"
         )
 
-        result = await service.analyze_bytes(_request(), b"content")
+        result = await service.analyze(_request(), extracted_content)
 
         prompt = generator.generate.await_args.args[0]
         self.assertNotIn(secret, prompt)
@@ -166,20 +164,14 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
             result.detail.sensitive_flags[0]["type"],
         )
 
-    async def test_analyze_bytes_blocks_private_key_before_model_call(self) -> None:
+    async def test_analyze_blocks_private_key_before_model_call(self) -> None:
         generator = SimpleNamespace(generate=AsyncMock(return_value=_semantic()))
-        service = FileDetailAnalysisService(generator, max_source_bytes=4096)
-        service.file_content.get_content_from_bytes = AsyncMock(
-            return_value={
-                "content": (
-                    "-----BEGIN PRIVATE KEY-----\n"
-                    "private-material\n"
-                    "-----END PRIVATE KEY-----"
-                )
-            }
+        service = FileSemanticAnalysisService(generator, max_semantic_input_bytes=4096)
+        extracted_content = _extracted(
+            "-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY-----"
         )
 
-        result = await service.analyze_bytes(_request(), b"content")
+        result = await service.analyze(_request(), extracted_content)
 
         self.assertEqual("failed", result.status)
         self.assertEqual(
@@ -188,20 +180,16 @@ class FileDetailAnalysisServiceTest(IsolatedAsyncioTestCase):
         )
         generator.generate.assert_not_awaited()
 
-    async def test_analyze_bytes_blocks_pgp_private_key_before_model_call(self) -> None:
+    async def test_analyze_blocks_pgp_private_key_before_model_call(self) -> None:
         generator = SimpleNamespace(generate=AsyncMock(return_value=_semantic()))
-        service = FileDetailAnalysisService(generator, max_source_bytes=4096)
-        service.file_content.get_content_from_bytes = AsyncMock(
-            return_value={
-                "content": (
-                    "-----BEGIN PGP PRIVATE KEY BLOCK-----\n"
-                    "private-material\n"
-                    "-----END PGP PRIVATE KEY BLOCK-----"
-                )
-            }
+        service = FileSemanticAnalysisService(generator, max_semantic_input_bytes=4096)
+        extracted_content = _extracted(
+            "-----BEGIN PGP PRIVATE KEY BLOCK-----\n"
+            "private-material\n"
+            "-----END PGP PRIVATE KEY BLOCK-----"
         )
 
-        result = await service.analyze_bytes(_request(), b"content")
+        result = await service.analyze(_request(), extracted_content)
 
         self.assertEqual("failed", result.status)
         self.assertEqual(

@@ -1,4 +1,5 @@
 """项目文件持久化模型。"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -123,7 +124,6 @@ class ProjectFile(TimestampMixin, Base):
     upload_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     parse_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     detail_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    analysis_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     module: Mapped[str | None] = mapped_column(String(128), nullable=True)
     kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
     file_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
