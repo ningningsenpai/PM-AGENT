@@ -12,18 +12,18 @@ from pydantic import ValidationError
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
-from app.project.context.detail_analysis.schemas import FileDetail
-from app.project.context.detail_analysis.sensitive_content import (
+from app.llm.prompts.project_context import ProjectSpecificationPrompt
+from app.llm.structured import StructuredJsonGenerator
+from app.project_context.file_detail.schemas import FileDetail
+from app.project_context.file_detail.sensitive_content import (
     SensitiveContentBlockedError,
     sanitize_sensitive_content,
 )
-from app.project.context.model.structured import StructuredJsonGenerator
-from app.project.context.specification.schemas import (
+from app.project_context.specification.schemas import (
     ProjectSpecificationDocument,
     SpecificationSourceRef,
     merge_specifications,
 )
-from app.project.inner_prompts import ProjectSpecificationPrompt
 
 logger = get_logger(__name__)
 

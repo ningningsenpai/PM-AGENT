@@ -15,8 +15,8 @@ from app.infrastructure.storage import (
 from app.modules.chat import ChatContextInitializationService
 from app.modules.project.repository import ProjectRepository
 from app.modules.project.service import ProjectService
-from app.project.context.index import ProjectIndexService
-from app.project.context.specification import ProjectSpecificationService
+from app.project_context.index import ProjectIndexService
+from app.project_context.specification import ProjectSpecificationService
 
 
 def get_project_service(

@@ -9,15 +9,15 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock
 
 from app.infrastructure.storage import StorageLocationFactory
-from app.project.context.specification.schemas import (
+from app.project_context.specification.schemas import (
     DevelopmentApproachRule,
     ProjectSpecificationBody,
     ProjectSpecificationDocument,
     SpecificationSourceRef,
     merge_specifications,
 )
-from app.project.context.detail_analysis.schemas import FileRuleCandidate
-from app.project.context.specification.service import ProjectSpecificationService
+from app.project_context.file_detail.schemas import FileRuleCandidate
+from app.project_context.specification.service import ProjectSpecificationService
 from tests.unit.modules.project_file.analysis.factories import file_detail
 from tests.unit.modules.project_file.factories import (
     project,

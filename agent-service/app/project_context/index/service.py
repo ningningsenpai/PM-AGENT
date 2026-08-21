@@ -10,7 +10,7 @@ from typing import Any, Iterable
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
-from app.project.context.index.schemas import (
+from app.project_context.index.schemas import (
     ProjectIndexDocument,
     ProjectIndexFileEntry,
     ProjectIndexStorage,

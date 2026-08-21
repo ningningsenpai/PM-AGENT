@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from app.modules.project_file.models import ProjectFile
-from app.project.context.detail_analysis.schemas import FileDetail
+from app.project_context.file_detail.schemas import FileDetail
 
 
 def file_detail(file: ProjectFile) -> FileDetail:

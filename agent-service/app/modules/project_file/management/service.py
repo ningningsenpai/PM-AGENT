@@ -40,7 +40,7 @@ from app.modules.project_file.management.schemas import (
 )
 from app.modules.project_file.models import ProjectFile
 from app.modules.project_file.repository import ProjectFileRepository
-from app.project.context.index import ProjectIndexService
+from app.project_context.index import ProjectIndexService
 
 logger = get_logger(__name__)
 

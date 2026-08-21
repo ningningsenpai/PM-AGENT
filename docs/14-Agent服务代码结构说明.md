@@ -28,13 +28,18 @@ agent-service/app/
 ├── llm/
 │   ├── base.py
 │   ├── contracts.py
+│   ├── structured.py
 │   ├── clients/
 │   ├── orchestration/
 │   └── prompts/
+│       ├── project_chat.py
+│       ├── project_context/
+│       └── memory/
 ├── modules/
 │   ├── auth/
 │   ├── user/
 │   ├── project/
+│   ├── chat/
 │   └── project_file/
 │       ├── __init__.py
 │       ├── api.py
@@ -50,14 +55,13 @@ agent-service/app/
 │       └── analysis/
 │           ├── api.py
 │           └── service.py
-├── project/
-│   └── context/
-│       ├── detail_analysis/
-│       ├── index/
-│       │   ├── __init__.py
-│       │   ├── schemas.py
-│       │   └── service.py
-│       └── specification/
+├── project_context/
+│   ├── file_detail/
+│   ├── index/
+│   │   ├── __init__.py
+│   │   ├── schemas.py
+│   │   └── service.py
+│   └── specification/
 ├── maintenance/
 │   └── remove_analysis_version.py
 └── memory、normalization、rag
@@ -87,13 +91,17 @@ agent-service/app/
 
 ## Project Context 上下文产物边界
 
-`app/project/context/` 负责文件详情、项目规范和项目索引等可重建上下文产物，不拥有业务表，也不承担数据库查询。
+`app/project_context/` 负责文件详情、项目规范和项目索引等可重建上下文产物，不拥有业务表，也不承担数据库查询。项目记录、所有权、状态和生命周期编排仍归 `app/modules/project/`，文件事务、同步、上传和分析批次编排仍归 `app/modules/project_file/`。
 
+- `file_detail/` 负责文件内容提取后的结构化详情构建，不负责文件事务、分析批次或数据库回填编排。
 - `index/__init__.py` 只公开 `ProjectIndexDocument` 和 `ProjectIndexService`。
 - `index/schemas.py` 定义与 `index.json` 对应的强类型 Pydantic 快照模型，不依赖 ORM、Repository 或业务状态枚举。
 - `index/service.py` 负责根据调用方传入的项目和文件数据构建、初始化并发布 `system/index.json`；不得注入 Session、调用 Repository 或自行查询 MySQL。
+- `specification/` 负责根据调用方提供的有效文件详情构建和发布项目规范，不负责查询项目文件。
 - 项目、文件管理和文件解析 Service 负责查询权威数据、控制事务以及编排 `project_specification.json → index.json` 的发布顺序。`ProjectIndexService` 不调用项目规范 Service，两个上下文模块由业务 Service 协调。
 - `index.json` 使用 `2.0.0` 协议，不暴露分析管线版本；`detail_ref` 为空表示当前文件尚无有效详情。
+
+`app/llm/structured.py` 提供 Provider 无关的结构化 JSON 生成与 Pydantic 校验；`app/llm/prompts/project_context/` 存放文件详情、项目规范等上下文 Prompt，`app/llm/prompts/memory/` 存放尚未启用的记忆和用户习惯 Prompt。Prompt 包只描述模型输入约束，不依赖业务 Service、Repository 或存储设施。
 
 `app/maintenance/` 只存放需要显式维护窗口执行的一次性命令，不接入 FastAPI 路由。`remove_analysis_version.py` 负责旧详情对象、项目规范引用和索引快照迁移；成功后才能执行对应 Alembic 删列迁移。
 

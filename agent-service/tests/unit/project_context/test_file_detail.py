@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
-from app.project.context.detail_analysis.extraction import ExtractedFileContent
-from app.project.context.detail_analysis.schemas import (
+from app.project_context.file_detail.extraction import ExtractedFileContent
+from app.project_context.file_detail.schemas import (
     FileDetailSemanticOutput,
     FileRuleCandidate,
     FileSemanticAnalysisRequest,
 )
-from app.project.context.detail_analysis.service import FileSemanticAnalysisService
+from app.project_context.file_detail.service import FileSemanticAnalysisService
 
 
 def _request() -> FileSemanticAnalysisRequest:

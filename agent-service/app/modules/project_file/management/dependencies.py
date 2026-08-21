@@ -19,7 +19,7 @@ from app.modules.project.dependencies import get_project_service
 from app.modules.project.service import ProjectService
 from app.modules.project_file.management.service import ProjectFileService
 from app.modules.project_file.repository import ProjectFileRepository
-from app.project.context.index import ProjectIndexService
+from app.project_context.index import ProjectIndexService
 
 
 def get_project_file_service(

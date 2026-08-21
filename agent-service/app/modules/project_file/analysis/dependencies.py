@@ -18,15 +18,15 @@ from app.modules.project.api import get_project_service
 from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 from app.modules.project_file.repository import ProjectFileRepository
-from app.project.context.detail_analysis import FileDownloader
-from app.project.context.detail_analysis.extraction import (
+from app.llm.structured import StructuredJsonGenerator
+from app.project_context.file_detail import FileDownloader
+from app.project_context.file_detail.extraction import (
     FileContentExtractionService,
     FileContentExtractorFactory,
 )
-from app.project.context.detail_analysis.service import FileSemanticAnalysisService
-from app.project.context.index import ProjectIndexService
-from app.project.context.model import StructuredJsonGenerator
-from app.project.context.specification import ProjectSpecificationService
+from app.project_context.file_detail.service import FileSemanticAnalysisService
+from app.project_context.index import ProjectIndexService
+from app.project_context.specification import ProjectSpecificationService
 
 
 def get_project_file_analysis_service(

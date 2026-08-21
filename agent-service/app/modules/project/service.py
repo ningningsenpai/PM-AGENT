@@ -26,8 +26,8 @@ from app.modules.project.schemas import (
     ProjectResponse,
     to_response,
 )
-from app.project.context.index import ProjectIndexService
-from app.project.context.specification import ProjectSpecificationService
+from app.project_context.index import ProjectIndexService
+from app.project_context.specification import ProjectSpecificationService
 
 logger = get_logger(__name__)
 

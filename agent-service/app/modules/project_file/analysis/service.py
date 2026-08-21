@@ -18,16 +18,16 @@ from app.modules.project_file.analysis.schemas import (
 )
 from app.modules.project_file.models import ProjectFile
 from app.modules.project_file.repository import ProjectFileRepository
-from app.project.context.detail_analysis.schemas import (
+from app.project_context.file_detail.schemas import (
     FileSemanticAnalysisRequest,
     FileSemanticAnalysisResult,
 )
-from app.project.context.detail_analysis.extraction import (
+from app.project_context.file_detail.extraction import (
     FileContentExtractionService,
 )
-from app.project.context.detail_analysis.service import FileSemanticAnalysisService
-from app.project.context.index import ProjectIndexService
-from app.project.context.specification import ProjectSpecificationService
+from app.project_context.file_detail.service import FileSemanticAnalysisService
+from app.project_context.index import ProjectIndexService
+from app.project_context.specification import ProjectSpecificationService
 
 logger = get_logger(__name__)
 

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 from pydantic import BaseModel
 
 from app.llm.contracts import LLMAssistantTurn
-from app.project.context.model.structured import StructuredJsonGenerator
+from app.llm.structured import StructuredJsonGenerator
 
 
 class _Payload(BaseModel):
@@ -72,4 +72,3 @@ class StructuredJsonGeneratorTest(IsolatedAsyncioTestCase):
 
         with self.assertRaisesRegex(ValueError, "未返回结构化 JSON"):
             await generator.generate("请返回 JSON", _Payload)
-

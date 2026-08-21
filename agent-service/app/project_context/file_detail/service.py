@@ -8,19 +8,19 @@ from datetime import datetime
 from pydantic import ValidationError
 
 from app.core.logger import get_logger
-from app.project.context.detail_analysis.extraction import ExtractedFileContent
-from app.project.context.detail_analysis.schemas import (
+from app.llm.prompts.project_context import ProjectFileDetailPrompt
+from app.llm.structured import StructuredJsonGenerator
+from app.project_context.file_detail.extraction import ExtractedFileContent
+from app.project_context.file_detail.schemas import (
     FileDetail,
     FileDetailSemanticOutput,
     FileSemanticAnalysisRequest,
     FileSemanticAnalysisResult,
 )
-from app.project.context.detail_analysis.sensitive_content import (
+from app.project_context.file_detail.sensitive_content import (
     SensitiveContentBlockedError,
     sanitize_sensitive_content,
 )
-from app.project.context.model import StructuredJsonGenerator
-from app.project.inner_prompts import ProjectFileDetailPrompt
 
 __all__ = ["FileSemanticAnalysisService"]
 

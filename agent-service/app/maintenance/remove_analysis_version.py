@@ -24,9 +24,9 @@ from app.infrastructure.storage import (
 )
 from app.modules.project.models import Project
 from app.modules.project_file.models import ProjectFile
-from app.project.context.detail_analysis.schemas import FileDetail
-from app.project.context.index import ProjectIndexService
-from app.project.context.specification.schemas import ProjectSpecificationDocument
+from app.project_context.file_detail.schemas import FileDetail
+from app.project_context.index import ProjectIndexService
+from app.project_context.specification.schemas import ProjectSpecificationDocument
 
 _RULE_FIELDS = (
     "development_approach",

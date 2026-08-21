@@ -8,15 +8,15 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock
 
-import app.project.context.index as index_package
+import app.project_context.index as index_package
 from app.core.config import StorageConfig
 from app.core.errors import AppException, ErrorCode
 from app.infrastructure.storage import StorageLocationFactory
-from app.project.context.index import ProjectIndexDocument, ProjectIndexService
-from app.project.context.index.schemas import (
+from app.project_context.index import ProjectIndexDocument, ProjectIndexService
+from app.project_context.index.schemas import (
     ProjectIndexDocument as SchemaProjectIndexDocument,
 )
-from app.project.context.index.service import (
+from app.project_context.index.service import (
     ProjectIndexService as ServiceProjectIndexService,
 )
 

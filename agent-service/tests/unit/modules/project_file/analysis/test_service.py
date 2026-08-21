@@ -10,7 +10,7 @@ from app.core.errors import AppException, ErrorCode
 from app.infrastructure.storage import StorageLocationFactory
 from app.modules.project_file.analysis import service as analysis_service_module
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
-from app.project.context.detail_analysis.schemas import FileSemanticAnalysisResult
+from app.project_context.file_detail.schemas import FileSemanticAnalysisResult
 from tests.unit.modules.project_file.analysis.factories import file_detail
 from tests.unit.modules.project_file.factories import (
     project,
