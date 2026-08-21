@@ -12,6 +12,7 @@ from app.infrastructure.storage import (
     StorageLocationFactory,
     get_object_storage,
 )
+from app.modules.chat import ChatContextInitializationService
 from app.modules.project.repository import ProjectRepository
 from app.modules.project.service import ProjectService
 from app.project.context.index import ProjectIndexService
@@ -30,4 +31,5 @@ def get_project_service(
         locations,
         ProjectIndexService(storage, locations),
         ProjectSpecificationService(storage, locations),
+        ChatContextInitializationService(storage, locations),
     )

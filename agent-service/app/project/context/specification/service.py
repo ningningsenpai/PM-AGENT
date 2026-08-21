@@ -256,6 +256,10 @@ class ProjectSpecificationService:
             ) from exception
 
     def _build_inventory(self, files: Iterable[Any]) -> list[dict[str, Any]]:
+        """
+        构建项目文件清单。
+        根据给定的文件列表，过滤并构建当前项目的文件清单。
+        """
         return [
             self._inventory_item(file)
             for file in sorted(files, key=lambda item: item.relative_path)
@@ -264,6 +268,7 @@ class ProjectSpecificationService:
 
     @staticmethod
     def _is_current_project_file(file: Any) -> bool:
+        """判断文件是否属于当前项目的有效文件"""
         return (
             file.business_code == "project"
             and file.status == "active"
@@ -272,6 +277,7 @@ class ProjectSpecificationService:
 
     @staticmethod
     def _inventory_item(file: Any) -> dict[str, Any]:
+        """构建详情文件的文件元信息"""
         file_type = "doc" if file.file_type == "doc" else "code"
         return {
             "type": file_type,

@@ -63,6 +63,11 @@ class ProjectFileSyncService:
         self,
         request: ProjectFileSyncPlanRequest,
     ) -> tuple[list[LocalFileSnapshot], list[RejectedFileSnapshot]]:
+        """
+        根据后端的文件筛选逻辑再进行一次文件筛选
+        符合规则且流程正确 -> 进入 List[prepared]
+        不符合规则 -> 进入 List[rejected]
+        """
         prepared: list[LocalFileSnapshot] = []
         rejected: list[RejectedFileSnapshot] = []
         for item in request.items:

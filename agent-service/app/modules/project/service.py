@@ -12,6 +12,7 @@ from app.infrastructure.storage import (
     ObjectStorage,
     StorageLocationFactory,
 )
+from app.modules.chat import ChatContextInitializationService
 from app.modules.project.domain import ProjectStatus
 from app.modules.project.errors import (
     project_disabled,
@@ -39,12 +40,14 @@ class ProjectService:
         locations: StorageLocationFactory,
         index_service: ProjectIndexService,
         specification_service: ProjectSpecificationService,
+        chat_context_initializer: ChatContextInitializationService,
     ) -> None:
         self._repository = repository
         self._storage = storage
         self._locations = locations
         self._index = index_service
         self._specification = specification_service
+        self._chat_context = chat_context_initializer
 
     async def create(
         self,
@@ -67,7 +70,7 @@ class ProjectService:
                 raise project_name_exists()
             """项目状态为 INIT_FAILED，则重试初始化流程。
             INIT_FAILED 状态可能的原因如下：
-            1. index或者specification文件初始化失败。
+            1. index、specification 或 Chat 上下文文件初始化失败。
             2. 修改状态为 active 状态的事务失效
             """
             if existing.status == ProjectStatus.INIT_FAILED.value:
@@ -78,6 +81,7 @@ class ProjectService:
                 )
                 await self._repository.session.commit()
                 await self._specification.initialize(existing)
+                await self._chat_context.initialize(existing)
                 await self._index.initialize(existing)
                 existing.status = ProjectStatus.ACTIVE.value
                 await self._repository.session.commit()
@@ -108,6 +112,7 @@ class ProjectService:
 
         try:
             await self._specification.initialize(project)
+            await self._chat_context.initialize(project)
             await self._index.initialize(project)
         except Exception:
             logger.warning(

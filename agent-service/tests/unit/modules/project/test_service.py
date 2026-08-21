@@ -69,6 +69,7 @@ def _service(
     storage=None,
     index=None,
     specification=None,
+    chat_context=None,
 ) -> ProjectService:
     return ProjectService(
         repository,
@@ -76,6 +77,7 @@ def _service(
         StorageLocationFactory(_storage_config()),
         index or AsyncMock(),
         specification or AsyncMock(),
+        chat_context or AsyncMock(),
     )
 
 
@@ -99,6 +101,7 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         repository.add.side_effect = assign_id
         index = AsyncMock()
         specification = AsyncMock()
+        chat_context = AsyncMock()
         order: list[str] = []
 
         async def initialize_specification(*_args):
@@ -107,12 +110,17 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         async def initialize_index(*_args):
             order.append("index")
 
+        async def initialize_chat_context(*_args):
+            order.append("chat_context")
+
         specification.initialize.side_effect = initialize_specification
+        chat_context.initialize.side_effect = initialize_chat_context
         index.initialize.side_effect = initialize_index
         service = _service(
             repository,
             index=index,
             specification=specification,
+            chat_context=chat_context,
         )
 
         with patch.object(project_service_module, "logger") as logger:
@@ -125,8 +133,9 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("active", created.status)
         self.assertEqual("active", result.status)
         specification.initialize.assert_awaited_once_with(created)
+        chat_context.initialize.assert_awaited_once_with(created)
         index.initialize.assert_awaited_once_with(created)
-        self.assertEqual(["specification", "index"], order)
+        self.assertEqual(["specification", "chat_context", "index"], order)
         self.assertEqual(3, repository.session.commit.await_count)
         self.assertIn("action=project.create", repr(logger.method_calls))
         self.assertNotIn("PM-Agent", repr(logger.method_calls))
@@ -166,10 +175,21 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         )
         index = AsyncMock()
         specification = AsyncMock()
+        chat_context = AsyncMock()
+        order: list[str] = []
+
+        specification.initialize.side_effect = lambda *_args: order.append(
+            "specification"
+        )
+        chat_context.initialize.side_effect = lambda *_args: order.append(
+            "chat_context"
+        )
+        index.initialize.side_effect = lambda *_args: order.append("index")
         service = _service(
             repository,
             index=index,
             specification=specification,
+            chat_context=chat_context,
         )
 
         result = await service.create(
@@ -180,7 +200,9 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual(12, result.id)
         self.assertEqual("active", result.status)
         specification.initialize.assert_awaited_once_with(existing)
+        chat_context.initialize.assert_awaited_once_with(existing)
         index.initialize.assert_awaited_once_with(existing)
+        self.assertEqual(["specification", "chat_context", "index"], order)
         repository.add.assert_not_awaited()
         self.assertEqual(2, repository.session.commit.await_count)
 
@@ -249,6 +271,44 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         created = repository.add.await_args.args[0]
         self.assertEqual("init_failed", created.status)
         self.assertEqual(3, repository.session.commit.await_count)
+
+    async def test_create_keeps_retryable_record_when_chat_context_fails(
+        self,
+    ) -> None:
+        """验证 Chat 上下文初始化失败时项目保持可重试状态。"""
+        repository = _repository()
+
+        async def assign_id(project: Project) -> Project:
+            project.id = 12
+            project.created_at = datetime(2026, 7, 27, 9, 0, 0)
+            project.updated_at = datetime(2026, 7, 27, 9, 0, 0)
+            return project
+
+        repository.add.side_effect = assign_id
+        index = AsyncMock()
+        specification = AsyncMock()
+        chat_context = AsyncMock()
+        expected = AppException(ErrorCode.FILE_STORAGE_ERROR)
+        chat_context.initialize.side_effect = expected
+        service = _service(
+            repository,
+            index=index,
+            specification=specification,
+            chat_context=chat_context,
+        )
+
+        with self.assertRaises(AppException) as caught:
+            await service.create(
+                7,
+                CreateProjectRequest(project_name="PM-Agent"),
+            )
+
+        self.assertIs(expected, caught.exception)
+        specification.initialize.assert_awaited_once()
+        chat_context.initialize.assert_awaited_once()
+        index.initialize.assert_not_awaited()
+        created = repository.add.await_args.args[0]
+        self.assertEqual("init_failed", created.status)
 
     async def test_list_owned_maps_repository_projects(self) -> None:
         """验证项目列表只映射当前用户的仓储结果。

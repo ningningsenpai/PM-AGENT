@@ -141,14 +141,20 @@ class ProjectFileSyncPlanner:
         added: 新增
         deleted: 删除
         rejected: 拒绝
-        ambiguous: 未知文件
+        ambiguous: 未知文件（一般为多对多 content_hash 无法判断）
         """
         remote_by_path = {file.relative_path: file for file in remote_files}
         remaining_remote = dict(remote_by_path)
         remaining_local: dict[str, LocalFileSnapshot] = {}
         unchanged: list[MatchedFileAction] = []
         modified: list[MatchedFileAction] = []
-
+        """
+        file_path 匹配：
+            N -> remaining_local （包含 new_files And path_changed And ambiguous）
+            Y -> content_hash 匹配：
+                Y -> unchanged 未修改文件
+                N -> modified 文件内容修改
+        """
         for local_file in local_files:
             remote_file = remaining_remote.pop(local_file.relative_path, None)
             if remote_file is None:
@@ -163,6 +169,10 @@ class ProjectFileSyncPlanner:
             else:
                 modified.append(action)
 
+        """
+        rejected_file 和 remaining_remote 进行 file_path 匹配 
+            -> enriched_rejected （新规拒绝但是在服务端依旧 active）
+        """
         enriched_rejected: list[RejectedFileSnapshot] = []
         for rejected_file in rejected_files:
             remote_file = remaining_remote.pop(rejected_file.relative_path, None)
@@ -175,6 +185,14 @@ class ProjectFileSyncPlanner:
                 )
             )
 
+        """
+        content_hash 匹配：
+            local_by_hash.keys() & remote_by_hash.keys() -> 相同的 content_hash
+            -> local_group And remote_group 文件数量判断：
+                1 -> 1 -> moved 文件路径改变
+                N -> N -> ambiguous 内容哈希冲突
+            remaining_local And remaining_remote 排除判断之后的文件。
+        """
         local_by_hash = self._group_local_by_hash(remaining_local.values())
         remote_by_hash = self._group_remote_by_hash(remaining_remote.values())
         moved: list[MatchedFileAction] = []
@@ -220,6 +238,11 @@ class ProjectFileSyncPlanner:
     def _group_local_by_hash(
         files,
     ) -> dict[str, list[LocalFileSnapshot]]:
+        """
+        本地文件根据 content_hash 重组，与服务端文件进行 content_hash 匹配。
+            key -> content_hash
+            value -> list[LocalFileSnapshot]
+        """
         grouped: dict[str, list[LocalFileSnapshot]] = defaultdict(list)
         for file in files:
             grouped[file.content_hash].append(file)
@@ -229,6 +252,11 @@ class ProjectFileSyncPlanner:
     def _group_remote_by_hash(
         files,
     ) -> dict[str, list[RemoteFileSnapshot]]:
+        """
+        远端文件根据 content_hash 重组，与本地文件进行 content_hash 匹配。
+            key -> content_hash
+            value -> list[LocalFileSnapshot]
+        """
         grouped: dict[str, list[RemoteFileSnapshot]] = defaultdict(list)
         for file in files:
             if ProjectFileSyncPlanner._is_healthy_remote(file):
