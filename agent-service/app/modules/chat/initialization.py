@@ -14,6 +14,11 @@ from app.modules.chat.long_term_memory import LongTermMemoryDocument
 from app.modules.chat.short_term_memory import ShortTermMemoryDocument
 from app.modules.chat.user_habits import UserHabitCategory, UserHabitsDocument
 
+# 业务冻结说明：当前仅保留项目初始化时的空白占位文件创建，不实现用户习惯、
+# 长短期记忆和更新日志的内容构建。后续测试由测试人员直接向 MinIO 上传对应
+# 文件，作为用户输入信息提取的既有上下文；正式解冻前不得扩展生成、合并、
+# 晋升、更新或召回链路。
+
 
 class ChatContextInitializationService:
     """为新项目创建 Chat 上下文所需的空文件。"""

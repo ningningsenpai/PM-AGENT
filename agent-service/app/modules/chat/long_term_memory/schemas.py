@@ -7,6 +7,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# 当前仅保留空文件顶层结构；条目模型及内容生成、更新规则均处于冻结状态，
+# 后续测试使用的长期记忆文件由测试人员直接上传至 MinIO。
+
 
 class LongTermMemoryDocument(BaseModel):
     """项目长期记忆文件的顶层结构。"""

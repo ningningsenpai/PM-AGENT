@@ -14,6 +14,9 @@ from app.streaming.payloads import AgentChatRequest, ApiResponse
 router = APIRouter(prefix="/api/v1/agent", tags=["Agent"])
 logger = get_logger(__name__)
 
+# 用户习惯与长短期记忆业务当前冻结。解除冻结前，Chat API 不接入对话信息
+# 提取、记忆文件更新或召回逻辑；相关测试上下文由 MinIO 预置文件提供。
+
 
 @router.post("/chat")
 async def chat(
