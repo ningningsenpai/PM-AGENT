@@ -1,0 +1,7 @@
+{"event_id":"evt-001","project_id":721,"event_type":"fixture_index_generated","target":"index.json","source":"projest_test/","summary":"根据排除构建产物后的 32 个真实文件生成项目总索引。","created_at":"2026-08-27T00:00:00+08:00"}
+{"event_id":"evt-002","project_id":721,"event_type":"fixture_details_generated","target":"file_details/","source":"projest_test/","summary":"为 32 个项目文件生成详情、切片、关联、风险和敏感标记。","created_at":"2026-08-27T00:00:00+08:00"}
+{"event_id":"evt-003","project_id":721,"event_type":"project_specification_generated","target":"project_specification.json","source":"docs/开发文档.md","summary":"根据真实开发阶段、技术栈和七项风险生成项目规范。","created_at":"2026-08-27T00:00:00+08:00"}
+{"event_id":"evt-004","project_id":721,"event_type":"memory_initialized","target":"long_term_memory.json","source":"docs/开发文档.md","summary":"初始化项目阶段、架构、风险夹具和后续规划长期记忆。","created_at":"2026-08-27T00:00:00+08:00"}
+{"event_id":"evt-005","project_id":721,"event_type":"memory_initialized","target":"short_term_memory.json","source":"conversation","summary":"记录 MinIO 上传、风险召回和运行时身份校准待办。","created_at":"2026-08-27T00:00:00+08:00"}
+{"event_id":"evt-006","project_id":721,"event_type":"user_habits_initialized","target":"user_habits/","source":"projest_test/","summary":"初始化工作、思维、规范、工具和低置信度生活偏好。","created_at":"2026-08-27T00:00:00+08:00"}
+{"event_id":"evt-007","project_id":721,"event_type":"fixture_identity_reconciled","target":"system/","source":"recent_conversation","summary":"按实际 MinIO 路径将项目 ID、用户 ID、项目名和项目文件对象路径统一为 721、721、projest_test 与 0721/0721 分区。","created_at":"2026-08-27T00:00:00+08:00"}

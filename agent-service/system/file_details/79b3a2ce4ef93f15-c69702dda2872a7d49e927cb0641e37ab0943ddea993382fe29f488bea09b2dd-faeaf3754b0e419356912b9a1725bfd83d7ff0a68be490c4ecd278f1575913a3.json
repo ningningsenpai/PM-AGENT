@@ -1,0 +1,79 @@
+{
+  "id": "file-12",
+  "project_id": 721,
+  "file_id": 12,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "79b3a2ce4ef93f15",
+  "storage_name": "StudentManagementApplication-79b3a2ce4ef93f15.java",
+  "detail_ref": "system/file_details/79b3a2ce4ef93f15-c69702dda2872a7d49e927cb0641e37ab0943ddea993382fe29f488bea09b2dd-faeaf3754b0e419356912b9a1725bfd83d7ff0a68be490c4ecd278f1575913a3.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/StudentManagementApplication.java",
+  "minio_path": "projest_test/StudentManagementApplication-79b3a2ce4ef93f15.java",
+  "size_bytes": 485,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:c69702dda2872a7d49e927cb0641e37ab0943ddea993382fe29f488bea09b2dd",
+  "module": "backend-application",
+  "kind": "application",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "medium",
+  "summary": "Spring Boot 学生管理 Demo 启动入口。",
+  "keywords": [
+    "Spring Boot",
+    "启动类",
+    "学生管理"
+  ],
+  "role": "启动并装配学生管理后端应用。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "Spring Boot 学生管理 Demo 启动入口。",
+      "keywords": [
+        "Spring Boot",
+        "启动类",
+        "学生管理"
+      ],
+      "entities": [
+        "StudentManagementApplication"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 19
+      }
+    }
+  ],
+  "related_topics": [
+    "Spring Boot",
+    "启动类",
+    "学生管理"
+  ],
+  "related_files": [
+    {
+      "path": "backend/pom.xml",
+      "relation": "构建配置"
+    },
+    {
+      "path": "backend/src/main/resources/application.yml",
+      "relation": "运行配置"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "Spring Boot 学生管理 Demo 启动入口。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 19
+  },
+  "rule_candidates": []
+}

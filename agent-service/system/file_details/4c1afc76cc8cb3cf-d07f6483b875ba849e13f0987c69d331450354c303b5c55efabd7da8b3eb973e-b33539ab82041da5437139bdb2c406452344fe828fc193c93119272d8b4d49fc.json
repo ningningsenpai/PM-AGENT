@@ -1,0 +1,91 @@
+{
+  "id": "file-11",
+  "project_id": 721,
+  "file_id": 11,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "4c1afc76cc8cb3cf",
+  "storage_name": "StudentService-4c1afc76cc8cb3cf.java",
+  "detail_ref": "system/file_details/4c1afc76cc8cb3cf-d07f6483b875ba849e13f0987c69d331450354c303b5c55efabd7da8b3eb973e-b33539ab82041da5437139bdb2c406452344fe828fc193c93119272d8b4d49fc.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/student/StudentService.java",
+  "minio_path": "projest_test/StudentService-4c1afc76cc8cb3cf.java",
+  "size_bytes": 910,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:d07f6483b875ba849e13f0987c69d331450354c303b5c55efabd7da8b3eb973e",
+  "module": "backend-student",
+  "kind": "service",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "编排学生列表、姓名筛选、详情和新增业务。",
+  "keywords": [
+    "学生服务",
+    "查询",
+    "新增",
+    "分层架构"
+  ],
+  "role": "作为 Controller 与 Repository 之间的业务边界。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "编排学生列表、姓名筛选、详情和新增业务。",
+      "keywords": [
+        "学生服务",
+        "查询",
+        "新增",
+        "分层架构"
+      ],
+      "entities": [
+        "StudentService",
+        "list",
+        "get",
+        "create"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 35
+      }
+    }
+  ],
+  "related_topics": [
+    "学生服务",
+    "查询",
+    "新增",
+    "分层架构"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentController.java",
+      "relation": "上游控制器"
+    },
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentRepository.java",
+      "relation": "下游仓储"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "unsafe-repository-delegation",
+      "severity": "critical",
+      "summary": "姓名筛选直接委托存在 SQL 注入的 searchByNameUnsafe。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "编排学生列表、姓名筛选、详情和新增业务。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 35
+  },
+  "rule_candidates": []
+}

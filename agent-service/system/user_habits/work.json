@@ -1,0 +1,93 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "category": "work",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "user_habits": [
+    {
+      "id": "work-phase-delivery",
+      "title": "按阶段交付",
+      "habit": "用户倾向把复杂项目拆成可验收阶段并先完成最小业务闭环。",
+      "scope": "project_collaboration",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "阶段规划",
+        "闭环",
+        "交付"
+      ],
+      "signals": [
+        "按阶段推进",
+        "明确完成度"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "开发文档按三个阶段定义范围和完成度。"
+        }
+      ],
+      "applicable_scenarios": [
+        "制定开发计划",
+        "判断完成度"
+      ],
+      "avoid_when": [
+        "一次性简单修改"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    },
+    {
+      "id": "work-test-with-realistic-fixtures",
+      "title": "使用真实测试夹具",
+      "habit": "用户倾向使用包含真实结构和故意风险的小型项目验证 Agent 分析能力。",
+      "scope": "project_collaboration",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "测试夹具",
+        "风险识别",
+        "真实结构"
+      ],
+      "signals": [
+        "固定测试样本",
+        "保留识别测试点"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "README 和开发文档明确该目录为固定分析测试样本。"
+        }
+      ],
+      "applicable_scenarios": [
+        "Agent 评测",
+        "风险召回测试"
+      ],
+      "avoid_when": [
+        "生产代码复用"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "chg-habit-work-001",
+      "change_type": "created",
+      "target_id": "work-phase-delivery",
+      "summary": "创建work类用户习惯：按阶段交付。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-habit-work-002",
+      "change_type": "created",
+      "target_id": "work-test-with-realistic-fixtures",
+      "summary": "创建work类用户习惯：使用真实测试夹具。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": []
+}

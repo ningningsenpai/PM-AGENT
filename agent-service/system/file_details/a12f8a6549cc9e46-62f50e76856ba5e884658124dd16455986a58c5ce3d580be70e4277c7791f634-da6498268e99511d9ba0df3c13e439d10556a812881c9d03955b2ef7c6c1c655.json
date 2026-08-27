@@ -1,0 +1,93 @@
+{
+  "id": "file-21",
+  "project_id": 721,
+  "file_id": 21,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "a12f8a6549cc9e46",
+  "storage_name": "package-a12f8a6549cc9e46.json",
+  "detail_ref": "system/file_details/a12f8a6549cc9e46-62f50e76856ba5e884658124dd16455986a58c5ce3d580be70e4277c7791f634-da6498268e99511d9ba0df3c13e439d10556a812881c9d03955b2ef7c6c1c655.json",
+  "original_path": "frontend/package.json",
+  "minio_path": "projest_test/package-a12f8a6549cc9e46.json",
+  "size_bytes": 513,
+  "content_type": "application/json",
+  "content_hash": "sha256:62f50e76856ba5e884658124dd16455986a58c5ce3d580be70e4277c7791f634",
+  "module": "frontend-build",
+  "kind": "build_config",
+  "file_type": "config.npm.json",
+  "language": "json",
+  "status": "active",
+  "importance": "medium",
+  "summary": "定义 React 18、TypeScript 5.7、Vite 6 和 pnpm 构建脚本。",
+  "keywords": [
+    "React",
+    "TypeScript",
+    "Vite",
+    "pnpm",
+    "构建"
+  ],
+  "role": "声明前端依赖与开发、构建、预览命令。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义 React 18、TypeScript 5.7、Vite 6 和 pnpm 构建脚本。",
+      "keywords": [
+        "React",
+        "TypeScript",
+        "Vite",
+        "pnpm",
+        "构建"
+      ],
+      "entities": [
+        "pnpm dev",
+        "pnpm build",
+        "pnpm preview"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 23
+      }
+    }
+  ],
+  "related_topics": [
+    "React",
+    "TypeScript",
+    "Vite",
+    "pnpm",
+    "构建"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/pnpm-lock.yaml",
+      "relation": "依赖锁定"
+    },
+    {
+      "path": "frontend/vite.config.ts",
+      "relation": "Vite 配置"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "build-tools-as-runtime-dependencies",
+      "severity": "low",
+      "summary": "Vite、TypeScript 和 React 插件均列在 dependencies，依赖职责可进一步整理。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义 React 18、TypeScript 5.7、Vite 6 和 pnpm 构建脚本。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 23
+  },
+  "rule_candidates": []
+}

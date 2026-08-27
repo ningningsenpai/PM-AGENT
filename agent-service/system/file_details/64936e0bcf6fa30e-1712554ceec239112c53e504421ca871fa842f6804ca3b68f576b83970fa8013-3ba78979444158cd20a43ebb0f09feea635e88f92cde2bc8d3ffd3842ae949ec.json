@@ -1,0 +1,154 @@
+{
+  "id": "file-9",
+  "project_id": 721,
+  "file_id": 9,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "64936e0bcf6fa30e",
+  "storage_name": "StudentController-64936e0bcf6fa30e.java",
+  "detail_ref": "system/file_details/64936e0bcf6fa30e-1712554ceec239112c53e504421ca871fa842f6804ca3b68f576b83970fa8013-3ba78979444158cd20a43ebb0f09feea635e88f92cde2bc8d3ffd3842ae949ec.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/student/StudentController.java",
+  "minio_path": "projest_test/StudentController-64936e0bcf6fa30e.java",
+  "size_bytes": 1786,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:1712554ceec239112c53e504421ca871fa842f6804ca3b68f576b83970fa8013",
+  "module": "backend-student",
+  "kind": "api",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "提供学生列表、详情和新增 REST 接口。",
+  "keywords": [
+    "学生接口",
+    "列表",
+    "详情",
+    "新增",
+    "鉴权",
+    "幂等"
+  ],
+  "role": "接收 HTTP 请求、校验新增参数并委托 StudentService。",
+  "content_slices": [
+    {
+      "slice_id": "list-students",
+      "type": "api",
+      "summary": "查询全部学生或按姓名筛选。",
+      "keywords": [
+        "学生接口",
+        "列表",
+        "详情",
+        "新增",
+        "鉴权",
+        "幂等"
+      ],
+      "entities": [
+        "GET /api/v1/students"
+      ],
+      "source_range": {
+        "start_line": 32,
+        "end_line": 35
+      }
+    },
+    {
+      "slice_id": "student-detail",
+      "type": "api",
+      "summary": "按自增 ID 查询学生详情。",
+      "keywords": [
+        "学生接口",
+        "列表",
+        "详情",
+        "新增",
+        "鉴权",
+        "幂等"
+      ],
+      "entities": [
+        "GET /api/v1/students/{id}"
+      ],
+      "source_range": {
+        "start_line": 37,
+        "end_line": 40
+      }
+    },
+    {
+      "slice_id": "create-student",
+      "type": "api",
+      "summary": "校验并新增学生，当前缺少鉴权和幂等。",
+      "keywords": [
+        "学生接口",
+        "列表",
+        "详情",
+        "新增",
+        "鉴权",
+        "幂等"
+      ],
+      "entities": [
+        "POST /api/v1/students",
+        "CreateStudentRequest"
+      ],
+      "source_range": {
+        "start_line": 42,
+        "end_line": 46
+      }
+    }
+  ],
+  "related_topics": [
+    "学生接口",
+    "列表",
+    "详情",
+    "新增",
+    "鉴权",
+    "幂等"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentService.java",
+      "relation": "业务服务"
+    },
+    {
+      "path": "docs/接口文档.md",
+      "relation": "接口说明"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "missing-authentication",
+      "severity": "high",
+      "summary": "新增学生接口没有登录和权限校验。"
+    },
+    {
+      "code": "missing-idempotency",
+      "severity": "high",
+      "summary": "新增学生接口没有幂等控制，重复请求可能生成重复业务数据。"
+    },
+    {
+      "code": "trace-not-propagated",
+      "severity": "medium",
+      "summary": "每次响应重新生成 traceId，未接收并贯穿上游追踪标识。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "提供学生列表、详情和新增 REST 接口。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 52
+  },
+  "rule_candidates": [
+    {
+      "category": "risk_rule",
+      "text": "所有学生档案写接口必须增加身份鉴别、权限校验和幂等保护。",
+      "confidence": "high",
+      "evidence": [
+        "StudentController 第42至45行"
+      ]
+    }
+  ]
+}

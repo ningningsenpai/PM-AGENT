@@ -1,0 +1,140 @@
+{
+  "id": "file-32",
+  "project_id": 721,
+  "file_id": 32,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "edd748d8307589c4",
+  "storage_name": "README-edd748d8307589c4.md",
+  "detail_ref": "system/file_details/edd748d8307589c4-70f055a91e64f3ec94365df63fa4a7324c6795e0cb904408e03e983655e9a3e0-b335630551682c19a781afebcf4d07bf978fb1f8ac04c6bf87428ed5106870f5.json",
+  "original_path": "README.md",
+  "minio_path": "projest_test/README-edd748d8307589c4.md",
+  "size_bytes": 1405,
+  "content_type": "text/markdown",
+  "content_hash": "sha256:70f055a91e64f3ec94365df63fa4a7324c6795e0cb904408e03e983655e9a3e0",
+  "module": "project-overview",
+  "kind": "documentation",
+  "file_type": "doc.markdown",
+  "language": "markdown",
+  "status": "active",
+  "importance": "high",
+  "summary": "说明学生管理 Demo 的定位、50% 完成度、启动方式、演示路径和非生产警告。",
+  "keywords": [
+    "学生管理",
+    "测试样本",
+    "完成度",
+    "启动说明",
+    "非生产"
+  ],
+  "role": "作为项目总入口，明确已实现能力与测试夹具边界。",
+  "content_slices": [
+    {
+      "slice_id": "overview",
+      "type": "overview",
+      "summary": "项目定位和约 50% 完成度。",
+      "keywords": [
+        "学生管理",
+        "测试样本",
+        "完成度",
+        "启动说明",
+        "非生产"
+      ],
+      "entities": [
+        "简易学生管理系统 Demo"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 4
+      }
+    },
+    {
+      "slice_id": "runbook",
+      "type": "runbook",
+      "summary": "后端 18080、前端 15173 的本地启动方式。",
+      "keywords": [
+        "学生管理",
+        "测试样本",
+        "完成度",
+        "启动说明",
+        "非生产"
+      ],
+      "entities": [
+        "mvn spring-boot:run",
+        "pnpm dev"
+      ],
+      "source_range": {
+        "start_line": 17,
+        "end_line": 36
+      }
+    },
+    {
+      "slice_id": "warning",
+      "type": "risk",
+      "summary": "声明项目仅用于 PM-Agent 分析能力测试。",
+      "keywords": [
+        "学生管理",
+        "测试样本",
+        "完成度",
+        "启动说明",
+        "非生产"
+      ],
+      "entities": [
+        "测试夹具",
+        "非生产"
+      ],
+      "source_range": {
+        "start_line": 38,
+        "end_line": 47
+      }
+    }
+  ],
+  "related_topics": [
+    "学生管理",
+    "测试样本",
+    "完成度",
+    "启动说明",
+    "非生产"
+  ],
+  "related_files": [
+    {
+      "path": "docs/开发文档.md",
+      "relation": "详细设计"
+    },
+    {
+      "path": "docs/接口文档.md",
+      "relation": "接口定义"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "fixture-not-production",
+      "severity": "high",
+      "summary": "项目故意保留安全与工程缺陷，不得复制到生产环境。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "说明学生管理 Demo 的定位、50% 完成度、启动方式、演示路径和非生产警告。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 48
+  },
+  "rule_candidates": [
+    {
+      "category": "risk_rule",
+      "text": "该目录是故意包含缺陷的测试夹具，任何代码进入生产前必须重新进行安全审查。",
+      "confidence": "high",
+      "evidence": [
+        "README 第45至47行"
+      ]
+    }
+  ]
+}

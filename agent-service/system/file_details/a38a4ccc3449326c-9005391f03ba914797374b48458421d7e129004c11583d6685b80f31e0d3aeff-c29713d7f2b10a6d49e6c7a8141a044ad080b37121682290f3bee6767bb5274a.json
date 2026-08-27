@@ -1,0 +1,85 @@
+{
+  "id": "file-14",
+  "project_id": 721,
+  "file_id": 14,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "a38a4ccc3449326c",
+  "storage_name": "data-a38a4ccc3449326c.sql",
+  "detail_ref": "system/file_details/a38a4ccc3449326c-9005391f03ba914797374b48458421d7e129004c11583d6685b80f31e0d3aeff-c29713d7f2b10a6d49e6c7a8141a044ad080b37121682290f3bee6767bb5274a.json",
+  "original_path": "backend/src/main/resources/data.sql",
+  "minio_path": "projest_test/data-a38a4ccc3449326c.sql",
+  "size_bytes": 550,
+  "content_type": "application/sql",
+  "content_hash": "sha256:9005391f03ba914797374b48458421d7e129004c11583d6685b80f31e0d3aeff",
+  "module": "backend-runtime",
+  "kind": "database_seed",
+  "file_type": "data.sql",
+  "language": "sql",
+  "status": "active",
+  "importance": "medium",
+  "summary": "为 H2 开发数据库插入三条虚构学生演示数据。",
+  "keywords": [
+    "H2",
+    "演示数据",
+    "学生",
+    "初始化"
+  ],
+  "role": "支持后端启动后立即进行列表、查询和详情演示。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "为 H2 开发数据库插入三条虚构学生演示数据。",
+      "keywords": [
+        "H2",
+        "演示数据",
+        "学生",
+        "初始化"
+      ],
+      "entities": [
+        "student",
+        "3 records"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 5
+      }
+    }
+  ],
+  "related_topics": [
+    "H2",
+    "演示数据",
+    "学生",
+    "初始化"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/resources/schema.sql",
+      "relation": "表结构"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [
+    {
+      "type": "synthetic_personal_data",
+      "status": "redacted",
+      "summary": "包含虚构姓名、电话和邮箱，仅用于本地测试。"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "为 H2 开发数据库插入三条虚构学生演示数据。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 5
+  },
+  "rule_candidates": []
+}

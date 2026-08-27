@@ -1,0 +1,98 @@
+{
+  "id": "file-26",
+  "project_id": 721,
+  "file_id": 26,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "70448cf531416a4b",
+  "storage_name": "styles-70448cf531416a4b.css",
+  "detail_ref": "system/file_details/70448cf531416a4b-9e307752a4609380e215840db14500177360af364c949caf5fe016d181befedf-b484d4c671a5e5627a90a560bf955cb4b2d487d422e4ec4606026048ebc50600.json",
+  "original_path": "frontend/src/styles.css",
+  "minio_path": "projest_test/styles-70448cf531416a4b.css",
+  "size_bytes": 6950,
+  "content_type": "text/css",
+  "content_hash": "sha256:9e307752a4609380e215840db14500177360af364c949caf5fe016d181befedf",
+  "module": "frontend-style",
+  "kind": "stylesheet",
+  "file_type": "style.css",
+  "language": "css",
+  "status": "active",
+  "importance": "medium",
+  "summary": "定义青禾学籍册的纸张质感、绿色与金色视觉、表格、抽屉、表单和动画样式。",
+  "keywords": [
+    "CSS",
+    "响应式",
+    "表格",
+    "抽屉",
+    "表单",
+    "动画"
+  ],
+  "role": "为单页学生档案界面提供完整视觉布局和交互反馈。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义青禾学籍册的纸张质感、绿色与金色视觉、表格、抽屉、表单和动画样式。",
+      "keywords": [
+        "CSS",
+        "响应式",
+        "表格",
+        "抽屉",
+        "表单",
+        "动画"
+      ],
+      "entities": [
+        ".shell",
+        ".ledger",
+        ".drawer",
+        ".form-drawer"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 67
+      }
+    }
+  ],
+  "related_topics": [
+    "CSS",
+    "响应式",
+    "表格",
+    "抽屉",
+    "表单",
+    "动画"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/src/App.tsx",
+      "relation": "页面结构"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "external-font-dependency",
+      "severity": "low",
+      "summary": "运行时依赖 Google Fonts，离线或受限网络环境可能无法加载。"
+    },
+    {
+      "code": "desktop-only-min-width",
+      "severity": "medium",
+      "summary": "body 最小宽度为 1024px，移动端会出现横向滚动。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义青禾学籍册的纸张质感、绿色与金色视觉、表格、抽屉、表单和动画样式。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 67
+  },
+  "rule_candidates": []
+}

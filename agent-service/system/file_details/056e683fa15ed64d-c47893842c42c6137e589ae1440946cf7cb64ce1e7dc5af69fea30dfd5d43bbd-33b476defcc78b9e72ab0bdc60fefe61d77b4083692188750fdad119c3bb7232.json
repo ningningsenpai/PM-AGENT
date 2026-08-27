@@ -1,0 +1,79 @@
+{
+  "id": "file-28",
+  "project_id": 721,
+  "file_id": 28,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "056e683fa15ed64d",
+  "storage_name": "tsconfig.app-056e683fa15ed64d.json",
+  "detail_ref": "system/file_details/056e683fa15ed64d-c47893842c42c6137e589ae1440946cf7cb64ce1e7dc5af69fea30dfd5d43bbd-33b476defcc78b9e72ab0bdc60fefe61d77b4083692188750fdad119c3bb7232.json",
+  "original_path": "frontend/tsconfig.app.json",
+  "minio_path": "projest_test/tsconfig.app-056e683fa15ed64d.json",
+  "size_bytes": 529,
+  "content_type": "application/json",
+  "content_hash": "sha256:c47893842c42c6137e589ae1440946cf7cb64ce1e7dc5af69fea30dfd5d43bbd",
+  "module": "frontend-build",
+  "kind": "typescript_config",
+  "file_type": "config.typescript.json",
+  "language": "json",
+  "status": "active",
+  "importance": "low",
+  "summary": "启用 ES2022、严格类型、Bundler 模块解析和 React JSX。",
+  "keywords": [
+    "TypeScript",
+    "strict",
+    "ES2022",
+    "React JSX"
+  ],
+  "role": "配置浏览器端 TypeScript 编译检查。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "启用 ES2022、严格类型、Bundler 模块解析和 React JSX。",
+      "keywords": [
+        "TypeScript",
+        "strict",
+        "ES2022",
+        "React JSX"
+      ],
+      "entities": [
+        "compilerOptions",
+        "src"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 21
+      }
+    }
+  ],
+  "related_topics": [
+    "TypeScript",
+    "strict",
+    "ES2022",
+    "React JSX"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/tsconfig.json",
+      "relation": "项目引用"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "启用 ES2022、严格类型、Bundler 模块解析和 React JSX。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 21
+  },
+  "rule_candidates": []
+}

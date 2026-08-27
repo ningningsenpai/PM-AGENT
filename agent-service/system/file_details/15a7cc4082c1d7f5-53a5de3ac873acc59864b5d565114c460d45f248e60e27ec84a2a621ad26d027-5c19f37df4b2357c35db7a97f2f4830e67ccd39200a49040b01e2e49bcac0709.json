@@ -1,0 +1,68 @@
+{
+  "id": "file-29",
+  "project_id": 721,
+  "file_id": 29,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "15a7cc4082c1d7f5",
+  "storage_name": "tsconfig-15a7cc4082c1d7f5.json",
+  "detail_ref": "system/file_details/15a7cc4082c1d7f5-53a5de3ac873acc59864b5d565114c460d45f248e60e27ec84a2a621ad26d027-5c19f37df4b2357c35db7a97f2f4830e67ccd39200a49040b01e2e49bcac0709.json",
+  "original_path": "frontend/tsconfig.json",
+  "minio_path": "projest_test/tsconfig-15a7cc4082c1d7f5.json",
+  "size_bytes": 128,
+  "content_type": "application/json",
+  "content_hash": "sha256:53a5de3ac873acc59864b5d565114c460d45f248e60e27ec84a2a621ad26d027",
+  "module": "frontend-build",
+  "kind": "typescript_config",
+  "file_type": "config.typescript.json",
+  "language": "json",
+  "status": "active",
+  "importance": "low",
+  "summary": "聚合应用与 Node 两个 TypeScript 项目引用。",
+  "keywords": [
+    "TypeScript",
+    "项目引用"
+  ],
+  "role": "作为前端 TypeScript 构建入口。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "聚合应用与 Node 两个 TypeScript 项目引用。",
+      "keywords": [
+        "TypeScript",
+        "项目引用"
+      ],
+      "entities": [
+        "tsconfig.app.json",
+        "tsconfig.node.json"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 8
+      }
+    }
+  ],
+  "related_topics": [
+    "TypeScript",
+    "项目引用"
+  ],
+  "related_files": [],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "聚合应用与 Node 两个 TypeScript 项目引用。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 8
+  },
+  "rule_candidates": []
+}

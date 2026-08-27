@@ -1,0 +1,80 @@
+{
+  "id": "file-25",
+  "project_id": 721,
+  "file_id": 25,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "d4846183653ad1ff",
+  "storage_name": "main-d4846183653ad1ff.tsx",
+  "detail_ref": "system/file_details/d4846183653ad1ff-b50a6f58e0adba005cd373896fa86ca2ff871cd1c31ec9ca56cccb29c24d609c-f687de21d327881cdf3acf58a166c47675d7a332c21b0dc7154f751a1b5f7bb0.json",
+  "original_path": "frontend/src/main.tsx",
+  "minio_path": "projest_test/main-d4846183653ad1ff.tsx",
+  "size_bytes": 245,
+  "content_type": "text/typescript",
+  "content_hash": "sha256:b50a6f58e0adba005cd373896fa86ca2ff871cd1c31ec9ca56cccb29c24d609c",
+  "module": "frontend-student",
+  "kind": "application_entry",
+  "file_type": "code.frontend.react",
+  "language": "typescript",
+  "status": "active",
+  "importance": "medium",
+  "summary": "在 root 节点启用 React StrictMode 并挂载 App。",
+  "keywords": [
+    "React",
+    "StrictMode",
+    "入口"
+  ],
+  "role": "作为前端运行入口加载页面和全局样式。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "在 root 节点启用 React StrictMode 并挂载 App。",
+      "keywords": [
+        "React",
+        "StrictMode",
+        "入口"
+      ],
+      "entities": [
+        "ReactDOM.createRoot",
+        "App"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 11
+      }
+    }
+  ],
+  "related_topics": [
+    "React",
+    "StrictMode",
+    "入口"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/index.html",
+      "relation": "HTML 根节点"
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "relation": "根组件"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "在 root 节点启用 React StrictMode 并挂载 App。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 11
+  },
+  "rule_candidates": []
+}

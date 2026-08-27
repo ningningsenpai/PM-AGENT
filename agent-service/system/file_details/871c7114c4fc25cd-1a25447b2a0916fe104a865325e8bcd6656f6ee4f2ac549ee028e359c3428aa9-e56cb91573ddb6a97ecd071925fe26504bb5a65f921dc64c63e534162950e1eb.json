@@ -1,0 +1,179 @@
+{
+  "id": "file-24",
+  "project_id": 721,
+  "file_id": 24,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "871c7114c4fc25cd",
+  "storage_name": "App-871c7114c4fc25cd.tsx",
+  "detail_ref": "system/file_details/871c7114c4fc25cd-1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9-e56cb91573ddb6a97ecd071925fe26504bb5a65f921dc64c63e534162950e1eb.json",
+  "original_path": "frontend/src/App.tsx",
+  "minio_path": "projest_test/App-871c7114c4fc25cd.tsx",
+  "size_bytes": 7278,
+  "content_type": "text/typescript",
+  "content_hash": "sha256:1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9",
+  "module": "frontend-student",
+  "kind": "page",
+  "file_type": "code.frontend.react",
+  "language": "typescript",
+  "status": "active",
+  "importance": "high",
+  "summary": "实现学生列表、姓名查询、详情抽屉和新增学生表单的单页交互。",
+  "keywords": [
+    "React",
+    "学生列表",
+    "姓名查询",
+    "详情抽屉",
+    "新增表单"
+  ],
+  "role": "承载阶段一全部用户界面、状态管理和 API 调用。",
+  "content_slices": [
+    {
+      "slice_id": "state-and-loading",
+      "type": "state",
+      "summary": "维护学生、筛选、错误、详情和表单状态。",
+      "keywords": [
+        "React",
+        "学生列表",
+        "姓名查询",
+        "详情抽屉",
+        "新增表单"
+      ],
+      "entities": [
+        "useState",
+        "loadStudents"
+      ],
+      "source_range": {
+        "start_line": 5,
+        "end_line": 40
+      }
+    },
+    {
+      "slice_id": "create-flow",
+      "type": "interaction",
+      "summary": "新增学生后关闭表单、选中新记录并刷新列表。",
+      "keywords": [
+        "React",
+        "学生列表",
+        "姓名查询",
+        "详情抽屉",
+        "新增表单"
+      ],
+      "entities": [
+        "handleCreate"
+      ],
+      "source_range": {
+        "start_line": 42,
+        "end_line": 62
+      }
+    },
+    {
+      "slice_id": "student-table",
+      "type": "ui",
+      "summary": "展示学生列表、联系方式和状态。",
+      "keywords": [
+        "React",
+        "学生列表",
+        "姓名查询",
+        "详情抽屉",
+        "新增表单"
+      ],
+      "entities": [
+        "students.map",
+        "table"
+      ],
+      "source_range": {
+        "start_line": 88,
+        "end_line": 119
+      }
+    },
+    {
+      "slice_id": "detail-drawer",
+      "type": "ui",
+      "summary": "展示学生详情。",
+      "keywords": [
+        "React",
+        "学生列表",
+        "姓名查询",
+        "详情抽屉",
+        "新增表单"
+      ],
+      "entities": [
+        "selected"
+      ],
+      "source_range": {
+        "start_line": 123,
+        "end_line": 134
+      }
+    },
+    {
+      "slice_id": "create-drawer",
+      "type": "ui",
+      "summary": "提供新增学生表单。",
+      "keywords": [
+        "React",
+        "学生列表",
+        "姓名查询",
+        "详情抽屉",
+        "新增表单"
+      ],
+      "entities": [
+        "showForm",
+        "CreateStudentRequest"
+      ],
+      "source_range": {
+        "start_line": 136,
+        "end_line": 149
+      }
+    }
+  ],
+  "related_topics": [
+    "React",
+    "学生列表",
+    "姓名查询",
+    "详情抽屉",
+    "新增表单"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/src/api.ts",
+      "relation": "数据请求"
+    },
+    {
+      "path": "frontend/src/styles.css",
+      "relation": "页面样式"
+    },
+    {
+      "path": "frontend/src/types.ts",
+      "relation": "类型"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "unmasked-pii",
+      "severity": "high",
+      "summary": "学生电话和邮箱直接显示在列表与详情中。"
+    },
+    {
+      "code": "no-interaction-tests",
+      "severity": "low",
+      "summary": "复杂表单与抽屉交互没有前端自动化测试。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "实现学生列表、姓名查询、详情抽屉和新增学生表单的单页交互。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 153
+  },
+  "rule_candidates": []
+}

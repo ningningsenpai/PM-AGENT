@@ -1,0 +1,94 @@
+{
+  "id": "file-6",
+  "project_id": 721,
+  "file_id": 6,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "b66deb103608acdb",
+  "storage_name": "WebConfig-b66deb103608acdb.java",
+  "detail_ref": "system/file_details/b66deb103608acdb-3b3dade184b37bc693111252f568ae0d0d09dd13c5bc09a29bdcfa45160f76f9-40aebb6600c8084f98375664f596c3afd905abeed4db37f5630ba0290269cf84.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/config/WebConfig.java",
+  "minio_path": "projest_test/WebConfig-b66deb103608acdb.java",
+  "size_bytes": 733,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:3b3dade184b37bc693111252f568ae0d0d09dd13c5bc09a29bdcfa45160f76f9",
+  "module": "backend-config",
+  "kind": "configuration",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "配置 /api/** 的跨域访问，当前允许任意来源和方法。",
+  "keywords": [
+    "CORS",
+    "跨域",
+    "WebMvcConfigurer",
+    "安全风险"
+  ],
+  "role": "为前后端本地联调注册 CORS 规则。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "配置 /api/** 的跨域访问，当前允许任意来源和方法。",
+      "keywords": [
+        "CORS",
+        "跨域",
+        "WebMvcConfigurer",
+        "安全风险"
+      ],
+      "entities": [
+        "WebConfig",
+        "/api/**"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 22
+      }
+    }
+  ],
+  "related_topics": [
+    "CORS",
+    "跨域",
+    "WebMvcConfigurer",
+    "安全风险"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/vite.config.ts",
+      "relation": "前端代理"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "wildcard-cors",
+      "severity": "medium",
+      "summary": "allowedOriginPatterns 和 allowedMethods 均为通配符，生产环境会扩大跨域攻击面。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "配置 /api/** 的跨域访问，当前允许任意来源和方法。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 22
+  },
+  "rule_candidates": [
+    {
+      "category": "risk_rule",
+      "text": "生产部署必须把 CORS 来源和方法限制为明确可信列表。",
+      "confidence": "high",
+      "evidence": [
+        "WebConfig 第18至19行"
+      ]
+    }
+  ]
+}

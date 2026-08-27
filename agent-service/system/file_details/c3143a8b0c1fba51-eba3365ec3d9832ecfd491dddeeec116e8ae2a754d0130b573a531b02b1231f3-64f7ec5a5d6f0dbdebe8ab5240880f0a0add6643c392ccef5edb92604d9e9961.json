@@ -1,0 +1,92 @@
+{
+  "id": "file-15",
+  "project_id": 721,
+  "file_id": 15,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "c3143a8b0c1fba51",
+  "storage_name": "schema-c3143a8b0c1fba51.sql",
+  "detail_ref": "system/file_details/c3143a8b0c1fba51-eba3365ec3d9832ecfd491dddeeec116e8ae2a754d0130b573a531b02b1231f3-64f7ec5a5d6f0dbdebe8ab5240880f0a0add6643c392ccef5edb92604d9e9961.json",
+  "original_path": "backend/src/main/resources/schema.sql",
+  "minio_path": "projest_test/schema-c3143a8b0c1fba51.sql",
+  "size_bytes": 513,
+  "content_type": "application/sql",
+  "content_hash": "sha256:eba3365ec3d9832ecfd491dddeeec116e8ae2a754d0130b573a531b02b1231f3",
+  "module": "backend-runtime",
+  "kind": "database_schema",
+  "file_type": "schema.sql",
+  "language": "sql",
+  "status": "active",
+  "importance": "high",
+  "summary": "为 H2 开发环境创建 student 表和姓名索引。",
+  "keywords": [
+    "H2",
+    "student 表",
+    "索引",
+    "唯一约束",
+    "逻辑删除"
+  ],
+  "role": "定义后端自动初始化所需的学生档案表结构。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "为 H2 开发环境创建 student 表和姓名索引。",
+      "keywords": [
+        "H2",
+        "student 表",
+        "索引",
+        "唯一约束",
+        "逻辑删除"
+      ],
+      "entities": [
+        "student",
+        "idx_student_name"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 18
+      }
+    }
+  ],
+  "related_topics": [
+    "H2",
+    "student 表",
+    "索引",
+    "唯一约束",
+    "逻辑删除"
+  ],
+  "related_files": [
+    {
+      "path": "database/student_management.sql",
+      "relation": "MySQL 对应脚本"
+    },
+    {
+      "path": "backend/src/main/resources/data.sql",
+      "relation": "初始化数据"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "enumerable-primary-key",
+      "severity": "medium",
+      "summary": "对外 API 直接使用自增主键，可能暴露数据规模并被枚举。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "为 H2 开发环境创建 student 表和姓名索引。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 18
+  },
+  "rule_candidates": []
+}

@@ -1,0 +1,51 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "category": "life",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "user_habits": [
+    {
+      "id": "life-focus-blocks",
+      "title": "集中时段完成验证",
+      "habit": "用户可能偏好在连续、不被打断的时间段集中完成开发与测试验证。",
+      "scope": "life",
+      "status": "pending_review",
+      "confidence": "low",
+      "importance": "low",
+      "tags": [
+        "时间安排",
+        "专注",
+        "验证"
+      ],
+      "signals": [
+        "连续开发",
+        "集中验收"
+      ],
+      "source_type": "model_inference",
+      "source_refs": [
+        {
+          "type": "model_inference",
+          "summary": "该习惯为低置信度正常偏好示例，项目资料没有直接证据。"
+        }
+      ],
+      "applicable_scenarios": [
+        "安排开发与测试时间"
+      ],
+      "avoid_when": [
+        "用户提供不同时间偏好"
+      ],
+      "change_type": "pending_review",
+      "previous_versions": []
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "chg-habit-life-001",
+      "change_type": "pending_review",
+      "target_id": "life-focus-blocks",
+      "summary": "创建life类用户习惯：集中时段完成验证。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": []
+}

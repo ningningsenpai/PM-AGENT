@@ -1,0 +1,95 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "category": "thinking",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "user_habits": [
+    {
+      "id": "thinking-separate-done-and-planned",
+      "title": "区分已做与规划",
+      "habit": "用户在判断项目进度时重视严格区分已实现、仅设计和未开发能力。",
+      "scope": "decision_style",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "进度判断",
+        "事实边界",
+        "阶段状态"
+      ],
+      "signals": [
+        "已实现",
+        "仅设计",
+        "未开发"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "接口文档和开发文档反复区分当前接口与后续规划。"
+        }
+      ],
+      "applicable_scenarios": [
+        "项目扫描",
+        "进度汇报",
+        "验收"
+      ],
+      "avoid_when": [
+        "纯创意探索"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    },
+    {
+      "id": "thinking-risk-first",
+      "title": "高风险优先整改",
+      "habit": "用户倾向先处理会造成安全暴露或数据破坏的高严重度问题。",
+      "scope": "decision_style",
+      "status": "active",
+      "confidence": "medium",
+      "importance": "high",
+      "tags": [
+        "风险优先级",
+        "安全",
+        "整改"
+      ],
+      "signals": [
+        "建议等级",
+        "高风险"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "开发文档为七项风险提供建议等级。"
+        }
+      ],
+      "applicable_scenarios": [
+        "制定整改顺序",
+        "代码审查"
+      ],
+      "avoid_when": [
+        "仅做视觉优化"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "chg-habit-thinking-001",
+      "change_type": "created",
+      "target_id": "thinking-separate-done-and-planned",
+      "summary": "创建thinking类用户习惯：区分已做与规划。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-habit-thinking-002",
+      "change_type": "created",
+      "target_id": "thinking-risk-first",
+      "summary": "创建thinking类用户习惯：高风险优先整改。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": []
+}

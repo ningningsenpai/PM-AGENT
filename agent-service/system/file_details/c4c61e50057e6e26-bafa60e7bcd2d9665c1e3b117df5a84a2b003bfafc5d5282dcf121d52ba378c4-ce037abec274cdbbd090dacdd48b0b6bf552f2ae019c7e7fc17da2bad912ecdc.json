@@ -1,0 +1,141 @@
+{
+  "id": "file-10",
+  "project_id": 721,
+  "file_id": 10,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "c4c61e50057e6e26",
+  "storage_name": "StudentRepository-c4c61e50057e6e26.java",
+  "detail_ref": "system/file_details/c4c61e50057e6e26-bafa60e7bcd2d9665c1e3b117df5a84a2b003bfafc5d5282dcf121d52ba378c4-ce037abec274cdbbd090dacdd48b0b6bf552f2ae019c7e7fc17da2bad912ecdc.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/student/StudentRepository.java",
+  "minio_path": "projest_test/StudentRepository-c4c61e50057e6e26.java",
+  "size_bytes": 3242,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:bafa60e7bcd2d9665c1e3b117df5a84a2b003bfafc5d5282dcf121d52ba378c4",
+  "module": "backend-student",
+  "kind": "repository",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "使用 JdbcTemplate 查询和新增学生，其中姓名查询故意直接拼接 SQL。",
+  "keywords": [
+    "JdbcTemplate",
+    "SQL 注入",
+    "学生查询",
+    "学生新增",
+    "参数绑定"
+  ],
+  "role": "封装学生表数据映射、列表查询、详情查询和新增持久化。",
+  "content_slices": [
+    {
+      "slice_id": "row-mapper",
+      "type": "data_mapping",
+      "summary": "将 student 表字段映射为 Student。",
+      "keywords": [
+        "JdbcTemplate",
+        "SQL 注入",
+        "学生查询",
+        "学生新增",
+        "参数绑定"
+      ],
+      "entities": [
+        "ROW_MAPPER",
+        "Student"
+      ],
+      "source_range": {
+        "start_line": 26,
+        "end_line": 36
+      }
+    },
+    {
+      "slice_id": "unsafe-name-search",
+      "type": "security",
+      "summary": "姓名模糊查询直接拼接用户输入。",
+      "keywords": [
+        "JdbcTemplate",
+        "SQL 注入",
+        "学生查询",
+        "学生新增",
+        "参数绑定"
+      ],
+      "entities": [
+        "searchByNameUnsafe",
+        "LIKE"
+      ],
+      "source_range": {
+        "start_line": 44,
+        "end_line": 56
+      }
+    },
+    {
+      "slice_id": "create-student",
+      "type": "repository",
+      "summary": "使用参数绑定插入学生并读取生成 ID。",
+      "keywords": [
+        "JdbcTemplate",
+        "SQL 注入",
+        "学生查询",
+        "学生新增",
+        "参数绑定"
+      ],
+      "entities": [
+        "INSERT INTO student",
+        "GeneratedKeyHolder"
+      ],
+      "source_range": {
+        "start_line": 59,
+        "end_line": 79
+      }
+    }
+  ],
+  "related_topics": [
+    "JdbcTemplate",
+    "SQL 注入",
+    "学生查询",
+    "学生新增",
+    "参数绑定"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentService.java",
+      "relation": "调用方"
+    },
+    {
+      "path": "backend/src/main/resources/schema.sql",
+      "relation": "表结构"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "sql-injection",
+      "severity": "critical",
+      "summary": "searchByNameUnsafe 将外部姓名关键字直接拼入 SQL，存在可利用的 SQL 注入风险。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "使用 JdbcTemplate 查询和新增学生，其中姓名查询故意直接拼接 SQL。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 81
+  },
+  "rule_candidates": [
+    {
+      "category": "risk_rule",
+      "text": "任何外部输入参与 SQL 查询时必须使用参数绑定，禁止字符串拼接。",
+      "confidence": "high",
+      "evidence": [
+        "StudentRepository 第48至51行"
+      ]
+    }
+  ]
+}

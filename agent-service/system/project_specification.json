@@ -1,0 +1,592 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "project_specification": {
+    "development_stage": {
+      "current_stage": "阶段一基础档案已完成，整体约 50%",
+      "stage_goal": "以固定测试样本验证 PM-Agent 对项目扫描、进度判断、风险识别和后续规划的准确性。",
+      "completed": [
+        "已完成学生列表、姓名查询、详情和新增的前后端链路",
+        "已完成 H2 自动建表与三条演示数据初始化",
+        "已提供 MySQL 8 独立建表脚本",
+        "已提供四条 MockMvc 关键接口测试用例",
+        "已完成 React 单页列表、搜索、详情抽屉和新增表单"
+      ],
+      "next_focus": [
+        "优先修复明文凭据和姓名查询 SQL 注入严重风险",
+        "补充鉴权、权限、幂等和个人信息脱敏",
+        "实现编辑、逻辑删除与分页",
+        "补充班级、课程和成绩能力",
+        "增加前端交互、安全与端到端测试"
+      ]
+    },
+    "development_approach": [
+      {
+        "id": "approach-three-stage-delivery",
+        "rule": "项目按基础档案、档案维护、工程加固三个阶段推进，并明确区分已实现能力和规划能力。",
+        "scope": "all",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "doc",
+            "path": "docs/开发文档.md",
+            "file_id": 18,
+            "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+            "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "approach-layered-backend",
+        "rule": "后端使用 Controller、Service、Repository 三层结构，业务请求经 Service 编排后访问 JdbcTemplate。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "doc",
+            "path": "docs/开发文档.md",
+            "file_id": 18,
+            "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+            "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json"
+          },
+          {
+            "type": "code",
+            "path": "backend/src/main/java/com/ning/demo/student/student/StudentService.java",
+            "file_id": 11,
+            "content_hash": "sha256:d07f6483b875ba849e13f0987c69d331450354c303b5c55efabd7da8b3eb973e",
+            "detail_ref": "system/file_details/4c1afc76cc8cb3cf-d07f6483b875ba849e13f0987c69d331450354c303b5c55efabd7da8b3eb973e-b33539ab82041da5437139bdb2c406452344fe828fc193c93119272d8b4d49fc.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "approach-single-page-frontend",
+        "rule": "第一阶段前端使用单页 React 应用完成列表、搜索、详情和新增闭环，不提前引入复杂状态框架。",
+        "scope": "frontend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "doc",
+            "path": "docs/开发文档.md",
+            "file_id": 18,
+            "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+            "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json"
+          },
+          {
+            "type": "code",
+            "path": "frontend/src/App.tsx",
+            "file_id": 24,
+            "content_hash": "sha256:1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9",
+            "detail_ref": "system/file_details/871c7114c4fc25cd-1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9-e56cb91573ddb6a97ecd071925fe26504bb5a65f921dc64c63e534162950e1eb.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      }
+    ],
+    "technical_constraints": [
+      {
+        "id": "constraint-backend-stack",
+        "constraint": "后端固定使用 Java 17、Spring Boot 3.3、Spring JDBC；开发数据库为 H2 MySQL 兼容模式。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/pom.xml",
+            "file_id": 2,
+            "content_hash": "sha256:2f3fca923dfb1fd6112b5aec183aaf1eeb05c5cb09f6427d35d0fdc4494c9494",
+            "detail_ref": "system/file_details/820179f2a33ec9e3-2f3fca923dfb1fd6112b5aec183aaf1eeb05c5cb09f6427d35d0fdc4494c9494-34049c3bc6deee4bbf269544338e0450399140da63fec684096d1ae0ce70b4bb.json"
+          },
+          {
+            "type": "code",
+            "path": "backend/src/main/resources/application.yml",
+            "file_id": 13,
+            "content_hash": "sha256:58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417",
+            "detail_ref": "system/file_details/64f5e8a0c0579e9a-58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417-d501b8901facc9c98d1d932ee4982cbe9fdf94c4d0e836020a21f5066b6e9a2a.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "constraint-frontend-stack",
+        "constraint": "前端使用 React 18、TypeScript 5.7、Vite 6 和 Fetch API。",
+        "scope": "frontend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "frontend/package.json",
+            "file_id": 21,
+            "content_hash": "sha256:62f50e76856ba5e884658124dd16455986a58c5ce3d580be70e4277c7791f634",
+            "detail_ref": "system/file_details/a12f8a6549cc9e46-62f50e76856ba5e884658124dd16455986a58c5ce3d580be70e4277c7791f634-da6498268e99511d9ba0df3c13e439d10556a812881c9d03955b2ef7c6c1c655.json"
+          },
+          {
+            "type": "code",
+            "path": "frontend/src/api.ts",
+            "file_id": 23,
+            "content_hash": "sha256:897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c",
+            "detail_ref": "system/file_details/3a3ec590cf20d1f2-897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c-aee57981f77773370af68160751868a99221b95688a048d64f8873e8af320fd5.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "constraint-mysql-target",
+        "constraint": "目标数据库为 MySQL 8，独立脚本位于 database/student_management.sql；H2 与 MySQL 结构需要防止漂移。",
+        "scope": "database",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "database/student_management.sql",
+            "file_id": 17,
+            "content_hash": "sha256:eb716808c09bc0e4755768376d57b78269d85479f0e90dd470bb77c36677b3f2",
+            "detail_ref": "system/file_details/e1cb13dc454ecc80-eb716808c09bc0e4755768376d57b78269d85479f0e90dd470bb77c36677b3f2-d021ffb406d9f2d130158d36ac8f8410d0e572296a4ca3ac77280d26ae0debe3.json"
+          },
+          {
+            "type": "code",
+            "path": "backend/src/main/resources/schema.sql",
+            "file_id": 15,
+            "content_hash": "sha256:eba3365ec3d9832ecfd491dddeeec116e8ae2a754d0130b573a531b02b1231f3",
+            "detail_ref": "system/file_details/c3143a8b0c1fba51-eba3365ec3d9832ecfd491dddeeec116e8ae2a754d0130b573a531b02b1231f3-64f7ec5a5d6f0dbdebe8ab5240880f0a0add6643c392ccef5edb92604d9e9961.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "constraint-small-demo-boundary",
+        "constraint": "当前测试样本不引入 Redis、消息队列、微服务和复杂教务能力。",
+        "scope": "all",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "doc",
+            "path": "docs/开发文档.md",
+            "file_id": 18,
+            "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+            "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      }
+    ],
+    "coding_rules": [
+      {
+        "id": "coding-unified-api-response",
+        "rule": "后端接口统一返回 code、message、data、traceId，业务错误使用中文消息。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/src/main/java/com/ning/demo/student/common/ApiResponse.java",
+            "file_id": 3,
+            "content_hash": "sha256:1c90e3662350119ce9712d0d5eb2b030dd38c58404a657fe59009049572412ee",
+            "detail_ref": "system/file_details/828244cb45b1f80d-1c90e3662350119ce9712d0d5eb2b030dd38c58404a657fe59009049572412ee-4ddb80afffb48865bd22ea64a5465479998d84d76a3ceb50d9671fcd1df32055.json"
+          },
+          {
+            "type": "doc",
+            "path": "docs/接口文档.md",
+            "file_id": 19,
+            "content_hash": "sha256:5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0",
+            "detail_ref": "system/file_details/35c5efd1a11b8026-5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0-a62f6127c043b72ef08a7a194304bb1ed5207d16710c233bb6142c061e427057.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "coding-validate-create-request",
+        "rule": "新增学生请求必须通过 Bean Validation 校验学号、姓名、性别、年级、电话和邮箱。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/src/main/java/com/ning/demo/student/student/CreateStudentRequest.java",
+            "file_id": 7,
+            "content_hash": "sha256:6e07fe357ae75c7f6d69ed6bf55a593bb5178f6a5268de15ccc5a510cef7ec8e",
+            "detail_ref": "system/file_details/19c0aac3c963542f-6e07fe357ae75c7f6d69ed6bf55a593bb5178f6a5268de15ccc5a510cef7ec8e-57145feb7c3fdf6300412d8e807beaef0479b3cba8bc2cadda16c96b0a57ae30.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "coding-frontend-api-wrapper",
+        "rule": "前端 API 请求统一通过 src/api.ts 解析响应和展示 traceId，不在页面内重复实现请求协议。",
+        "scope": "frontend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "frontend/src/api.ts",
+            "file_id": 23,
+            "content_hash": "sha256:897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c",
+            "detail_ref": "system/file_details/3a3ec590cf20d1f2-897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c-aee57981f77773370af68160751868a99221b95688a048d64f8873e8af320fd5.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      }
+    ],
+    "document_rules": [
+      {
+        "id": "document-distinguish-status",
+        "rule": "接口与开发文档必须明确区分已实现、仅设计和未开发能力。",
+        "scope": "docs",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "doc",
+            "path": "docs/接口文档.md",
+            "file_id": 19,
+            "content_hash": "sha256:5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0",
+            "detail_ref": "system/file_details/35c5efd1a11b8026-5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0-a62f6127c043b72ef08a7a194304bb1ed5207d16710c233bb6142c061e427057.json"
+          },
+          {
+            "type": "doc",
+            "path": "docs/开发文档.md",
+            "file_id": 18,
+            "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+            "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "document-fixture-warning",
+        "rule": "文档必须保留测试夹具和非生产警告，避免故意缺陷被误用。",
+        "scope": "docs",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "doc",
+            "path": "README.md",
+            "file_id": 32,
+            "content_hash": "sha256:70f055a91e64f3ec94365df63fa4a7324c6795e0cb904408e03e983655e9a3e0",
+            "detail_ref": "system/file_details/edd748d8307589c4-70f055a91e64f3ec94365df63fa4a7324c6795e0cb904408e03e983655e9a3e0-b335630551682c19a781afebcf4d07bf978fb1f8ac04c6bf87428ed5106870f5.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      }
+    ],
+    "risk_rules": [
+      {
+        "id": "risk-no-plaintext-secret",
+        "rule": "生产配置禁止保存明文数据库密码和 API Key，必须使用环境变量或密钥管理并轮换泄露值。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/src/main/resources/application.yml",
+            "file_id": 13,
+            "content_hash": "sha256:58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417",
+            "detail_ref": "system/file_details/64f5e8a0c0579e9a-58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417-d501b8901facc9c98d1d932ee4982cbe9fdf94c4d0e836020a21f5066b6e9a2a.json"
+          },
+          {
+            "type": "doc",
+            "path": "docs/开发文档.md",
+            "file_id": 18,
+            "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+            "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "risk-parameterized-sql",
+        "rule": "任何外部输入参与 SQL 查询时必须使用参数绑定，禁止字符串拼接。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/src/main/java/com/ning/demo/student/student/StudentRepository.java",
+            "file_id": 10,
+            "content_hash": "sha256:bafa60e7bcd2d9665c1e3b117df5a84a2b003bfafc5d5282dcf121d52ba378c4",
+            "detail_ref": "system/file_details/c4c61e50057e6e26-bafa60e7bcd2d9665c1e3b117df5a84a2b003bfafc5d5282dcf121d52ba378c4-ce037abec274cdbbd090dacdd48b0b6bf552f2ae019c7e7fc17da2bad912ecdc.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "risk-restrict-cors",
+        "rule": "生产环境 CORS 必须限制可信来源和必要方法，不允许使用全通配符。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/src/main/java/com/ning/demo/student/config/WebConfig.java",
+            "file_id": 6,
+            "content_hash": "sha256:3b3dade184b37bc693111252f568ae0d0d09dd13c5bc09a29bdcfa45160f76f9",
+            "detail_ref": "system/file_details/b66deb103608acdb-3b3dade184b37bc693111252f568ae0d0d09dd13c5bc09a29bdcfa45160f76f9-40aebb6600c8084f98375664f596c3afd905abeed4db37f5630ba0290269cf84.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "risk-auth-idempotency",
+        "rule": "学生档案写接口必须增加鉴权、权限校验和幂等保护。",
+        "scope": "backend",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/src/main/java/com/ning/demo/student/student/StudentController.java",
+            "file_id": 9,
+            "content_hash": "sha256:1712554ceec239112c53e504421ca871fa842f6804ca3b68f576b83970fa8013",
+            "detail_ref": "system/file_details/64936e0bcf6fa30e-1712554ceec239112c53e504421ca871fa842f6804ca3b68f576b83970fa8013-3ba78979444158cd20a43ebb0f09feea635e88f92cde2bc8d3ffd3842ae949ec.json"
+          },
+          {
+            "type": "doc",
+            "path": "docs/接口文档.md",
+            "file_id": 19,
+            "content_hash": "sha256:5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0",
+            "detail_ref": "system/file_details/35c5efd1a11b8026-5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0-a62f6127c043b72ef08a7a194304bb1ed5207d16710c233bb6142c061e427057.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "risk-mask-student-pii",
+        "rule": "学生电话和邮箱必须按权限、场景和最小必要原则返回，并在列表中默认脱敏。",
+        "scope": "all",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "doc",
+            "path": "docs/接口文档.md",
+            "file_id": 19,
+            "content_hash": "sha256:5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0",
+            "detail_ref": "system/file_details/35c5efd1a11b8026-5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0-a62f6127c043b72ef08a7a194304bb1ed5207d16710c233bb6142c061e427057.json"
+          },
+          {
+            "type": "code",
+            "path": "frontend/src/App.tsx",
+            "file_id": 24,
+            "content_hash": "sha256:1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9",
+            "detail_ref": "system/file_details/871c7114c4fc25cd-1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9-e56cb91573ddb6a97ecd071925fe26504bb5a65f921dc64c63e534162950e1eb.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      },
+      {
+        "id": "risk-complete-test-coverage",
+        "rule": "安全整改必须补充 SQL 注入、防越权、幂等、异常日志和前端交互测试。",
+        "scope": "all",
+        "status": "active",
+        "confidence": "high",
+        "source_refs": [
+          {
+            "type": "code",
+            "path": "backend/src/test/java/com/ning/demo/student/StudentControllerTest.java",
+            "file_id": 16,
+            "content_hash": "sha256:f6f7679158c3a90d789eaf4e38e58c2cd72fefd81a26b3caeb872871b91e5075",
+            "detail_ref": "system/file_details/6497cf0a2bc8a03d-f6f7679158c3a90d789eaf4e38e58c2cd72fefd81a26b3caeb872871b91e5075-056e9ea75208361bb8a640865fed15b8714ddf8e186ab81da573c548521abb4c.json"
+          },
+          {
+            "type": "doc",
+            "path": "docs/开发文档.md",
+            "file_id": 18,
+            "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+            "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json"
+          }
+        ],
+        "created_at": "2026-07-11T00:00:00+08:00",
+        "updated_at": "2026-08-27T00:00:00+08:00",
+        "previous_versions": []
+      }
+    ]
+  },
+  "changes": [
+    {
+      "change_id": "chg-spec-001",
+      "change_type": "created",
+      "target_id": "approach-three-stage-delivery",
+      "summary": "根据测试项目真实文件创建规则：approach-three-stage-delivery。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-002",
+      "change_type": "created",
+      "target_id": "approach-layered-backend",
+      "summary": "根据测试项目真实文件创建规则：approach-layered-backend。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-003",
+      "change_type": "created",
+      "target_id": "approach-single-page-frontend",
+      "summary": "根据测试项目真实文件创建规则：approach-single-page-frontend。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-004",
+      "change_type": "created",
+      "target_id": "constraint-backend-stack",
+      "summary": "根据测试项目真实文件创建规则：constraint-backend-stack。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-005",
+      "change_type": "created",
+      "target_id": "constraint-frontend-stack",
+      "summary": "根据测试项目真实文件创建规则：constraint-frontend-stack。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-006",
+      "change_type": "created",
+      "target_id": "constraint-mysql-target",
+      "summary": "根据测试项目真实文件创建规则：constraint-mysql-target。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-007",
+      "change_type": "created",
+      "target_id": "constraint-small-demo-boundary",
+      "summary": "根据测试项目真实文件创建规则：constraint-small-demo-boundary。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-008",
+      "change_type": "created",
+      "target_id": "coding-unified-api-response",
+      "summary": "根据测试项目真实文件创建规则：coding-unified-api-response。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-009",
+      "change_type": "created",
+      "target_id": "coding-validate-create-request",
+      "summary": "根据测试项目真实文件创建规则：coding-validate-create-request。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-010",
+      "change_type": "created",
+      "target_id": "coding-frontend-api-wrapper",
+      "summary": "根据测试项目真实文件创建规则：coding-frontend-api-wrapper。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-011",
+      "change_type": "created",
+      "target_id": "document-distinguish-status",
+      "summary": "根据测试项目真实文件创建规则：document-distinguish-status。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-012",
+      "change_type": "created",
+      "target_id": "document-fixture-warning",
+      "summary": "根据测试项目真实文件创建规则：document-fixture-warning。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-013",
+      "change_type": "created",
+      "target_id": "risk-no-plaintext-secret",
+      "summary": "根据测试项目真实文件创建规则：risk-no-plaintext-secret。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-014",
+      "change_type": "created",
+      "target_id": "risk-parameterized-sql",
+      "summary": "根据测试项目真实文件创建规则：risk-parameterized-sql。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-015",
+      "change_type": "created",
+      "target_id": "risk-restrict-cors",
+      "summary": "根据测试项目真实文件创建规则：risk-restrict-cors。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-016",
+      "change_type": "created",
+      "target_id": "risk-auth-idempotency",
+      "summary": "根据测试项目真实文件创建规则：risk-auth-idempotency。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-017",
+      "change_type": "created",
+      "target_id": "risk-mask-student-pii",
+      "summary": "根据测试项目真实文件创建规则：risk-mask-student-pii。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-spec-018",
+      "change_type": "created",
+      "target_id": "risk-complete-test-coverage",
+      "summary": "根据测试项目真实文件创建规则：risk-complete-test-coverage。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": [
+    {
+      "content": "backend/target/ 编译产物",
+      "reason": "构建产物由 .gitignore 排除，不进入项目索引。"
+    },
+    {
+      "content": "虚构数据库密码与 API Key 原文",
+      "reason": "敏感值只保留风险摘要，不写入项目规范、详情、记忆或 Prompt。"
+    }
+  ]
+}

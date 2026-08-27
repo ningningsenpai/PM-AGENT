@@ -1,0 +1,86 @@
+{
+  "id": "file-8",
+  "project_id": 721,
+  "file_id": 8,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "be7c7849d5cbffcd",
+  "storage_name": "Student-be7c7849d5cbffcd.java",
+  "detail_ref": "system/file_details/be7c7849d5cbffcd-33ae052b2dbda63d9d243d758e083893028fdec36640842e0a6f74dc1d9d088f-254de18b40db31e7e239e5103da42b4db66ad85a931d0f5dd379779619274d56.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/student/Student.java",
+  "minio_path": "projest_test/Student-be7c7849d5cbffcd.java",
+  "size_bytes": 434,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:33ae052b2dbda63d9d243d758e083893028fdec36640842e0a6f74dc1d9d088f",
+  "module": "backend-student",
+  "kind": "domain_model",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "定义学生档案持久化数据模型。",
+  "keywords": [
+    "学生档案",
+    "领域模型",
+    "个人信息",
+    "状态"
+  ],
+  "role": "承载数据库查询结果和 API 返回的学生信息。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义学生档案持久化数据模型。",
+      "keywords": [
+        "学生档案",
+        "领域模型",
+        "个人信息",
+        "状态"
+      ],
+      "entities": [
+        "Student",
+        "ACTIVE",
+        "INACTIVE"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 23
+      }
+    }
+  ],
+  "related_topics": [
+    "学生档案",
+    "领域模型",
+    "个人信息",
+    "状态"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentRepository.java",
+      "relation": "数据映射"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "pii-in-domain-response",
+      "severity": "high",
+      "summary": "电话和邮箱直接包含在通用 Student 模型中，容易被列表接口过度返回。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义学生档案持久化数据模型。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 23
+  },
+  "rule_candidates": []
+}

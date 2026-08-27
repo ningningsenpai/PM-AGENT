@@ -1,0 +1,149 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "short_term_memory": [
+    {
+      "id": "task-upload-context-fixture-to-minio",
+      "category": "task",
+      "title": "上传项目上下文测试夹具",
+      "memory": "projest_test 源文件和 system 上下文文件已上传到 MinIO，当前对象路径分别为 pm-agent/0721/0721/projest_test 和 pm-agent/0721/0721/system；下一步验证第一版索引、详情和记忆读取流程。",
+      "scope": "agent-service",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "ttl_hint": "MinIO 首轮端到端测试完成后复查",
+      "next_check": "确认 system/index.json 中的项目 ID、用户 ID、项目名、对象路径、storage_uuid、content_hash 和 detail_ref 与实际上传记录一致。",
+      "promote_candidate": false,
+      "tags": [
+        "MinIO",
+        "测试夹具",
+        "项目上下文"
+      ],
+      "source_refs": [
+        {
+          "type": "conversation",
+          "summary": "用户要求为第一版 MinIO 测试生成完整 system 上下文。"
+        }
+      ],
+      "related_files": [
+        {
+          "path": "system/index.json",
+          "relation": "debug_target"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "recent_conversation",
+          "quote": "当前上传路径为 pm-agent/0721/0721/projest_test 和 pm-agent/0721/0721/system。"
+        }
+      ]
+    },
+    {
+      "id": "task-verify-risk-recall",
+      "category": "task",
+      "title": "验证七类风险召回完整性",
+      "memory": "需要验证 Agent 能否从 index.json 和 file_details 中召回开发文档列出的 R-01 至 R-07，并给出与严重度相匹配的修复顺序。",
+      "scope": "agent-service",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "ttl_hint": "风险分析测试完成后复查",
+      "next_check": "分别提问明文凭据、SQL 注入、CORS、鉴权幂等、PII 和测试覆盖并核对引用文件。",
+      "promote_candidate": true,
+      "tags": [
+        "风险识别",
+        "召回测试",
+        "R-01",
+        "R-07"
+      ],
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "docs/开发文档.md 定义七项固定识别测试点。"
+        }
+      ],
+      "related_files": [
+        {
+          "path": "docs/开发文档.md",
+          "relation": "test_evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "recent_conversation",
+          "quote": "生成内容需要贴合测试文件夹真实开发情况并帮助测试流程。"
+        }
+      ]
+    },
+    {
+      "id": "question-reconcile-runtime-identities",
+      "category": "question",
+      "title": "校准上传后的运行时身份",
+      "memory": "当前 system 文件已对齐 MinIO 路径 pm-agent/0721/0721/projest_test 与 pm-agent/0721/0721/system；业务 project_id 和 owner_user_id 按现有整数模型记录为 721，路径段保留 0721。如果数据库文件 ID 或 storage_uuid 与离线夹具不同，仍需按实际记录重建索引和详情引用。",
+      "scope": "agent-service",
+      "status": "pending_review",
+      "confidence": "high",
+      "importance": "high",
+      "ttl_hint": "正式上传完成后立即复查",
+      "next_check": "比较数据库 pm_project_file 与 system/index.json 的 id、storage_uuid、minio_path、content_hash 和 detail_ref。",
+      "promote_candidate": false,
+      "tags": [
+        "运行时身份",
+        "文件 ID",
+        "storage_uuid",
+        "一致性"
+      ],
+      "source_refs": [
+        {
+          "type": "code",
+          "summary": "正式上传由 StorageLocationFactory 生成随机 storage_uuid。"
+        }
+      ],
+      "related_files": [
+        {
+          "path": "system/index.json",
+          "relation": "debug_target"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "recent_conversation",
+          "quote": "离线生成物必须在上传后与真实数据库身份重新核对。"
+        }
+      ]
+    }
+  ],
+  "promotion_candidates": [
+    {
+      "source_memory_id": "task-verify-risk-recall",
+      "target_type": "long_term_memory",
+      "reason": "风险召回测试稳定通过后可沉淀为第一版能力基线。",
+      "status": "pending_review"
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "chg-stm-001",
+      "change_type": "created",
+      "target_id": "task-upload-context-fixture-to-minio",
+      "summary": "创建短期记忆：上传项目上下文测试夹具。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-stm-002",
+      "change_type": "created",
+      "target_id": "task-verify-risk-recall",
+      "summary": "创建短期记忆：验证七类风险召回完整性。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-stm-003",
+      "change_type": "created",
+      "target_id": "question-reconcile-runtime-identities",
+      "summary": "创建短期记忆：校准上传后的运行时身份。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": []
+}

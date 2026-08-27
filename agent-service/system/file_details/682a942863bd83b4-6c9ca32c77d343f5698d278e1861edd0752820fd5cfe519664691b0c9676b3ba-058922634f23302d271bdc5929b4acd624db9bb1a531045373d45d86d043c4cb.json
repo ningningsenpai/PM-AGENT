@@ -1,0 +1,123 @@
+{
+  "id": "file-4",
+  "project_id": 721,
+  "file_id": 4,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "682a942863bd83b4",
+  "storage_name": "GlobalExceptionHandler-682a942863bd83b4.java",
+  "detail_ref": "system/file_details/682a942863bd83b4-6c9ca32c77d343f5698d278e1861edd0752820fd5cfe519664691b0c9676b3ba-058922634f23302d271bdc5929b4acd624db9bb1a531045373d45d86d043c4cb.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/common/GlobalExceptionHandler.java",
+  "minio_path": "projest_test/GlobalExceptionHandler-682a942863bd83b4.java",
+  "size_bytes": 2100,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:6c9ca32c77d343f5698d278e1861edd0752820fd5cfe519664691b0c9676b3ba",
+  "module": "backend-common",
+  "kind": "exception_handler",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "将不存在、唯一冲突、参数校验和未知异常转换为中文统一响应。",
+  "keywords": [
+    "异常处理",
+    "中文错误",
+    "参数校验",
+    "traceId"
+  ],
+  "role": "集中处理控制器异常并生成业务错误码与 traceId。",
+  "content_slices": [
+    {
+      "slice_id": "business-errors",
+      "type": "error_handling",
+      "summary": "处理学生不存在和学号重复。",
+      "keywords": [
+        "异常处理",
+        "中文错误",
+        "参数校验",
+        "traceId"
+      ],
+      "entities": [
+        "StudentNotFoundException",
+        "DuplicateKeyException"
+      ],
+      "source_range": {
+        "start_line": 21,
+        "end_line": 29
+      }
+    },
+    {
+      "slice_id": "validation-errors",
+      "type": "error_handling",
+      "summary": "处理 Bean Validation 参数错误。",
+      "keywords": [
+        "异常处理",
+        "中文错误",
+        "参数校验",
+        "traceId"
+      ],
+      "entities": [
+        "MethodArgumentNotValidException",
+        "ConstraintViolationException"
+      ],
+      "source_range": {
+        "start_line": 31,
+        "end_line": 37
+      }
+    },
+    {
+      "slice_id": "unknown-errors",
+      "type": "error_handling",
+      "summary": "未知异常收敛为 90000。",
+      "keywords": [
+        "异常处理",
+        "中文错误",
+        "参数校验",
+        "traceId"
+      ],
+      "entities": [
+        "90000",
+        "traceId"
+      ],
+      "source_range": {
+        "start_line": 39,
+        "end_line": 47
+      }
+    }
+  ],
+  "related_topics": [
+    "异常处理",
+    "中文错误",
+    "参数校验",
+    "traceId"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/common/ApiResponse.java",
+      "relation": "响应结构"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "missing-error-logging",
+      "severity": "medium",
+      "summary": "未知异常返回通用消息但没有记录异常上下文，排障信息不足。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "将不存在、唯一冲突、参数校验和未知异常转换为中文统一响应。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 48
+  },
+  "rule_candidates": []
+}

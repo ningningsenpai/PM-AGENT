@@ -1,0 +1,75 @@
+{
+  "id": "file-30",
+  "project_id": 721,
+  "file_id": 30,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "9104c71f5359d376",
+  "storage_name": "tsconfig.node-9104c71f5359d376.json",
+  "detail_ref": "system/file_details/9104c71f5359d376-e1cde1ac405bd71fe778fab1554a714e97f990b60e76c8db7d6f4b37e5a1e2ac-bbfd505103ddd5c6b8e65b3fa9573e99905a8ed4c55be08ba2d6bca07af2ab79.json",
+  "original_path": "frontend/tsconfig.node.json",
+  "minio_path": "projest_test/tsconfig.node-9104c71f5359d376.json",
+  "size_bytes": 242,
+  "content_type": "application/json",
+  "content_hash": "sha256:e1cde1ac405bd71fe778fab1554a714e97f990b60e76c8db7d6f4b37e5a1e2ac",
+  "module": "frontend-build",
+  "kind": "typescript_config",
+  "file_type": "config.typescript.json",
+  "language": "json",
+  "status": "active",
+  "importance": "low",
+  "summary": "配置 Vite Node 侧 TypeScript 检查。",
+  "keywords": [
+    "TypeScript",
+    "Vite",
+    "Node 配置"
+  ],
+  "role": "为 vite.config.ts 提供 Bundler 模块解析和无输出检查。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "配置 Vite Node 侧 TypeScript 检查。",
+      "keywords": [
+        "TypeScript",
+        "Vite",
+        "Node 配置"
+      ],
+      "entities": [
+        "vite.config.ts"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 11
+      }
+    }
+  ],
+  "related_topics": [
+    "TypeScript",
+    "Vite",
+    "Node 配置"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/vite.config.ts",
+      "relation": "配置目标"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "配置 Vite Node 侧 TypeScript 检查。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 11
+  },
+  "rule_candidates": []
+}

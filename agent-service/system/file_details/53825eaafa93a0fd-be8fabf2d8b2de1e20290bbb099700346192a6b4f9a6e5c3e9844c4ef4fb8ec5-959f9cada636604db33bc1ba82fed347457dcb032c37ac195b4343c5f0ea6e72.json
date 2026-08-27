@@ -1,0 +1,76 @@
+{
+  "id": "file-20",
+  "project_id": 721,
+  "file_id": 20,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "53825eaafa93a0fd",
+  "storage_name": "index-53825eaafa93a0fd.html",
+  "detail_ref": "system/file_details/53825eaafa93a0fd-be8fabf2d8b2de1e20290bbb099700346192a6b4f9a6e5c3e9844c4ef4fb8ec5-959f9cada636604db33bc1ba82fed347457dcb032c37ac195b4343c5f0ea6e72.json",
+  "original_path": "frontend/index.html",
+  "minio_path": "projest_test/index-53825eaafa93a0fd.html",
+  "size_bytes": 418,
+  "content_type": "text/html",
+  "content_hash": "sha256:be8fabf2d8b2de1e20290bbb099700346192a6b4f9a6e5c3e9844c4ef4fb8ec5",
+  "module": "frontend-build",
+  "kind": "html_entry",
+  "file_type": "code.frontend.html",
+  "language": "html",
+  "status": "active",
+  "importance": "medium",
+  "summary": "定义中文页面元数据、青禾学籍册标题和 React 根节点。",
+  "keywords": [
+    "HTML",
+    "React 根节点",
+    "青禾学籍册"
+  ],
+  "role": "作为 Vite 前端文档入口并加载 main.tsx。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义中文页面元数据、青禾学籍册标题和 React 根节点。",
+      "keywords": [
+        "HTML",
+        "React 根节点",
+        "青禾学籍册"
+      ],
+      "entities": [
+        "#root",
+        "/src/main.tsx"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 14
+      }
+    }
+  ],
+  "related_topics": [
+    "HTML",
+    "React 根节点",
+    "青禾学籍册"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/src/main.tsx",
+      "relation": "脚本入口"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义中文页面元数据、青禾学籍册标题和 React 根节点。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 14
+  },
+  "rule_candidates": []
+}

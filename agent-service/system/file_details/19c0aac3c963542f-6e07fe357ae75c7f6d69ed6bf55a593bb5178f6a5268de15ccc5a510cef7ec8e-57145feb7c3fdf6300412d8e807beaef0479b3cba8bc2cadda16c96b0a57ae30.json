@@ -1,0 +1,80 @@
+{
+  "id": "file-7",
+  "project_id": 721,
+  "file_id": 7,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "19c0aac3c963542f",
+  "storage_name": "CreateStudentRequest-19c0aac3c963542f.java",
+  "detail_ref": "system/file_details/19c0aac3c963542f-6e07fe357ae75c7f6d69ed6bf55a593bb5178f6a5268de15ccc5a510cef7ec8e-57145feb7c3fdf6300412d8e807beaef0479b3cba8bc2cadda16c96b0a57ae30.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/student/CreateStudentRequest.java",
+  "minio_path": "projest_test/CreateStudentRequest-19c0aac3c963542f.java",
+  "size_bytes": 1161,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:6e07fe357ae75c7f6d69ed6bf55a593bb5178f6a5268de15ccc5a510cef7ec8e",
+  "module": "backend-student",
+  "kind": "request_schema",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "定义新增学生请求字段以及学号、姓名、性别、年级、电话和邮箱校验。",
+  "keywords": [
+    "新增学生",
+    "参数校验",
+    "学号",
+    "邮箱"
+  ],
+  "role": "作为新增学生 API 的输入契约并执行 Bean Validation。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义新增学生请求字段以及学号、姓名、性别、年级、电话和邮箱校验。",
+      "keywords": [
+        "新增学生",
+        "参数校验",
+        "学号",
+        "邮箱"
+      ],
+      "entities": [
+        "CreateStudentRequest",
+        "MALE",
+        "FEMALE"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 23
+      }
+    }
+  ],
+  "related_topics": [
+    "新增学生",
+    "参数校验",
+    "学号",
+    "邮箱"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentController.java",
+      "relation": "控制器输入"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义新增学生请求字段以及学号、姓名、性别、年级、电话和邮箱校验。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 23
+  },
+  "rule_candidates": []
+}

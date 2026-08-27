@@ -1,0 +1,127 @@
+{
+  "id": "file-23",
+  "project_id": 721,
+  "file_id": 23,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "3a3ec590cf20d1f2",
+  "storage_name": "api-3a3ec590cf20d1f2.ts",
+  "detail_ref": "system/file_details/3a3ec590cf20d1f2-897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c-aee57981f77773370af68160751868a99221b95688a048d64f8873e8af320fd5.json",
+  "original_path": "frontend/src/api.ts",
+  "minio_path": "projest_test/api-3a3ec590cf20d1f2.ts",
+  "size_bytes": 986,
+  "content_type": "text/typescript",
+  "content_hash": "sha256:897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c",
+  "module": "frontend-student",
+  "kind": "api_client",
+  "file_type": "code.frontend.typescript",
+  "language": "typescript",
+  "status": "active",
+  "importance": "high",
+  "summary": "封装统一 Fetch 请求、错误处理、学生列表查询和新增学生调用。",
+  "keywords": [
+    "Fetch",
+    "学生 API",
+    "统一错误",
+    "traceId"
+  ],
+  "role": "作为前端页面访问学生 API 的唯一请求入口。",
+  "content_slices": [
+    {
+      "slice_id": "request-wrapper",
+      "type": "api_client",
+      "summary": "解析统一响应并在失败时显示追踪号。",
+      "keywords": [
+        "Fetch",
+        "学生 API",
+        "统一错误",
+        "traceId"
+      ],
+      "entities": [
+        "ApiResponse",
+        "traceId"
+      ],
+      "source_range": {
+        "start_line": 3,
+        "end_line": 13
+      }
+    },
+    {
+      "slice_id": "student-queries",
+      "type": "api_client",
+      "summary": "查询学生列表并安全编码姓名参数。",
+      "keywords": [
+        "Fetch",
+        "学生 API",
+        "统一错误",
+        "traceId"
+      ],
+      "entities": [
+        "listStudents",
+        "encodeURIComponent"
+      ],
+      "source_range": {
+        "start_line": 15,
+        "end_line": 19
+      }
+    },
+    {
+      "slice_id": "student-create",
+      "type": "api_client",
+      "summary": "提交新增学生 JSON。",
+      "keywords": [
+        "Fetch",
+        "学生 API",
+        "统一错误",
+        "traceId"
+      ],
+      "entities": [
+        "createStudent",
+        "POST"
+      ],
+      "source_range": {
+        "start_line": 21,
+        "end_line": 27
+      }
+    }
+  ],
+  "related_topics": [
+    "Fetch",
+    "学生 API",
+    "统一错误",
+    "traceId"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/src/App.tsx",
+      "relation": "调用页面"
+    },
+    {
+      "path": "frontend/src/types.ts",
+      "relation": "类型契约"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "missing-request-timeout",
+      "severity": "low",
+      "summary": "请求封装没有超时、取消和重试策略。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "封装统一 Fetch 请求、错误处理、学生列表查询和新增学生调用。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 28
+  },
+  "rule_candidates": []
+}

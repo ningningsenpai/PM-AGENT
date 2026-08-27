@@ -1,0 +1,138 @@
+{
+  "id": "file-17",
+  "project_id": 721,
+  "file_id": 17,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "e1cb13dc454ecc80",
+  "storage_name": "student_management-e1cb13dc454ecc80.sql",
+  "detail_ref": "system/file_details/e1cb13dc454ecc80-eb716808c09bc0e4755768376d57b78269d85479f0e90dd470bb77c36677b3f2-d021ffb406d9f2d130158d36ac8f8410d0e572296a4ca3ac77280d26ae0debe3.json",
+  "original_path": "database/student_management.sql",
+  "minio_path": "projest_test/student_management-e1cb13dc454ecc80.sql",
+  "size_bytes": 1577,
+  "content_type": "application/sql",
+  "content_hash": "sha256:eb716808c09bc0e4755768376d57b78269d85479f0e90dd470bb77c36677b3f2",
+  "module": "database",
+  "kind": "database_schema",
+  "file_type": "database.mysql.sql",
+  "language": "sql",
+  "status": "active",
+  "importance": "high",
+  "summary": "创建 MySQL 8 student_demo 数据库、学生表、索引和三条虚构演示数据。",
+  "keywords": [
+    "MySQL 8",
+    "student_demo",
+    "学生表",
+    "逻辑删除",
+    "演示数据"
+  ],
+  "role": "作为目标 MySQL 环境的独立建表和种子数据脚本。",
+  "content_slices": [
+    {
+      "slice_id": "database-create",
+      "type": "database",
+      "summary": "创建 student_demo 数据库。",
+      "keywords": [
+        "MySQL 8",
+        "student_demo",
+        "学生表",
+        "逻辑删除",
+        "演示数据"
+      ],
+      "entities": [
+        "student_demo"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 5
+      }
+    },
+    {
+      "slice_id": "student-table",
+      "type": "database",
+      "summary": "定义学生表字段、唯一约束和姓名索引。",
+      "keywords": [
+        "MySQL 8",
+        "student_demo",
+        "学生表",
+        "逻辑删除",
+        "演示数据"
+      ],
+      "entities": [
+        "student",
+        "uk_student_no",
+        "idx_student_name"
+      ],
+      "source_range": {
+        "start_line": 7,
+        "end_line": 24
+      }
+    },
+    {
+      "slice_id": "seed-data",
+      "type": "database_seed",
+      "summary": "插入三条虚构学生数据。",
+      "keywords": [
+        "MySQL 8",
+        "student_demo",
+        "学生表",
+        "逻辑删除",
+        "演示数据"
+      ],
+      "entities": [
+        "3 records"
+      ],
+      "source_range": {
+        "start_line": 26,
+        "end_line": 29
+      }
+    }
+  ],
+  "related_topics": [
+    "MySQL 8",
+    "student_demo",
+    "学生表",
+    "逻辑删除",
+    "演示数据"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/resources/schema.sql",
+      "relation": "H2 开发表结构"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "enumerable-primary-key",
+      "severity": "medium",
+      "summary": "使用自增主键并通过外部接口暴露，存在枚举风险。"
+    },
+    {
+      "code": "schema-drift",
+      "severity": "medium",
+      "summary": "H2 与 MySQL 分别维护表结构脚本，后续可能产生结构漂移。"
+    }
+  ],
+  "sensitive_flags": [
+    {
+      "type": "synthetic_personal_data",
+      "status": "redacted",
+      "summary": "包含虚构学生联系方式，仅用于测试。"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "创建 MySQL 8 student_demo 数据库、学生表、索引和三条虚构演示数据。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 30
+  },
+  "rule_candidates": []
+}

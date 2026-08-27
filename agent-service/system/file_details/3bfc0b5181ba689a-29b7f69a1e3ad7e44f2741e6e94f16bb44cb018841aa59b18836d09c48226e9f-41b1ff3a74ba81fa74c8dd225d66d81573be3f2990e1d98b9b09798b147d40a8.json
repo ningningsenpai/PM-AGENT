@@ -1,0 +1,81 @@
+{
+  "id": "file-22",
+  "project_id": 721,
+  "file_id": 22,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "3bfc0b5181ba689a",
+  "storage_name": "pnpm-lock-3bfc0b5181ba689a.yaml",
+  "detail_ref": "system/file_details/3bfc0b5181ba689a-29b7f69a1e3ad7e44f2741e6e94f16bb44cb018841aa59b18836d09c48226e9f-41b1ff3a74ba81fa74c8dd225d66d81573be3f2990e1d98b9b09798b147d40a8.json",
+  "original_path": "frontend/pnpm-lock.yaml",
+  "minio_path": "projest_test/pnpm-lock-3bfc0b5181ba689a.yaml",
+  "size_bytes": 38405,
+  "content_type": "application/yaml",
+  "content_hash": "sha256:29b7f69a1e3ad7e44f2741e6e94f16bb44cb018841aa59b18836d09c48226e9f",
+  "module": "frontend-build",
+  "kind": "dependency_lock",
+  "file_type": "config.pnpm-lock.yaml",
+  "language": "yaml",
+  "status": "active",
+  "importance": "low",
+  "summary": "锁定 React、Vite、TypeScript 及其传递依赖版本。",
+  "keywords": [
+    "pnpm",
+    "依赖锁",
+    "React",
+    "Vite",
+    "TypeScript"
+  ],
+  "role": "保证前端依赖安装的可重复性。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "锁定 React、Vite、TypeScript 及其传递依赖版本。",
+      "keywords": [
+        "pnpm",
+        "依赖锁",
+        "React",
+        "Vite",
+        "TypeScript"
+      ],
+      "entities": [
+        "lockfileVersion"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 1153
+      }
+    }
+  ],
+  "related_topics": [
+    "pnpm",
+    "依赖锁",
+    "React",
+    "Vite",
+    "TypeScript"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/package.json",
+      "relation": "依赖声明"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "锁定 React、Vite、TypeScript 及其传递依赖版本。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 1153
+  },
+  "rule_candidates": []
+}

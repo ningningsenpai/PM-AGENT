@@ -1,0 +1,82 @@
+{
+  "id": "file-31",
+  "project_id": 721,
+  "file_id": 31,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "d5706d4d416801d8",
+  "storage_name": "vite.config-d5706d4d416801d8.ts",
+  "detail_ref": "system/file_details/d5706d4d416801d8-241901512e1dc6a76d1f59343108248e849253616b1e0576a59909160e00966f-97c6e2c429ec483132c584137a18a1ade2ff6c3f4f6485f4a83db604d0323d7c.json",
+  "original_path": "frontend/vite.config.ts",
+  "minio_path": "projest_test/vite.config-d5706d4d416801d8.ts",
+  "size_bytes": 241,
+  "content_type": "text/typescript",
+  "content_hash": "sha256:241901512e1dc6a76d1f59343108248e849253616b1e0576a59909160e00966f",
+  "module": "frontend-build",
+  "kind": "build_config",
+  "file_type": "config.vite.typescript",
+  "language": "typescript",
+  "status": "active",
+  "importance": "medium",
+  "summary": "配置 React 插件、15173 开发端口和到 18080 后端的 /api 代理。",
+  "keywords": [
+    "Vite",
+    "React",
+    "代理",
+    "15173",
+    "18080"
+  ],
+  "role": "提供前端开发服务器和后端联调代理。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "配置 React 插件、15173 开发端口和到 18080 后端的 /api 代理。",
+      "keywords": [
+        "Vite",
+        "React",
+        "代理",
+        "15173",
+        "18080"
+      ],
+      "entities": [
+        "defineConfig",
+        "/api"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 13
+      }
+    }
+  ],
+  "related_topics": [
+    "Vite",
+    "React",
+    "代理",
+    "15173",
+    "18080"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/resources/application.yml",
+      "relation": "后端端口"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "配置 React 插件、15173 开发端口和到 18080 后端的 /api 代理。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 13
+  },
+  "rule_candidates": []
+}

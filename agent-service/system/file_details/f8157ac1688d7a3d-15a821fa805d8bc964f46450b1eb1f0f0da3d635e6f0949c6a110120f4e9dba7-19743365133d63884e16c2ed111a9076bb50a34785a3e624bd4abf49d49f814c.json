@@ -1,0 +1,90 @@
+{
+  "id": "file-27",
+  "project_id": 721,
+  "file_id": 27,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "f8157ac1688d7a3d",
+  "storage_name": "types-f8157ac1688d7a3d.ts",
+  "detail_ref": "system/file_details/f8157ac1688d7a3d-15a821fa805d8bc964f46450b1eb1f0f0da3d635e6f0949c6a110120f4e9dba7-19743365133d63884e16c2ed111a9076bb50a34785a3e624bd4abf49d49f814c.json",
+  "original_path": "frontend/src/types.ts",
+  "minio_path": "projest_test/types-f8157ac1688d7a3d.ts",
+  "size_bytes": 500,
+  "content_type": "text/typescript",
+  "content_hash": "sha256:15a821fa805d8bc964f46450b1eb1f0f0da3d635e6f0949c6a110120f4e9dba7",
+  "module": "frontend-student",
+  "kind": "type_definition",
+  "file_type": "code.frontend.typescript",
+  "language": "typescript",
+  "status": "active",
+  "importance": "high",
+  "summary": "定义学生、创建学生请求和统一 API 响应 TypeScript 类型。",
+  "keywords": [
+    "TypeScript",
+    "学生类型",
+    "请求类型",
+    "统一响应"
+  ],
+  "role": "固定前端使用的学生字段和后端响应契约。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义学生、创建学生请求和统一 API 响应 TypeScript 类型。",
+      "keywords": [
+        "TypeScript",
+        "学生类型",
+        "请求类型",
+        "统一响应"
+      ],
+      "entities": [
+        "Student",
+        "CreateStudentRequest",
+        "ApiResponse"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 28
+      }
+    }
+  ],
+  "related_topics": [
+    "TypeScript",
+    "学生类型",
+    "请求类型",
+    "统一响应"
+  ],
+  "related_files": [
+    {
+      "path": "frontend/src/api.ts",
+      "relation": "请求契约"
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "relation": "页面状态"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "pii-type-propagation",
+      "severity": "medium",
+      "summary": "电话和邮箱位于通用 Student 类型中，所有列表消费者默认可见。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义学生、创建学生请求和统一 API 响应 TypeScript 类型。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 28
+  },
+  "rule_candidates": []
+}

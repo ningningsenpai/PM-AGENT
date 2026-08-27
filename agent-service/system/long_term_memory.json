@@ -1,0 +1,225 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "long_term_memory": [
+    {
+      "id": "milestone-stage-one-closed-loop",
+      "category": "milestone",
+      "title": "阶段一基础档案闭环已形成",
+      "memory": "学生列表、姓名查询、详情、新增、H2 初始化和 React 联调代码已经形成阶段一闭环，文档评估整体完成度约为 50%。",
+      "scope": "all",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "阶段一",
+        "完成度",
+        "业务闭环"
+      ],
+      "source_refs": [
+        {
+          "type": "doc",
+          "path": "docs/开发文档.md",
+          "section": "开发阶段设计"
+        },
+        {
+          "type": "doc",
+          "path": "README.md",
+          "section": "项目定位"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "new_content",
+          "quote": "阶段一基础档案已完成，整体约 50%。"
+        }
+      ],
+      "related_specs": [
+        "approach-three-stage-delivery"
+      ],
+      "related_files": [
+        {
+          "path": "docs/开发文档.md",
+          "relation": "implementation_reference"
+        }
+      ],
+      "previous_versions": [],
+      "created_at": "2026-07-11T00:00:00+08:00",
+      "updated_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "id": "decision-lightweight-demo-architecture",
+      "category": "architecture",
+      "title": "采用轻量单体测试架构",
+      "memory": "测试样本采用 Spring Boot 三层后端、H2 开发数据库、MySQL 目标脚本和 React 单页前端，不引入 Redis、消息队列或微服务。",
+      "scope": "all",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "Spring Boot",
+        "React",
+        "H2",
+        "MySQL",
+        "单体"
+      ],
+      "source_refs": [
+        {
+          "type": "doc",
+          "path": "docs/开发文档.md",
+          "section": "技术栈选型"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "new_content",
+          "quote": "测试项目保持小规模并以可识别问题为目标。"
+        }
+      ],
+      "related_specs": [
+        "constraint-backend-stack",
+        "constraint-frontend-stack",
+        "constraint-small-demo-boundary"
+      ],
+      "related_files": [
+        {
+          "path": "backend/pom.xml",
+          "relation": "implementation_reference"
+        },
+        {
+          "path": "frontend/package.json",
+          "relation": "implementation_reference"
+        }
+      ],
+      "previous_versions": [],
+      "created_at": "2026-07-11T00:00:00+08:00",
+      "updated_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "id": "decision-intentional-risk-fixture",
+      "category": "decision",
+      "title": "保留七类故意风险作为识别样本",
+      "memory": "项目有意保留明文凭据、主键枚举、SQL 注入、宽松 CORS、无鉴权幂等、个人信息暴露和测试覆盖不足七类问题，用于验证 PM-Agent 风险识别能力。",
+      "scope": "all",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "风险识别",
+        "测试夹具",
+        "非生产"
+      ],
+      "source_refs": [
+        {
+          "type": "doc",
+          "path": "docs/开发文档.md",
+          "section": "故意设置的系统识别测试点"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "new_content",
+          "quote": "这些问题是测试夹具的一部分，不代表推荐设计。"
+        }
+      ],
+      "related_specs": [
+        "risk-no-plaintext-secret",
+        "risk-parameterized-sql",
+        "risk-restrict-cors",
+        "risk-auth-idempotency",
+        "risk-mask-student-pii"
+      ],
+      "related_files": [
+        {
+          "path": "docs/开发文档.md",
+          "relation": "test_evidence"
+        }
+      ],
+      "previous_versions": [],
+      "created_at": "2026-07-11T00:00:00+08:00",
+      "updated_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "id": "decision-three-stage-roadmap",
+      "category": "decision",
+      "title": "后续按档案维护和工程加固推进",
+      "memory": "阶段二计划实现编辑、逻辑删除、分页、班级、课程和成绩；阶段三计划补齐认证授权、审计、幂等、安全整改和自动化测试。",
+      "scope": "all",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "阶段二",
+        "阶段三",
+        "后续规划"
+      ],
+      "source_refs": [
+        {
+          "type": "doc",
+          "path": "docs/开发文档.md",
+          "section": "阶段二计划与阶段三计划"
+        },
+        {
+          "type": "doc",
+          "path": "docs/接口文档.md",
+          "section": "规划接口"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "new_content",
+          "quote": "档案维护占 30%，工程加固占 20%。"
+        }
+      ],
+      "related_specs": [
+        "approach-three-stage-delivery"
+      ],
+      "related_files": [
+        {
+          "path": "docs/接口文档.md",
+          "relation": "implementation_reference"
+        }
+      ],
+      "previous_versions": [],
+      "created_at": "2026-07-11T00:00:00+08:00",
+      "updated_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "chg-ltm-001",
+      "change_type": "created",
+      "target_id": "milestone-stage-one-closed-loop",
+      "summary": "创建长期记忆：阶段一基础档案闭环已形成。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-ltm-002",
+      "change_type": "created",
+      "target_id": "decision-lightweight-demo-architecture",
+      "summary": "创建长期记忆：采用轻量单体测试架构。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-ltm-003",
+      "change_type": "created",
+      "target_id": "decision-intentional-risk-fixture",
+      "summary": "创建长期记忆：保留七类故意风险作为识别样本。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-ltm-004",
+      "change_type": "created",
+      "target_id": "decision-three-stage-roadmap",
+      "summary": "创建长期记忆：后续按档案维护和工程加固推进。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": [
+    {
+      "content": "当前 MinIO 上传与联调操作",
+      "reason": "属于本轮临时测试任务，记录在短期记忆。"
+    }
+  ]
+}

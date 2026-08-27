@@ -1,0 +1,180 @@
+{
+  "id": "file-18",
+  "project_id": 721,
+  "file_id": 18,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "b57631d393a2d4cf",
+  "storage_name": "开发文档-b57631d393a2d4cf.md",
+  "detail_ref": "system/file_details/b57631d393a2d4cf-c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d-97631594ac2a340eb499664de7e7f42f1ca85d58bea86c3f94290aaa7c1dd1a1.json",
+  "original_path": "docs/开发文档.md",
+  "minio_path": "projest_test/开发文档-b57631d393a2d4cf.md",
+  "size_bytes": 5678,
+  "content_type": "text/markdown",
+  "content_hash": "sha256:c1019fb46c7ce6b0d7bc67b6a8bf34793af4a225a24d534ec9e88ecfb01e1e0d",
+  "module": "docs",
+  "kind": "development_documentation",
+  "file_type": "doc.markdown",
+  "language": "markdown",
+  "status": "active",
+  "importance": "high",
+  "summary": "定义测试项目定位、技术栈、三阶段规划、七项故意风险、测试方案和当前 50% 完成度。",
+  "keywords": [
+    "开发规划",
+    "完成度",
+    "技术栈",
+    "风险清单",
+    "测试方案"
+  ],
+  "role": "作为项目规划、风险识别和后续开发方向的权威说明。",
+  "content_slices": [
+    {
+      "slice_id": "architecture",
+      "type": "architecture",
+      "summary": "React、Controller、Service、Repository 和 H2/MySQL 的单体链路。",
+      "keywords": [
+        "开发规划",
+        "完成度",
+        "技术栈",
+        "风险清单",
+        "测试方案"
+      ],
+      "entities": [
+        "React",
+        "Spring Boot",
+        "H2",
+        "MySQL"
+      ],
+      "source_range": {
+        "start_line": 23,
+        "end_line": 43
+      }
+    },
+    {
+      "slice_id": "roadmap",
+      "type": "roadmap",
+      "summary": "阶段一完成 50%，阶段二和阶段三尚未开发。",
+      "keywords": [
+        "开发规划",
+        "完成度",
+        "技术栈",
+        "风险清单",
+        "测试方案"
+      ],
+      "entities": [
+        "50%",
+        "阶段二",
+        "阶段三"
+      ],
+      "source_range": {
+        "start_line": 45,
+        "end_line": 72
+      }
+    },
+    {
+      "slice_id": "risk-catalog",
+      "type": "risk",
+      "summary": "列出明文凭据、主键枚举、SQL 注入、CORS、鉴权幂等、PII 和测试覆盖风险。",
+      "keywords": [
+        "开发规划",
+        "完成度",
+        "技术栈",
+        "风险清单",
+        "测试方案"
+      ],
+      "entities": [
+        "R-01",
+        "R-07"
+      ],
+      "source_range": {
+        "start_line": 74,
+        "end_line": 92
+      }
+    },
+    {
+      "slice_id": "test-plan",
+      "type": "test_plan",
+      "summary": "说明后端测试、前端构建、联调冒烟和数据检查。",
+      "keywords": [
+        "开发规划",
+        "完成度",
+        "技术栈",
+        "风险清单",
+        "测试方案"
+      ],
+      "entities": [
+        "MockMvc",
+        "pnpm build"
+      ],
+      "source_range": {
+        "start_line": 101,
+        "end_line": 108
+      }
+    }
+  ],
+  "related_topics": [
+    "开发规划",
+    "完成度",
+    "技术栈",
+    "风险清单",
+    "测试方案"
+  ],
+  "related_files": [
+    {
+      "path": "README.md",
+      "relation": "项目入口"
+    },
+    {
+      "path": "docs/接口文档.md",
+      "relation": "接口范围"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "intentional-security-fixture",
+      "severity": "high",
+      "summary": "文档明确七项缺陷均为分析能力测试点，不代表推荐方案。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义测试项目定位、技术栈、三阶段规划、七项故意风险、测试方案和当前 50% 完成度。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 113
+  },
+  "rule_candidates": [
+    {
+      "category": "development_approach",
+      "text": "项目按基础档案、档案维护、工程加固三个阶段推进，并保持已实现与规划范围清晰分离。",
+      "confidence": "high",
+      "evidence": [
+        "开发文档 第45至72行"
+      ]
+    },
+    {
+      "category": "technical_constraint",
+      "text": "测试项目后端使用 Java 17、Spring Boot 3.3 和 Spring JDBC，前端使用 React 18、TypeScript 与 Vite。",
+      "confidence": "high",
+      "evidence": [
+        "开发文档 第23至32行"
+      ]
+    },
+    {
+      "category": "risk_rule",
+      "text": "风险分析必须至少覆盖文档 R-01 至 R-07，且不得把故意缺陷解释为推荐设计。",
+      "confidence": "high",
+      "evidence": [
+        "开发文档 第74至92行"
+      ]
+    }
+  ]
+}

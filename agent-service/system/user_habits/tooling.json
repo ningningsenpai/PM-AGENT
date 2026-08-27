@@ -1,0 +1,93 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "category": "tooling",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "user_habits": [
+    {
+      "id": "tooling-java-react-demo",
+      "title": "偏好轻量全栈样本",
+      "habit": "用户在小型验证项目中偏好 Java Spring Boot 后端与 React TypeScript 前端组合。",
+      "scope": "tooling",
+      "status": "active",
+      "confidence": "medium",
+      "importance": "medium",
+      "tags": [
+        "Java",
+        "Spring Boot",
+        "React",
+        "TypeScript"
+      ],
+      "signals": [
+        "小型 Demo",
+        "全栈联调"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "测试项目技术栈体现该组合。"
+        }
+      ],
+      "applicable_scenarios": [
+        "构造全栈测试样本"
+      ],
+      "avoid_when": [
+        "PM-Agent 在线后端实现"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    },
+    {
+      "id": "tooling-local-zero-dependency",
+      "title": "本地启动尽量轻量",
+      "habit": "用户偏好测试样本使用 H2 和内置初始化脚本降低本地启动依赖。",
+      "scope": "tooling",
+      "status": "active",
+      "confidence": "high",
+      "importance": "medium",
+      "tags": [
+        "H2",
+        "本地开发",
+        "开箱即用"
+      ],
+      "signals": [
+        "无需安装 MySQL",
+        "启动即用"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "README 和开发文档明确本地使用 H2。"
+        }
+      ],
+      "applicable_scenarios": [
+        "Demo 开发",
+        "快速联调"
+      ],
+      "avoid_when": [
+        "生产数据持久化"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "chg-habit-tooling-001",
+      "change_type": "created",
+      "target_id": "tooling-java-react-demo",
+      "summary": "创建tooling类用户习惯：偏好轻量全栈样本。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-habit-tooling-002",
+      "change_type": "created",
+      "target_id": "tooling-local-zero-dependency",
+      "summary": "创建tooling类用户习惯：本地启动尽量轻量。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": []
+}

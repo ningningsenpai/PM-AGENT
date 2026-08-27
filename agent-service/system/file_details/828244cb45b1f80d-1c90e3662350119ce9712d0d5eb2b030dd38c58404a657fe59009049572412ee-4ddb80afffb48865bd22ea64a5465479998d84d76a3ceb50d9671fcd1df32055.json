@@ -1,0 +1,80 @@
+{
+  "id": "file-3",
+  "project_id": 721,
+  "file_id": 3,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "828244cb45b1f80d",
+  "storage_name": "ApiResponse-828244cb45b1f80d.java",
+  "detail_ref": "system/file_details/828244cb45b1f80d-1c90e3662350119ce9712d0d5eb2b030dd38c58404a657fe59009049572412ee-4ddb80afffb48865bd22ea64a5465479998d84d76a3ceb50d9671fcd1df32055.json",
+  "original_path": "backend/src/main/java/com/ning/demo/student/common/ApiResponse.java",
+  "minio_path": "projest_test/ApiResponse-828244cb45b1f80d.java",
+  "size_bytes": 547,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:1c90e3662350119ce9712d0d5eb2b030dd38c58404a657fe59009049572412ee",
+  "module": "backend-common",
+  "kind": "response_model",
+  "file_type": "code.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "定义 code、message、data、traceId 统一响应以及成功和失败工厂方法。",
+  "keywords": [
+    "统一响应",
+    "traceId",
+    "错误码",
+    "泛型"
+  ],
+  "role": "统一后端 API 的成功与异常响应结构。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义 code、message、data、traceId 统一响应以及成功和失败工厂方法。",
+      "keywords": [
+        "统一响应",
+        "traceId",
+        "错误码",
+        "泛型"
+      ],
+      "entities": [
+        "ApiResponse",
+        "success",
+        "error"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 19
+      }
+    }
+  ],
+  "related_topics": [
+    "统一响应",
+    "traceId",
+    "错误码",
+    "泛型"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/common/GlobalExceptionHandler.java",
+      "relation": "异常响应"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义 code、message、data、traceId 统一响应以及成功和失败工厂方法。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 19
+  },
+  "rule_candidates": []
+}

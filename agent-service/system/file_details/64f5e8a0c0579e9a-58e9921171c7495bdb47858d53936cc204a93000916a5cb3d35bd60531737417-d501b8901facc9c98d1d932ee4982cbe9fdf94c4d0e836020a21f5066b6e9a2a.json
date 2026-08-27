@@ -1,0 +1,151 @@
+{
+  "id": "file-13",
+  "project_id": 721,
+  "file_id": 13,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "64f5e8a0c0579e9a",
+  "storage_name": "application-64f5e8a0c0579e9a.yml",
+  "detail_ref": "system/file_details/64f5e8a0c0579e9a-58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417-d501b8901facc9c98d1d932ee4982cbe9fdf94c4d0e836020a21f5066b6e9a2a.json",
+  "original_path": "backend/src/main/resources/application.yml",
+  "minio_path": "projest_test/application-64f5e8a0c0579e9a.yml",
+  "size_bytes": 509,
+  "content_type": "application/yaml",
+  "content_hash": "sha256:58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417",
+  "module": "backend-runtime",
+  "kind": "runtime_config",
+  "file_type": "config.yaml",
+  "language": "yaml",
+  "status": "active",
+  "importance": "high",
+  "summary": "配置后端端口、H2 MySQL 兼容模式和 SQL 初始化，并故意包含虚构明文凭据测试点。",
+  "keywords": [
+    "H2",
+    "端口",
+    "数据源",
+    "明文凭据",
+    "API Key"
+  ],
+  "role": "提供本地 Demo 运行时配置；敏感值只用于扫描识别，不应进入生产。",
+  "content_slices": [
+    {
+      "slice_id": "server-config",
+      "type": "configuration",
+      "summary": "后端监听 18080 端口。",
+      "keywords": [
+        "H2",
+        "端口",
+        "数据源",
+        "明文凭据",
+        "API Key"
+      ],
+      "entities": [
+        "18080"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 2
+      }
+    },
+    {
+      "slice_id": "datasource-config",
+      "type": "configuration",
+      "summary": "H2 内存库以 MySQL 兼容模式启动并自动初始化 SQL。",
+      "keywords": [
+        "H2",
+        "端口",
+        "数据源",
+        "明文凭据",
+        "API Key"
+      ],
+      "entities": [
+        "H2",
+        "MODE=MySQL"
+      ],
+      "source_range": {
+        "start_line": 4,
+        "end_line": 15
+      }
+    },
+    {
+      "slice_id": "sensitive-config",
+      "type": "security",
+      "summary": "第10至18行包含用于识别测试的虚构明文凭据。",
+      "keywords": [
+        "H2",
+        "端口",
+        "数据源",
+        "明文凭据",
+        "API Key"
+      ],
+      "entities": [
+        "database password",
+        "api-key"
+      ],
+      "source_range": {
+        "start_line": 10,
+        "end_line": 18
+      }
+    }
+  ],
+  "related_topics": [
+    "H2",
+    "端口",
+    "数据源",
+    "明文凭据",
+    "API Key"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/resources/schema.sql",
+      "relation": "数据库初始化"
+    },
+    {
+      "path": "backend/src/main/resources/data.sql",
+      "relation": "演示数据"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "plaintext-database-password",
+      "severity": "high",
+      "summary": "数据源密码以明文形式写入配置文件。"
+    },
+    {
+      "code": "plaintext-api-key",
+      "severity": "critical",
+      "summary": "第三方 API Key 以明文形式写入配置文件。"
+    }
+  ],
+  "sensitive_flags": [
+    {
+      "type": "plaintext_secret",
+      "status": "redacted",
+      "summary": "检测到虚构数据库密码和 API Key，详情已脱敏且未保存具体值。"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "配置后端端口、H2 MySQL 兼容模式和 SQL 初始化，并故意包含虚构明文凭据测试点。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 19
+  },
+  "rule_candidates": [
+    {
+      "category": "risk_rule",
+      "text": "数据库密码和第三方密钥必须通过环境变量或密钥管理注入，禁止提交明文。",
+      "confidence": "high",
+      "evidence": [
+        "application.yml 第10至18行"
+      ]
+    }
+  ]
+}

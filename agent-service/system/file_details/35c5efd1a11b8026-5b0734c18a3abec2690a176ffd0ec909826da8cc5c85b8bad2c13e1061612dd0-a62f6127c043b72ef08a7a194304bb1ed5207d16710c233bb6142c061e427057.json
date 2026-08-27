@@ -1,0 +1,159 @@
+{
+  "id": "file-19",
+  "project_id": 721,
+  "file_id": 19,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "35c5efd1a11b8026",
+  "storage_name": "接口文档-35c5efd1a11b8026.md",
+  "detail_ref": "system/file_details/35c5efd1a11b8026-5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0-a62f6127c043b72ef08a7a194304bb1ed5207d16710c233bb6142c061e427057.json",
+  "original_path": "docs/接口文档.md",
+  "minio_path": "projest_test/接口文档-35c5efd1a11b8026.md",
+  "size_bytes": 3984,
+  "content_type": "text/markdown",
+  "content_hash": "sha256:5b0734c18a3abec2690a176ffd0ec909826da8cc5c85b8bad2c13e1061612dd0",
+  "module": "docs",
+  "kind": "api_documentation",
+  "file_type": "doc.markdown",
+  "language": "markdown",
+  "status": "active",
+  "importance": "high",
+  "summary": "区分阶段一已实现接口与阶段二、三规划接口，并记录统一响应、字段、错误码和已知安全缺口。",
+  "keywords": [
+    "API",
+    "学生接口",
+    "错误码",
+    "阶段规划",
+    "鉴权",
+    "幂等"
+  ],
+  "role": "作为学生管理 Demo 的接口契约和完成度判断依据。",
+  "content_slices": [
+    {
+      "slice_id": "current-apis",
+      "type": "api_documentation",
+      "summary": "记录列表、详情和新增三个已实现接口。",
+      "keywords": [
+        "API",
+        "学生接口",
+        "错误码",
+        "阶段规划",
+        "鉴权",
+        "幂等"
+      ],
+      "entities": [
+        "GET",
+        "POST",
+        "/api/v1/students"
+      ],
+      "source_range": {
+        "start_line": 21,
+        "end_line": 92
+      }
+    },
+    {
+      "slice_id": "planned-apis",
+      "type": "roadmap",
+      "summary": "记录档案维护、班级、课程、成绩和认证审计规划。",
+      "keywords": [
+        "API",
+        "学生接口",
+        "错误码",
+        "阶段规划",
+        "鉴权",
+        "幂等"
+      ],
+      "entities": [
+        "阶段二",
+        "阶段三"
+      ],
+      "source_range": {
+        "start_line": 94,
+        "end_line": 116
+      }
+    },
+    {
+      "slice_id": "error-codes",
+      "type": "contract",
+      "summary": "定义当前与规划错误码。",
+      "keywords": [
+        "API",
+        "学生接口",
+        "错误码",
+        "阶段规划",
+        "鉴权",
+        "幂等"
+      ],
+      "entities": [
+        "10001",
+        "20001",
+        "20002",
+        "90000"
+      ],
+      "source_range": {
+        "start_line": 118,
+        "end_line": 129
+      }
+    }
+  ],
+  "related_topics": [
+    "API",
+    "学生接口",
+    "错误码",
+    "阶段规划",
+    "鉴权",
+    "幂等"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentController.java",
+      "relation": "已实现接口"
+    },
+    {
+      "path": "docs/开发文档.md",
+      "relation": "阶段规划"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "missing-authentication",
+      "severity": "high",
+      "summary": "阶段一所有学生接口均无鉴权。"
+    },
+    {
+      "code": "unmasked-pii",
+      "severity": "high",
+      "summary": "列表和详情直接返回电话与邮箱。"
+    },
+    {
+      "code": "missing-idempotency",
+      "severity": "high",
+      "summary": "新增学生接口没有幂等键。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "区分阶段一已实现接口与阶段二、三规划接口，并记录统一响应、字段、错误码和已知安全缺口。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 134
+  },
+  "rule_candidates": [
+    {
+      "category": "document_rule",
+      "text": "接口文档必须明确区分已实现和仅设计能力，未实现接口不得宣称已交付。",
+      "confidence": "high",
+      "evidence": [
+        "接口文档 第21至116行"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "project_id": 721,
+  "schema_version": "1.0.0",
+  "category": "specification",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "user_habits": [
+    {
+      "id": "specification-chinese-docs",
+      "title": "中文文档与错误",
+      "habit": "用户偏好项目文档、代码说明和用户可见错误使用中文。",
+      "scope": "output_format",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "中文",
+        "文档",
+        "错误信息"
+      ],
+      "signals": [
+        "中文统一响应",
+        "中文注释"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "源码注释、接口文档和错误响应均使用中文。"
+        }
+      ],
+      "applicable_scenarios": [
+        "编写文档",
+        "设计错误消息"
+      ],
+      "avoid_when": [
+        "第三方协议固定英文字段"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    },
+    {
+      "id": "specification-structured-contracts",
+      "title": "结构化接口契约",
+      "habit": "用户偏好接口使用统一响应、明确字段校验、错误码和 traceId。",
+      "scope": "output_format",
+      "status": "active",
+      "confidence": "high",
+      "importance": "high",
+      "tags": [
+        "统一响应",
+        "错误码",
+        "traceId",
+        "校验"
+      ],
+      "signals": [
+        "code message data traceId",
+        "字段表"
+      ],
+      "source_type": "new_content",
+      "source_refs": [
+        {
+          "type": "doc",
+          "summary": "ApiResponse 和接口文档定义统一结构与错误码。"
+        }
+      ],
+      "applicable_scenarios": [
+        "API 设计",
+        "接口测试"
+      ],
+      "avoid_when": [
+        "无接口的纯静态页面"
+      ],
+      "change_type": "added",
+      "previous_versions": []
+    }
+  ],
+  "changes": [
+    {
+      "change_id": "chg-habit-specification-001",
+      "change_type": "created",
+      "target_id": "specification-chinese-docs",
+      "summary": "创建specification类用户习惯：中文文档与错误。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    },
+    {
+      "change_id": "chg-habit-specification-002",
+      "change_type": "created",
+      "target_id": "specification-structured-contracts",
+      "summary": "创建specification类用户习惯：结构化接口契约。",
+      "created_at": "2026-08-27T00:00:00+08:00"
+    }
+  ],
+  "ignored_items": []
+}

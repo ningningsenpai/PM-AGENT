@@ -1,0 +1,85 @@
+{
+  "id": "file-2",
+  "project_id": 721,
+  "file_id": 2,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "820179f2a33ec9e3",
+  "storage_name": "pom-820179f2a33ec9e3.xml",
+  "detail_ref": "system/file_details/820179f2a33ec9e3-2f3fca923dfb1fd6112b5aec183aaf1eeb05c5cb09f6427d35d0fdc4494c9494-34049c3bc6deee4bbf269544338e0450399140da63fec684096d1ae0ce70b4bb.json",
+  "original_path": "backend/pom.xml",
+  "minio_path": "projest_test/pom-820179f2a33ec9e3.xml",
+  "size_bytes": 2009,
+  "content_type": "application/xml",
+  "content_hash": "sha256:2f3fca923dfb1fd6112b5aec183aaf1eeb05c5cb09f6427d35d0fdc4494c9494",
+  "module": "backend-build",
+  "kind": "build_config",
+  "file_type": "config.maven.xml",
+  "language": "xml",
+  "status": "active",
+  "importance": "medium",
+  "summary": "定义 Java 17、Spring Boot 3.3.6、Web、Validation、JDBC、H2 和测试依赖。",
+  "keywords": [
+    "Maven",
+    "Java 17",
+    "Spring Boot",
+    "Spring JDBC",
+    "H2",
+    "JUnit"
+  ],
+  "role": "提供后端构建、运行和测试所需的 Maven 依赖与插件配置。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "定义 Java 17、Spring Boot 3.3.6、Web、Validation、JDBC、H2 和测试依赖。",
+      "keywords": [
+        "Maven",
+        "Java 17",
+        "Spring Boot",
+        "Spring JDBC",
+        "H2",
+        "JUnit"
+      ],
+      "entities": [
+        "student-management-demo",
+        "spring-boot-maven-plugin"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 53
+      }
+    }
+  ],
+  "related_topics": [
+    "Maven",
+    "Java 17",
+    "Spring Boot",
+    "Spring JDBC",
+    "H2",
+    "JUnit"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/StudentManagementApplication.java",
+      "relation": "启动入口"
+    }
+  ],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "定义 Java 17、Spring Boot 3.3.6、Web、Validation、JDBC、H2 和测试依赖。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 53
+  },
+  "rule_candidates": []
+}

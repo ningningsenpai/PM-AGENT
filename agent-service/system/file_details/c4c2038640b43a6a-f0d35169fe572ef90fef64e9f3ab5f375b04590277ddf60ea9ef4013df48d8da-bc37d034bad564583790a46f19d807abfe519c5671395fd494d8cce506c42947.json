@@ -1,0 +1,78 @@
+{
+  "id": "file-1",
+  "project_id": 721,
+  "file_id": 1,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "c4c2038640b43a6a",
+  "storage_name": ".gitignore-c4c2038640b43a6a",
+  "detail_ref": "system/file_details/c4c2038640b43a6a-f0d35169fe572ef90fef64e9f3ab5f375b04590277ddf60ea9ef4013df48d8da-bc37d034bad564583790a46f19d807abfe519c5671395fd494d8cce506c42947.json",
+  "original_path": ".gitignore",
+  "minio_path": "projest_test/.gitignore-c4c2038640b43a6a",
+  "size_bytes": 135,
+  "content_type": "text/plain",
+  "content_hash": "sha256:f0d35169fe572ef90fef64e9f3ab5f375b04590277ddf60ea9ef4013df48d8da",
+  "module": "project-build",
+  "kind": "ignore_config",
+  "file_type": "config.gitignore",
+  "language": "text",
+  "status": "active",
+  "importance": "low",
+  "summary": "排除 Maven、pnpm 和 Vite 生成物。",
+  "keywords": [
+    "Git",
+    "构建产物",
+    "target",
+    "node_modules",
+    "dist"
+  ],
+  "role": "约束测试项目上传和版本控制时需要忽略的构建产物。",
+  "content_slices": [
+    {
+      "slice_id": "file-overview",
+      "type": "overview",
+      "summary": "排除 Maven、pnpm 和 Vite 生成物。",
+      "keywords": [
+        "Git",
+        "构建产物",
+        "target",
+        "node_modules",
+        "dist"
+      ],
+      "entities": [
+        "backend/target",
+        "frontend/node_modules",
+        "frontend/dist"
+      ],
+      "source_range": {
+        "start_line": 1,
+        "end_line": 7
+      }
+    }
+  ],
+  "related_topics": [
+    "Git",
+    "构建产物",
+    "target",
+    "node_modules",
+    "dist"
+  ],
+  "related_files": [],
+  "risk_flags": [],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "排除 Maven、pnpm 和 Vite 生成物。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 7
+  },
+  "rule_candidates": []
+}

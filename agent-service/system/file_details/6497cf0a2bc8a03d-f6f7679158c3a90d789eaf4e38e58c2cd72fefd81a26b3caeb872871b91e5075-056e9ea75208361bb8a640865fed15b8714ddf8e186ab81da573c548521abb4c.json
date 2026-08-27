@@ -1,0 +1,150 @@
+{
+  "id": "file-16",
+  "project_id": 721,
+  "file_id": 16,
+  "schema_version": "2.0.0",
+  "generated_at": "2026-08-27T00:00:00+08:00",
+  "updated_at": "2026-08-27T00:00:00+08:00",
+  "storage_uuid": "6497cf0a2bc8a03d",
+  "storage_name": "StudentControllerTest-6497cf0a2bc8a03d.java",
+  "detail_ref": "system/file_details/6497cf0a2bc8a03d-f6f7679158c3a90d789eaf4e38e58c2cd72fefd81a26b3caeb872871b91e5075-056e9ea75208361bb8a640865fed15b8714ddf8e186ab81da573c548521abb4c.json",
+  "original_path": "backend/src/test/java/com/ning/demo/student/StudentControllerTest.java",
+  "minio_path": "projest_test/StudentControllerTest-6497cf0a2bc8a03d.java",
+  "size_bytes": 2969,
+  "content_type": "text/x-java-source",
+  "content_hash": "sha256:f6f7679158c3a90d789eaf4e38e58c2cd72fefd81a26b3caeb872871b91e5075",
+  "module": "backend-test",
+  "kind": "test",
+  "file_type": "test.backend.java",
+  "language": "java",
+  "status": "active",
+  "importance": "high",
+  "summary": "使用 MockMvc 覆盖预置列表、姓名查询、新增和非法参数四条阶段一接口路径。",
+  "keywords": [
+    "MockMvc",
+    "接口测试",
+    "列表",
+    "查询",
+    "新增",
+    "参数校验"
+  ],
+  "role": "验证当前已实现学生接口的核心契约，不覆盖安全整改和前端交互。",
+  "content_slices": [
+    {
+      "slice_id": "list-test",
+      "type": "test",
+      "summary": "验证返回三条预置学生。",
+      "keywords": [
+        "MockMvc",
+        "接口测试",
+        "列表",
+        "查询",
+        "新增",
+        "参数校验"
+      ],
+      "entities": [
+        "GET /api/v1/students"
+      ],
+      "source_range": {
+        "start_line": 35,
+        "end_line": 41
+      }
+    },
+    {
+      "slice_id": "search-test",
+      "type": "test",
+      "summary": "验证按姓名关键字查询。",
+      "keywords": [
+        "MockMvc",
+        "接口测试",
+        "列表",
+        "查询",
+        "新增",
+        "参数校验"
+      ],
+      "entities": [
+        "name=林"
+      ],
+      "source_range": {
+        "start_line": 43,
+        "end_line": 49
+      }
+    },
+    {
+      "slice_id": "create-test",
+      "type": "test",
+      "summary": "验证新增学生成功。",
+      "keywords": [
+        "MockMvc",
+        "接口测试",
+        "列表",
+        "查询",
+        "新增",
+        "参数校验"
+      ],
+      "entities": [
+        "POST /api/v1/students"
+      ],
+      "source_range": {
+        "start_line": 51,
+        "end_line": 68
+      }
+    },
+    {
+      "slice_id": "validation-test",
+      "type": "test",
+      "summary": "验证非法新增参数返回 10001。",
+      "keywords": [
+        "MockMvc",
+        "接口测试",
+        "列表",
+        "查询",
+        "新增",
+        "参数校验"
+      ],
+      "entities": [
+        "10001"
+      ],
+      "source_range": {
+        "start_line": 70,
+        "end_line": 77
+      }
+    }
+  ],
+  "related_topics": [
+    "MockMvc",
+    "接口测试",
+    "列表",
+    "查询",
+    "新增",
+    "参数校验"
+  ],
+  "related_files": [
+    {
+      "path": "backend/src/main/java/com/ning/demo/student/student/StudentController.java",
+      "relation": "被测控制器"
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "limited-test-coverage",
+      "severity": "low",
+      "summary": "当前没有 SQL 注入、防越权、幂等、异常日志和前端交互自动化测试。"
+    }
+  ],
+  "sensitive_flags": [],
+  "evidence": [
+    {
+      "source": "file_content",
+      "quote": "使用 MockMvc 覆盖预置列表、姓名查询、新增和非法参数四条阶段一接口路径。"
+    }
+  ],
+  "previous_versions": [],
+  "parser": {
+    "strategy": "deterministic_structure",
+    "parser_version": "project-test-fixture-v1",
+    "sampled": false,
+    "parsed_lines": 79
+  },
+  "rule_candidates": []
+}
