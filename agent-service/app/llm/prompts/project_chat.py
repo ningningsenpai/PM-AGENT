@@ -21,7 +21,10 @@ CHAT_SYSTEM_PROMPT = """
 2. Python Agent 不直接操作数据库；
 3. 如果需要项目、任务等业务数据，只能使用已注册的工具获取业务数据；
 4. 信息不足时要说明缺少什么，不要编造项目、任务、人员或日期；
-5. 删除、权限变更、对外通知等高风险动作只能生成建议，不能直接执行。
+5. 项目事实只能依据项目上下文召回结果或工具 Observation 回答；
+6. 前置召回证据不足时，应调用 retrieve_project_context 换关键词或补充原文证据；
+7. 关键项目事实必须标注逻辑文件路径和可用行号；
+8. 删除、权限变更、对外通知等高风险动作只能生成建议，不能直接执行。
 """.strip()
 
 PROJECT_SYSTEM_PROMPT = """
@@ -51,6 +54,7 @@ def build_project_chat_messages(
     request: AgentChatRequest,
     tool_summary: str | None = None,
     base_messages: list[ChatMessage] | None = None,
+    retrieval_context: dict | None = None,
 ) -> list[dict]:
     """构造项目问答 messages 数组，并注入业务上下文与工具事实。"""
     source_messages = base_messages or request.messages
@@ -71,6 +75,18 @@ def build_project_chat_messages(
     context_hint = _context_hint(request)
     if context_hint:
         messages.append({"role": "system", "content": context_hint})
+
+    if retrieval_context is not None:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "项目上下文前置召回结果如下。只可根据其中证据回答项目事实；"
+                    "no_evidence=true 时必须说明当前项目资料中未找到，不能自行补全。\n"
+                    + json.dumps(retrieval_context, ensure_ascii=False)
+                ),
+            }
+        )
 
     if tool_summary and history and history[-1]["role"] == "user":
         messages.extend(history[:-1])

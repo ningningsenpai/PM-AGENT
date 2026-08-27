@@ -1,0 +1,98 @@
+{
+  "lexicon_id": "project-management",
+  "version": "1.0.0",
+  "scope": "domain",
+  "scope_id": "project_management",
+  "status": "published",
+  "description": "第一版项目上下文召回所需的项目管理和风险术语。",
+  "entries": [
+    {
+      "term_id": "project-progress",
+      "canonical": "项目进度",
+      "aliases": ["完成度", "开发阶段", "当前阶段"],
+      "category": "project",
+      "tags": ["progress"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    },
+    {
+      "term_id": "project-risk",
+      "canonical": "项目风险",
+      "aliases": ["安全风险", "风险项"],
+      "category": "risk",
+      "tags": ["risk"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    },
+    {
+      "term_id": "authentication",
+      "canonical": "鉴权",
+      "aliases": ["身份认证", "访问认证"],
+      "category": "security",
+      "tags": ["auth"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    },
+    {
+      "term_id": "idempotency",
+      "canonical": "幂等",
+      "aliases": ["幂等性", "重复提交保护"],
+      "category": "reliability",
+      "tags": ["write-safety"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    },
+    {
+      "term_id": "personal-information",
+      "canonical": "个人信息",
+      "aliases": ["PII", "隐私数据"],
+      "category": "security",
+      "tags": ["privacy"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    },
+    {
+      "term_id": "sql-injection",
+      "canonical": "SQL 注入",
+      "aliases": ["SQL注入", "拼接 SQL"],
+      "category": "security",
+      "tags": ["database"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    },
+    {
+      "term_id": "cors",
+      "canonical": "CORS",
+      "aliases": ["跨域", "跨域配置"],
+      "category": "security",
+      "tags": ["web"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    },
+    {
+      "term_id": "plaintext-credential",
+      "canonical": "明文凭据",
+      "aliases": ["明文密码", "API Key", "密钥泄露"],
+      "category": "security",
+      "tags": ["credential"],
+      "priority": 20,
+      "enabled": true,
+      "source": "pm-agent-project-management",
+      "override_term_id": null
+    }
+  ]
+}

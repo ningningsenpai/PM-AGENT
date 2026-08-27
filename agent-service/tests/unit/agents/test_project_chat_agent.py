@@ -20,6 +20,11 @@ from app.llm.contracts import (
 )
 from app.llm.orchestration.project_chat_agent import ProjectChatAgent
 from app.modules.project.schemas import ProjectResponse
+from app.input_context import (
+    RetrievalEvidence,
+    RetrievalHit,
+    RetrievalResult,
+)
 from app.streaming import StreamEventType
 from app.streaming.metrics import LLMTokenUsage
 from app.streaming.payloads import AgentChatRequest
@@ -94,6 +99,50 @@ def _agent(llm: FakeLLM):
 
 
 class TestProjectChatAgent(IsolatedAsyncioTestCase):
+    async def test_chat_injects_pre_retrieval_before_first_model_turn(self) -> None:
+        llm = FakeLLM()
+        llm.turns = [LLMAssistantTurn(content="项目当前完成度约为 50%。")]
+        agent, _projects = _agent(llm)
+        retriever = SimpleNamespace(
+            retrieve=AsyncMock(
+                return_value=RetrievalResult(
+                    query="当前项目是什么？",
+                    hits=[
+                        RetrievalHit(
+                            source_type="project_specification",
+                            source_id="development-stage",
+                            title="项目开发阶段",
+                            summary="阶段一基础档案已完成，整体约 50%",
+                            score=10,
+                            evidence=[
+                                RetrievalEvidence(
+                                    text="阶段一基础档案已完成，整体约 50%",
+                                    logical_path="docs/开发文档.md",
+                                )
+                            ],
+                        )
+                    ],
+                )
+            )
+        )
+        agent._retriever = retriever
+
+        with patch(
+            "app.llm.orchestration.project_chat_agent.get_llm_client",
+            return_value=llm,
+        ):
+            response = await agent.chat(_request(), 1)
+
+        self.assertEqual("项目当前完成度约为 50%。", response.answer)
+        retriever.retrieve.assert_awaited_once()
+        retrieval_message = next(
+            message
+            for message in llm.requests[0]
+            if message["role"] == "system"
+            and "项目上下文前置召回结果" in message["content"]
+        )
+        self.assertIn("docs/开发文档.md", retrieval_message["content"])
+
     async def test_chat_executes_native_tool_and_returns_final_answer(self) -> None:
         llm = FakeLLM()
         llm.turns = [

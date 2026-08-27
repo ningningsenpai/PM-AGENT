@@ -1,0 +1,65 @@
+{
+  "lexicon_id": "common",
+  "version": "1.0.0",
+  "scope": "common",
+  "scope_id": null,
+  "status": "published",
+  "description": "项目上下文召回使用的最小公共技术术语库。",
+  "entries": [
+    {
+      "term_id": "api",
+      "canonical": "API",
+      "aliases": ["接口", "应用程序接口"],
+      "category": "technology",
+      "tags": ["integration"],
+      "priority": 10,
+      "enabled": true,
+      "source": "pm-agent-common",
+      "override_term_id": null
+    },
+    {
+      "term_id": "backend",
+      "canonical": "后端",
+      "aliases": ["服务端"],
+      "category": "architecture",
+      "tags": ["layer"],
+      "priority": 10,
+      "enabled": true,
+      "source": "pm-agent-common",
+      "override_term_id": null
+    },
+    {
+      "term_id": "frontend",
+      "canonical": "前端",
+      "aliases": ["客户端界面"],
+      "category": "architecture",
+      "tags": ["layer"],
+      "priority": 10,
+      "enabled": true,
+      "source": "pm-agent-common",
+      "override_term_id": null
+    },
+    {
+      "term_id": "database",
+      "canonical": "数据库",
+      "aliases": ["DB"],
+      "category": "technology",
+      "tags": ["storage"],
+      "priority": 10,
+      "enabled": true,
+      "source": "pm-agent-common",
+      "override_term_id": null
+    },
+    {
+      "term_id": "automated-test",
+      "canonical": "自动化测试",
+      "aliases": ["测试覆盖", "回归测试"],
+      "category": "quality",
+      "tags": ["test"],
+      "priority": 10,
+      "enabled": true,
+      "source": "pm-agent-common",
+      "override_term_id": null
+    }
+  ]
+}

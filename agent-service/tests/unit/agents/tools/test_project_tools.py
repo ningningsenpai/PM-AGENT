@@ -11,10 +11,12 @@ from app.agents.tools import ToolExecutionContext, ToolExecutor, ToolRegistry
 from app.agents.tools.project import (
     ListCurrentProjectFilesTool,
     ListOwnedProjectsTool,
+    RetrieveProjectContextTool,
 )
 from app.llm.contracts import LLMToolCall
 from app.modules.project.schemas import ProjectResponse
 from app.modules.project_file.management.schemas import ProjectFileResponse
+from app.input_context import RetrievalResult
 
 
 def _context(project_id: int | None = 10) -> ToolExecutionContext:
@@ -66,9 +68,16 @@ class TestProjectReadTools(IsolatedAsyncioTestCase):
     def test_project_chat_agent_registers_project_read_tools(self) -> None:
         with patch(
             "app.agents.dependencies.get_settings",
-            return_value=SimpleNamespace(llm=SimpleNamespace()),
+            return_value=SimpleNamespace(
+                llm=SimpleNamespace(),
+                storage=SimpleNamespace(bucket="pm-agent"),
+            ),
         ):
-            agent = get_project_chat_agent(SimpleNamespace(), SimpleNamespace())
+            agent = get_project_chat_agent(
+                SimpleNamespace(),
+                SimpleNamespace(),
+                SimpleNamespace(),
+            )
 
         names = [
             item["function"]["name"]
@@ -79,9 +88,52 @@ class TestProjectReadTools(IsolatedAsyncioTestCase):
                 "get_current_project",
                 "list_current_project_files",
                 "list_owned_projects",
+                "retrieve_project_context",
             ],
             names,
         )
+
+    async def test_retrieve_project_context_uses_trusted_context(self) -> None:
+        retriever = SimpleNamespace(
+            retrieve=AsyncMock(
+                return_value=RetrievalResult(
+                    query="当前项目风险",
+                    no_evidence=True,
+                )
+            )
+        )
+        registry = ToolRegistry([RetrieveProjectContextTool(retriever)])
+
+        result = await ToolExecutor(registry).execute(
+            LLMToolCall(
+                id="call-retrieval",
+                name="retrieve_project_context",
+                arguments_json='{"query":"当前项目风险","limit":5}',
+            ),
+            _context(),
+        )
+
+        self.assertEqual("success", result.status)
+        arguments = retriever.retrieve.await_args.args[1]
+        self.assertEqual("当前项目风险", arguments.query)
+        self.assertEqual(10, retriever.retrieve.await_args.args[0].project_id)
+
+    async def test_retrieve_project_context_rejects_identity_override(self) -> None:
+        retriever = SimpleNamespace(retrieve=AsyncMock())
+        registry = ToolRegistry([RetrieveProjectContextTool(retriever)])
+
+        result = await ToolExecutor(registry).execute(
+            LLMToolCall(
+                id="call-retrieval",
+                name="retrieve_project_context",
+                arguments_json='{"query":"风险","project_id":99}',
+            ),
+            _context(),
+        )
+
+        self.assertEqual("failed", result.status)
+        self.assertEqual("TOOL_ARGUMENT_INVALID", result.error_code)
+        retriever.retrieve.assert_not_awaited()
 
     async def test_list_owned_projects_uses_context_user(self) -> None:
         projects = SimpleNamespace(

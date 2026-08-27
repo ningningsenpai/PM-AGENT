@@ -2,7 +2,7 @@
 
 ## 1. 目标与范围
 
-当前版本提供模型原生工具调用、请求级工具注册表、安全执行器、有限 ReAct 循环以及 JSON/SSE 两种响应模式。当前已注册 `get_current_project`、`list_current_project_files` 和 `list_owned_projects` 三个真实只读工具，分别查询当前项目、当前项目公开文件和当前用户拥有的项目。
+当前版本提供模型原生工具调用、请求级工具注册表、安全执行器、有限 ReAct 循环以及 JSON/SSE 两种响应模式。当前已注册 `get_current_project`、`list_current_project_files`、`list_owned_projects` 和 `retrieve_project_context` 四个真实只读工具，分别查询当前项目、当前项目公开文件、当前用户拥有的项目和 MinIO 项目上下文。
 
 当前不实现写工具、人工确认持久化、Agent Trace 数据表、并行工具执行和 Qwen/Ollama 工具协议适配。这些能力保留扩展点，但不能作为已交付能力使用。
 
@@ -62,6 +62,7 @@ Agent、LLM、Prompt 和工具不得获取数据库 Session，不跨模块访问
 | `get_current_project` | 只读 | 无模型业务参数 | 项目 ID、名称、状态、创建和更新时间 | `ProjectService.get_owned` |
 | `list_current_project_files` | 只读 | 可选 `business_code`：`project` / `user` | 公开文件总数及文件名称、相对路径、类型、大小、处理状态和更新时间 | `ProjectFileService.list_files` |
 | `list_owned_projects` | 只读 | 无模型业务参数 | 当前用户项目总数及项目 ID、名称、状态、创建和更新时间 | `ProjectService.list_owned` |
+| `retrieve_project_context` | 只读 | 查询文本、召回范围、证据深度和结果上限 | 规范、文件详情、记忆及按需脱敏原文证据 | `AgentProjectContextRetriever` → `InputContextRetrievalService` |
 
 工具会再次执行资源归属校验。完整业务结果只作为模型 Observation 使用，对客户端仅暴露工具状态和安全摘要。项目文件工具不向模型返回 MinIO 存储路径、对象键或预签名地址。
 
@@ -94,7 +95,31 @@ Trace 落库后至少记录：
 
 当前版本只通过响应事件和应用日志提供运行观测，不宣称已经完成 Agent Trace 持久化。
 
-## 10. 文件解析
+## 10. 输入上下文受控召回
+
+项目问答在首次模型判断前执行一次轻量召回，并把结构化结果作为 system 上下文注入；模型发现证据不足时，可调用 `retrieve_project_context` 使用新关键词或原文证据深度再次召回。前置召回和工具召回复用同一个请求级 `InputContextRetrievalService`，相同查询和已读取 MinIO 对象不会重复加载，单次对话最多执行三次不同召回。
+
+在线召回归入 `app.input_context`，与用户输入归一化形成同一个输入处理模块；`app.project_context` 只保留索引、文件详情和项目规范等上下文资产的模型、生成及提取能力。依赖方向固定为 `Agent / Tool → input_context → project_context 资产模型与基础设施`，资产生成代码不得反向依赖在线召回。
+
+`input_context` 内部分层如下：
+
+| 组件 | 职责 |
+|---|---|
+| `normalization/` | 统一暴露现有输入归一化能力，并预留内部实现迁移位置；`app.normalization` 暂时作为评测兼容入口保留 |
+| `retrieval/query.py` | 保留原问题，生成归一化词项并判断习惯、变更和原文证据意图 |
+| `retrieval/snapshot.py` | 校验可信项目身份和对象前缀，限制相对路径并缓存 MinIO 对象 |
+| `retrieval/sources.py` | 把索引、规范、记忆、习惯和更新日志转换为统一候选，补充文件详情证据 |
+| `retrieval/ranking.py` | 执行字段加权评分、证据优先级排序和最佳内容切片定位 |
+| `retrieval/evidence.py` | 在原文配额内完成文件提取、行号截取、敏感阻断和脱敏 |
+| `retrieval/service.py` | 只负责编排上述组件、结果缓存、召回次数限制和统一结果组装 |
+
+第一版只使用现有 system 快照做可解释词法召回：先按 `index.json`、项目规范和长短期记忆生成候选，再读取排名靠前的文件详情二次排序。用户习惯只参与偏好问题，更新日志只参与变更问题。需要代码、SQL、配置或行号证据时，最多读取两个命中的原文件，总原文证据限制为 12KB，并在进入模型前执行既有敏感内容阻断和脱敏。
+
+召回位置先使用 `StorageLocationFactory` 的标准路径，再兼容四位补零的测试路径；任何索引都必须校验项目 ID、用户 ID、桶名和对象前缀。当前固定夹具使用 bucket `pm-agent`、对象前缀 `PM-AGENT/0721/0721/`、项目目录 `project_test/`。对象引用必须是受控相对路径，模型不能传入用户 ID、项目 ID、MinIO 对象键或预签名地址。
+
+索引缺失或身份不一致时不生成项目事实；详情缺失或哈希不一致时退回索引摘要；原文件缺失或敏感阻断时退回详情证据。零命中结果显式携带 `no_evidence=true`，Prompt 要求模型说明当前项目资料中未找到，不能自行补全。
+
+## 11. 文件解析
 
 项目文件解析是 Python 应用服务，不再是跨 Java/Python HTTP：
 
@@ -120,7 +145,7 @@ PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
 
 `PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES` 约束解析后准备送入模型的 UTF-8 文本，超限文件记录 `FILE_DETAIL_SOURCE_TOO_LARGE`，不会调用模型；原始文件仍由上传限制和具体解析器限制负责门禁。旧的 Qwen/Ollama 客户端仅保留给显式选择的本地模型功能，不再参与在线文件详情和项目规范解析链路。
 
-## 11. 模型与成本
+## 12. 模型与成本
 
 - 模型输出优先使用结构化 JSON。
 - 关键输出必须经 Pydantic 或 JSON Schema 校验。
@@ -129,16 +154,19 @@ PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
 - 文件解析在调用 DeepSeek 前执行确定性敏感检查：私钥等高风险内容直接阻断模型分析，常见密钥、令牌和连接串先脱敏。该能力是 MVP 安全门禁，不替代专业 DLP，启用文件解析时仍只应选择允许外传的项目文件。
 - 本次迁移不扩展完整 RAG、训练或评测能力。
 
-## 12. 验收标准
+## 13. 验收标准
 
 - DeepSeek 非流式和流式响应都能正确拼装分片工具参数并完成至少一轮工具调用。
 - 模型请求未注册工具或非法参数时，业务 Service 不会被调用，模型可收到结构化失败 Observation。
 - 工具使用 JWT 用户身份调用 `ProjectService.get_owned`，无法通过请求或模型参数切换用户。
 - 达到步数或工具次数上限时终止循环并返回稳定错误码。
 - 客户端提交工具历史会在请求校验阶段被拒绝。
+- 项目事实在首次模型判断前完成召回，后续工具召回与前置召回复用缓存和统一结果协议。
+- 固定夹具 R-01 至 R-07 的正确来源均进入前五条结果，精确代码问题能返回经过脱敏的路径和行号证据。
+- 项目索引身份不一致、对象路径越界或原文件包含禁止内容时，不向模型回填不可信原文。
 - 既有纯文本 LLM 接口保持兼容，项目全量测试通过。
 
-## 13. 待确认问题
+## 14. 待确认问题
 
 - 写工具进入开发前，需要确定人工确认令牌、幂等键和 Trace 持久化的数据模型。
 - Qwen 需要保留 Ollama 当前接口还是迁移到原生工具协议，待对应 Provider 开发时确认。
