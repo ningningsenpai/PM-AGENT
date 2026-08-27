@@ -9,7 +9,7 @@
   "storage_name": "CreateStudentRequest-19c0aac3c963542f.java",
   "detail_ref": "system/file_details/19c0aac3c963542f-6e07fe357ae75c7f6d69ed6bf55a593bb5178f6a5268de15ccc5a510cef7ec8e-57145feb7c3fdf6300412d8e807beaef0479b3cba8bc2cadda16c96b0a57ae30.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/student/CreateStudentRequest.java",
-  "minio_path": "projest_test/CreateStudentRequest-19c0aac3c963542f.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/student/CreateStudentRequest.java",
   "size_bytes": 1161,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:6e07fe357ae75c7f6d69ed6bf55a593bb5178f6a5268de15ccc5a510cef7ec8e",

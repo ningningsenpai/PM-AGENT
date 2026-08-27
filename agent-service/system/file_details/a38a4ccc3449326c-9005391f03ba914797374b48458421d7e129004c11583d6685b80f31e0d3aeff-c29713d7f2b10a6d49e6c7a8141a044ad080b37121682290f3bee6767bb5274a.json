@@ -9,7 +9,7 @@
   "storage_name": "data-a38a4ccc3449326c.sql",
   "detail_ref": "system/file_details/a38a4ccc3449326c-9005391f03ba914797374b48458421d7e129004c11583d6685b80f31e0d3aeff-c29713d7f2b10a6d49e6c7a8141a044ad080b37121682290f3bee6767bb5274a.json",
   "original_path": "backend/src/main/resources/data.sql",
-  "minio_path": "projest_test/data-a38a4ccc3449326c.sql",
+  "minio_path": "project_test/backend/src/main/resources/data.sql",
   "size_bytes": 550,
   "content_type": "application/sql",
   "content_hash": "sha256:9005391f03ba914797374b48458421d7e129004c11583d6685b80f31e0d3aeff",

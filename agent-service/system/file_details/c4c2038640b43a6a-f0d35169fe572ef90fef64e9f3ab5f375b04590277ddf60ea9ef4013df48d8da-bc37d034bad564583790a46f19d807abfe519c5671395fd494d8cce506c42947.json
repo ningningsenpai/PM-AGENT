@@ -9,7 +9,7 @@
   "storage_name": ".gitignore-c4c2038640b43a6a",
   "detail_ref": "system/file_details/c4c2038640b43a6a-f0d35169fe572ef90fef64e9f3ab5f375b04590277ddf60ea9ef4013df48d8da-bc37d034bad564583790a46f19d807abfe519c5671395fd494d8cce506c42947.json",
   "original_path": ".gitignore",
-  "minio_path": "projest_test/.gitignore-c4c2038640b43a6a",
+  "minio_path": "project_test/.gitignore",
   "size_bytes": 135,
   "content_type": "text/plain",
   "content_hash": "sha256:f0d35169fe572ef90fef64e9f3ab5f375b04590277ddf60ea9ef4013df48d8da",

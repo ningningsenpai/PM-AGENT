@@ -9,7 +9,7 @@
   "storage_name": "pnpm-lock-3bfc0b5181ba689a.yaml",
   "detail_ref": "system/file_details/3bfc0b5181ba689a-29b7f69a1e3ad7e44f2741e6e94f16bb44cb018841aa59b18836d09c48226e9f-41b1ff3a74ba81fa74c8dd225d66d81573be3f2990e1d98b9b09798b147d40a8.json",
   "original_path": "frontend/pnpm-lock.yaml",
-  "minio_path": "projest_test/pnpm-lock-3bfc0b5181ba689a.yaml",
+  "minio_path": "project_test/frontend/pnpm-lock.yaml",
   "size_bytes": 38405,
   "content_type": "application/yaml",
   "content_hash": "sha256:29b7f69a1e3ad7e44f2741e6e94f16bb44cb018841aa59b18836d09c48226e9f",

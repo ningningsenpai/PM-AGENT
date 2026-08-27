@@ -9,7 +9,7 @@
   "storage_name": "schema-c3143a8b0c1fba51.sql",
   "detail_ref": "system/file_details/c3143a8b0c1fba51-eba3365ec3d9832ecfd491dddeeec116e8ae2a754d0130b573a531b02b1231f3-64f7ec5a5d6f0dbdebe8ab5240880f0a0add6643c392ccef5edb92604d9e9961.json",
   "original_path": "backend/src/main/resources/schema.sql",
-  "minio_path": "projest_test/schema-c3143a8b0c1fba51.sql",
+  "minio_path": "project_test/backend/src/main/resources/schema.sql",
   "size_bytes": 513,
   "content_type": "application/sql",
   "content_hash": "sha256:eba3365ec3d9832ecfd491dddeeec116e8ae2a754d0130b573a531b02b1231f3",

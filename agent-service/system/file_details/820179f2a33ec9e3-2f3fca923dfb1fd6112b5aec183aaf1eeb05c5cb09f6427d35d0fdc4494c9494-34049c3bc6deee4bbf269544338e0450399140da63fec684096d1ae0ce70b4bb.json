@@ -9,7 +9,7 @@
   "storage_name": "pom-820179f2a33ec9e3.xml",
   "detail_ref": "system/file_details/820179f2a33ec9e3-2f3fca923dfb1fd6112b5aec183aaf1eeb05c5cb09f6427d35d0fdc4494c9494-34049c3bc6deee4bbf269544338e0450399140da63fec684096d1ae0ce70b4bb.json",
   "original_path": "backend/pom.xml",
-  "minio_path": "projest_test/pom-820179f2a33ec9e3.xml",
+  "minio_path": "project_test/backend/pom.xml",
   "size_bytes": 2009,
   "content_type": "application/xml",
   "content_hash": "sha256:2f3fca923dfb1fd6112b5aec183aaf1eeb05c5cb09f6427d35d0fdc4494c9494",

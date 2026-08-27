@@ -9,7 +9,7 @@
   "storage_name": "StudentNotFoundException-e75b0ddd49defcb3.java",
   "detail_ref": "system/file_details/e75b0ddd49defcb3-81c5bce1f6d7e76c8e46f3d9e6891aee6c87776a197e182cca6703eddb2e1b07-a27f84eff23a7b5567b7ea2b4e92bdd7687c36b16ce3555ecfbb2ec0f6be4619.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/common/StudentNotFoundException.java",
-  "minio_path": "projest_test/StudentNotFoundException-e75b0ddd49defcb3.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/common/StudentNotFoundException.java",
   "size_bytes": 317,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:81c5bce1f6d7e76c8e46f3d9e6891aee6c87776a197e182cca6703eddb2e1b07",

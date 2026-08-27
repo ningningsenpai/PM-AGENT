@@ -9,7 +9,7 @@
   "storage_name": "tsconfig-15a7cc4082c1d7f5.json",
   "detail_ref": "system/file_details/15a7cc4082c1d7f5-53a5de3ac873acc59864b5d565114c460d45f248e60e27ec84a2a621ad26d027-5c19f37df4b2357c35db7a97f2f4830e67ccd39200a49040b01e2e49bcac0709.json",
   "original_path": "frontend/tsconfig.json",
-  "minio_path": "projest_test/tsconfig-15a7cc4082c1d7f5.json",
+  "minio_path": "project_test/frontend/tsconfig.json",
   "size_bytes": 128,
   "content_type": "application/json",
   "content_hash": "sha256:53a5de3ac873acc59864b5d565114c460d45f248e60e27ec84a2a621ad26d027",

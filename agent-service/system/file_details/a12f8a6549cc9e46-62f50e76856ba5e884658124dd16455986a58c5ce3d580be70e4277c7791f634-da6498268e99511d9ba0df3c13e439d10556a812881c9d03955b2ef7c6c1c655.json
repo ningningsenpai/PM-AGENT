@@ -9,7 +9,7 @@
   "storage_name": "package-a12f8a6549cc9e46.json",
   "detail_ref": "system/file_details/a12f8a6549cc9e46-62f50e76856ba5e884658124dd16455986a58c5ce3d580be70e4277c7791f634-da6498268e99511d9ba0df3c13e439d10556a812881c9d03955b2ef7c6c1c655.json",
   "original_path": "frontend/package.json",
-  "minio_path": "projest_test/package-a12f8a6549cc9e46.json",
+  "minio_path": "project_test/frontend/package.json",
   "size_bytes": 513,
   "content_type": "application/json",
   "content_hash": "sha256:62f50e76856ba5e884658124dd16455986a58c5ce3d580be70e4277c7791f634",

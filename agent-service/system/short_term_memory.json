@@ -7,7 +7,7 @@
       "id": "task-upload-context-fixture-to-minio",
       "category": "task",
       "title": "上传项目上下文测试夹具",
-      "memory": "projest_test 源文件和 system 上下文文件已上传到 MinIO，当前对象路径分别为 pm-agent/0721/0721/projest_test 和 pm-agent/0721/0721/system；下一步验证第一版索引、详情和记忆读取流程。",
+      "memory": "project_test 源文件和 system 上下文文件已上传到 MinIO，当前对象路径分别为 pm-agent/PM-AGENT/0721/0721/project_test 和 pm-agent/PM-AGENT/0721/0721/system；下一步验证第一版索引、详情和记忆读取流程。",
       "scope": "agent-service",
       "status": "active",
       "confidence": "high",
@@ -35,7 +35,7 @@
       "evidence": [
         {
           "source": "recent_conversation",
-          "quote": "当前上传路径为 pm-agent/0721/0721/projest_test 和 pm-agent/0721/0721/system。"
+          "quote": "当前上传路径为 pm-agent/PM-AGENT/0721/0721/project_test 和 pm-agent/PM-AGENT/0721/0721/system。"
         }
       ]
     },
@@ -80,7 +80,7 @@
       "id": "question-reconcile-runtime-identities",
       "category": "question",
       "title": "校准上传后的运行时身份",
-      "memory": "当前 system 文件已对齐 MinIO 路径 pm-agent/0721/0721/projest_test 与 pm-agent/0721/0721/system；业务 project_id 和 owner_user_id 按现有整数模型记录为 721，路径段保留 0721。如果数据库文件 ID 或 storage_uuid 与离线夹具不同，仍需按实际记录重建索引和详情引用。",
+      "memory": "当前 system 文件已对齐 MinIO 路径 pm-agent/PM-AGENT/0721/0721/project_test 与 pm-agent/PM-AGENT/0721/0721/system；业务 project_id 和 owner_user_id 按现有整数模型记录为 721，路径段保留 0721。如果数据库文件 ID 或 storage_uuid 与离线夹具不同，仍需按实际记录重建索引和详情引用。",
       "scope": "agent-service",
       "status": "pending_review",
       "confidence": "high",

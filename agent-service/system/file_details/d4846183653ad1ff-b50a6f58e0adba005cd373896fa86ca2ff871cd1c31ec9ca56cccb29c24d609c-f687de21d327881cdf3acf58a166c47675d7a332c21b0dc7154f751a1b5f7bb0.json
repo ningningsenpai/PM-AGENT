@@ -9,7 +9,7 @@
   "storage_name": "main-d4846183653ad1ff.tsx",
   "detail_ref": "system/file_details/d4846183653ad1ff-b50a6f58e0adba005cd373896fa86ca2ff871cd1c31ec9ca56cccb29c24d609c-f687de21d327881cdf3acf58a166c47675d7a332c21b0dc7154f751a1b5f7bb0.json",
   "original_path": "frontend/src/main.tsx",
-  "minio_path": "projest_test/main-d4846183653ad1ff.tsx",
+  "minio_path": "project_test/frontend/src/main.tsx",
   "size_bytes": 245,
   "content_type": "text/typescript",
   "content_hash": "sha256:b50a6f58e0adba005cd373896fa86ca2ff871cd1c31ec9ca56cccb29c24d609c",

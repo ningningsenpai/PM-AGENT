@@ -9,7 +9,7 @@
   "storage_name": "StudentRepository-c4c61e50057e6e26.java",
   "detail_ref": "system/file_details/c4c61e50057e6e26-bafa60e7bcd2d9665c1e3b117df5a84a2b003bfafc5d5282dcf121d52ba378c4-ce037abec274cdbbd090dacdd48b0b6bf552f2ae019c7e7fc17da2bad912ecdc.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/student/StudentRepository.java",
-  "minio_path": "projest_test/StudentRepository-c4c61e50057e6e26.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/student/StudentRepository.java",
   "size_bytes": 3242,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:bafa60e7bcd2d9665c1e3b117df5a84a2b003bfafc5d5282dcf121d52ba378c4",

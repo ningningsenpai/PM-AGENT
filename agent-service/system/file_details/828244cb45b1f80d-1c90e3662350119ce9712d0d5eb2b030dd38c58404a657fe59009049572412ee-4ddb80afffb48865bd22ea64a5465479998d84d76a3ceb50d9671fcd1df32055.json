@@ -9,7 +9,7 @@
   "storage_name": "ApiResponse-828244cb45b1f80d.java",
   "detail_ref": "system/file_details/828244cb45b1f80d-1c90e3662350119ce9712d0d5eb2b030dd38c58404a657fe59009049572412ee-4ddb80afffb48865bd22ea64a5465479998d84d76a3ceb50d9671fcd1df32055.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/common/ApiResponse.java",
-  "minio_path": "projest_test/ApiResponse-828244cb45b1f80d.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/common/ApiResponse.java",
   "size_bytes": 547,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:1c90e3662350119ce9712d0d5eb2b030dd38c58404a657fe59009049572412ee",

@@ -9,7 +9,7 @@
   "storage_name": "api-3a3ec590cf20d1f2.ts",
   "detail_ref": "system/file_details/3a3ec590cf20d1f2-897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c-aee57981f77773370af68160751868a99221b95688a048d64f8873e8af320fd5.json",
   "original_path": "frontend/src/api.ts",
-  "minio_path": "projest_test/api-3a3ec590cf20d1f2.ts",
+  "minio_path": "project_test/frontend/src/api.ts",
   "size_bytes": 986,
   "content_type": "text/typescript",
   "content_hash": "sha256:897076c72292e720d8df82838b785b54ed7a008cc56e68fca283d64c64845d4c",

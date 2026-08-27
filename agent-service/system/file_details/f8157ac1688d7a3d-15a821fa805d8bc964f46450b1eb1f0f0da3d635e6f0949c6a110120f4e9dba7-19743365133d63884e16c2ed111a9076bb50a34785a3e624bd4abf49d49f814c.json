@@ -9,7 +9,7 @@
   "storage_name": "types-f8157ac1688d7a3d.ts",
   "detail_ref": "system/file_details/f8157ac1688d7a3d-15a821fa805d8bc964f46450b1eb1f0f0da3d635e6f0949c6a110120f4e9dba7-19743365133d63884e16c2ed111a9076bb50a34785a3e624bd4abf49d49f814c.json",
   "original_path": "frontend/src/types.ts",
-  "minio_path": "projest_test/types-f8157ac1688d7a3d.ts",
+  "minio_path": "project_test/frontend/src/types.ts",
   "size_bytes": 500,
   "content_type": "text/typescript",
   "content_hash": "sha256:15a821fa805d8bc964f46450b1eb1f0f0da3d635e6f0949c6a110120f4e9dba7",

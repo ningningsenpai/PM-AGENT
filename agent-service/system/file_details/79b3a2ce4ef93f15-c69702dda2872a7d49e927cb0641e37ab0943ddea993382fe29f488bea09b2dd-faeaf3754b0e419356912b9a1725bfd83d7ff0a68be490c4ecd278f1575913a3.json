@@ -9,7 +9,7 @@
   "storage_name": "StudentManagementApplication-79b3a2ce4ef93f15.java",
   "detail_ref": "system/file_details/79b3a2ce4ef93f15-c69702dda2872a7d49e927cb0641e37ab0943ddea993382fe29f488bea09b2dd-faeaf3754b0e419356912b9a1725bfd83d7ff0a68be490c4ecd278f1575913a3.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/StudentManagementApplication.java",
-  "minio_path": "projest_test/StudentManagementApplication-79b3a2ce4ef93f15.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/StudentManagementApplication.java",
   "size_bytes": 485,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:c69702dda2872a7d49e927cb0641e37ab0943ddea993382fe29f488bea09b2dd",

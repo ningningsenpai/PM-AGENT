@@ -9,7 +9,7 @@
   "storage_name": "App-871c7114c4fc25cd.tsx",
   "detail_ref": "system/file_details/871c7114c4fc25cd-1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9-e56cb91573ddb6a97ecd071925fe26504bb5a65f921dc64c63e534162950e1eb.json",
   "original_path": "frontend/src/App.tsx",
-  "minio_path": "projest_test/App-871c7114c4fc25cd.tsx",
+  "minio_path": "project_test/frontend/src/App.tsx",
   "size_bytes": 7278,
   "content_type": "text/typescript",
   "content_hash": "sha256:1a25447b2a0916fe104a865325e8bcd6656f6ee4f2ac549ee028e359c3428aa9",

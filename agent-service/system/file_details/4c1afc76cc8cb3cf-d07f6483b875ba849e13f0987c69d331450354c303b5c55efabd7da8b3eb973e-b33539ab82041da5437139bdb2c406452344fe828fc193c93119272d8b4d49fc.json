@@ -9,7 +9,7 @@
   "storage_name": "StudentService-4c1afc76cc8cb3cf.java",
   "detail_ref": "system/file_details/4c1afc76cc8cb3cf-d07f6483b875ba849e13f0987c69d331450354c303b5c55efabd7da8b3eb973e-b33539ab82041da5437139bdb2c406452344fe828fc193c93119272d8b4d49fc.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/student/StudentService.java",
-  "minio_path": "projest_test/StudentService-4c1afc76cc8cb3cf.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/student/StudentService.java",
   "size_bytes": 910,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:d07f6483b875ba849e13f0987c69d331450354c303b5c55efabd7da8b3eb973e",

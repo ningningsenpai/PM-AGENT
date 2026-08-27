@@ -9,7 +9,7 @@
   "storage_name": "styles-70448cf531416a4b.css",
   "detail_ref": "system/file_details/70448cf531416a4b-9e307752a4609380e215840db14500177360af364c949caf5fe016d181befedf-b484d4c671a5e5627a90a560bf955cb4b2d487d422e4ec4606026048ebc50600.json",
   "original_path": "frontend/src/styles.css",
-  "minio_path": "projest_test/styles-70448cf531416a4b.css",
+  "minio_path": "project_test/frontend/src/styles.css",
   "size_bytes": 6950,
   "content_type": "text/css",
   "content_hash": "sha256:9e307752a4609380e215840db14500177360af364c949caf5fe016d181befedf",

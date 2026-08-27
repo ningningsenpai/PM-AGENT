@@ -9,7 +9,7 @@
   "storage_name": "index-53825eaafa93a0fd.html",
   "detail_ref": "system/file_details/53825eaafa93a0fd-be8fabf2d8b2de1e20290bbb099700346192a6b4f9a6e5c3e9844c4ef4fb8ec5-959f9cada636604db33bc1ba82fed347457dcb032c37ac195b4343c5f0ea6e72.json",
   "original_path": "frontend/index.html",
-  "minio_path": "projest_test/index-53825eaafa93a0fd.html",
+  "minio_path": "project_test/frontend/index.html",
   "size_bytes": 418,
   "content_type": "text/html",
   "content_hash": "sha256:be8fabf2d8b2de1e20290bbb099700346192a6b4f9a6e5c3e9844c4ef4fb8ec5",

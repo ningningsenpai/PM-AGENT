@@ -9,7 +9,7 @@
   "storage_name": "Student-be7c7849d5cbffcd.java",
   "detail_ref": "system/file_details/be7c7849d5cbffcd-33ae052b2dbda63d9d243d758e083893028fdec36640842e0a6f74dc1d9d088f-254de18b40db31e7e239e5103da42b4db66ad85a931d0f5dd379779619274d56.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/student/Student.java",
-  "minio_path": "projest_test/Student-be7c7849d5cbffcd.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/student/Student.java",
   "size_bytes": 434,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:33ae052b2dbda63d9d243d758e083893028fdec36640842e0a6f74dc1d9d088f",

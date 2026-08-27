@@ -9,7 +9,7 @@
   "storage_name": "vite.config-d5706d4d416801d8.ts",
   "detail_ref": "system/file_details/d5706d4d416801d8-241901512e1dc6a76d1f59343108248e849253616b1e0576a59909160e00966f-97c6e2c429ec483132c584137a18a1ade2ff6c3f4f6485f4a83db604d0323d7c.json",
   "original_path": "frontend/vite.config.ts",
-  "minio_path": "projest_test/vite.config-d5706d4d416801d8.ts",
+  "minio_path": "project_test/frontend/vite.config.ts",
   "size_bytes": 241,
   "content_type": "text/typescript",
   "content_hash": "sha256:241901512e1dc6a76d1f59343108248e849253616b1e0576a59909160e00966f",

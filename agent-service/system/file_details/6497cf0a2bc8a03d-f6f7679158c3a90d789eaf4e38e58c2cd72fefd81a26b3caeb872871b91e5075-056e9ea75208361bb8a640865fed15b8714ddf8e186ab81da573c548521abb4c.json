@@ -9,7 +9,7 @@
   "storage_name": "StudentControllerTest-6497cf0a2bc8a03d.java",
   "detail_ref": "system/file_details/6497cf0a2bc8a03d-f6f7679158c3a90d789eaf4e38e58c2cd72fefd81a26b3caeb872871b91e5075-056e9ea75208361bb8a640865fed15b8714ddf8e186ab81da573c548521abb4c.json",
   "original_path": "backend/src/test/java/com/ning/demo/student/StudentControllerTest.java",
-  "minio_path": "projest_test/StudentControllerTest-6497cf0a2bc8a03d.java",
+  "minio_path": "project_test/backend/src/test/java/com/ning/demo/student/StudentControllerTest.java",
   "size_bytes": 2969,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:f6f7679158c3a90d789eaf4e38e58c2cd72fefd81a26b3caeb872871b91e5075",

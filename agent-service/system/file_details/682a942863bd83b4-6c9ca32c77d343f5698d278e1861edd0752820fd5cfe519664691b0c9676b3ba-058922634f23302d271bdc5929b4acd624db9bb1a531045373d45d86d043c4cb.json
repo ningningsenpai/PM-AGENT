@@ -9,7 +9,7 @@
   "storage_name": "GlobalExceptionHandler-682a942863bd83b4.java",
   "detail_ref": "system/file_details/682a942863bd83b4-6c9ca32c77d343f5698d278e1861edd0752820fd5cfe519664691b0c9676b3ba-058922634f23302d271bdc5929b4acd624db9bb1a531045373d45d86d043c4cb.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/common/GlobalExceptionHandler.java",
-  "minio_path": "projest_test/GlobalExceptionHandler-682a942863bd83b4.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/common/GlobalExceptionHandler.java",
   "size_bytes": 2100,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:6c9ca32c77d343f5698d278e1861edd0752820fd5cfe519664691b0c9676b3ba",

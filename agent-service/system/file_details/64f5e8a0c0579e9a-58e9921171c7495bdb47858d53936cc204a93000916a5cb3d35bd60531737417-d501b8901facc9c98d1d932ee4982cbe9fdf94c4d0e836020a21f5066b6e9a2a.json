@@ -9,7 +9,7 @@
   "storage_name": "application-64f5e8a0c0579e9a.yml",
   "detail_ref": "system/file_details/64f5e8a0c0579e9a-58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417-d501b8901facc9c98d1d932ee4982cbe9fdf94c4d0e836020a21f5066b6e9a2a.json",
   "original_path": "backend/src/main/resources/application.yml",
-  "minio_path": "projest_test/application-64f5e8a0c0579e9a.yml",
+  "minio_path": "project_test/backend/src/main/resources/application.yml",
   "size_bytes": 509,
   "content_type": "application/yaml",
   "content_hash": "sha256:58e9921171c7495bdb47858d53936cc204a93000916a5cb3d35bd60531737417",

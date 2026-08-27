@@ -9,7 +9,7 @@
   "storage_name": "student_management-e1cb13dc454ecc80.sql",
   "detail_ref": "system/file_details/e1cb13dc454ecc80-eb716808c09bc0e4755768376d57b78269d85479f0e90dd470bb77c36677b3f2-d021ffb406d9f2d130158d36ac8f8410d0e572296a4ca3ac77280d26ae0debe3.json",
   "original_path": "database/student_management.sql",
-  "minio_path": "projest_test/student_management-e1cb13dc454ecc80.sql",
+  "minio_path": "project_test/database/student_management.sql",
   "size_bytes": 1577,
   "content_type": "application/sql",
   "content_hash": "sha256:eb716808c09bc0e4755768376d57b78269d85479f0e90dd470bb77c36677b3f2",

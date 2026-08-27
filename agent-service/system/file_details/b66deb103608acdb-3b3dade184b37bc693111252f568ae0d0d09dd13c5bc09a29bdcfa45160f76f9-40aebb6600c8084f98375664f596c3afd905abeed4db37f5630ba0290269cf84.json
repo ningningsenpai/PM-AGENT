@@ -9,7 +9,7 @@
   "storage_name": "WebConfig-b66deb103608acdb.java",
   "detail_ref": "system/file_details/b66deb103608acdb-3b3dade184b37bc693111252f568ae0d0d09dd13c5bc09a29bdcfa45160f76f9-40aebb6600c8084f98375664f596c3afd905abeed4db37f5630ba0290269cf84.json",
   "original_path": "backend/src/main/java/com/ning/demo/student/config/WebConfig.java",
-  "minio_path": "projest_test/WebConfig-b66deb103608acdb.java",
+  "minio_path": "project_test/backend/src/main/java/com/ning/demo/student/config/WebConfig.java",
   "size_bytes": 733,
   "content_type": "text/x-java-source",
   "content_hash": "sha256:3b3dade184b37bc693111252f568ae0d0d09dd13c5bc09a29bdcfa45160f76f9",
