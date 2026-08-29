@@ -1,4 +1,5 @@
 """PM-Agent Python 单体后端启动入口。"""
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -15,6 +16,7 @@ from app.core.trace import TraceMiddleware
 from app.infrastructure.database import get_engine
 from app.infrastructure.redis import get_redis_provider
 from app.infrastructure.storage import get_object_storage
+from app.input_context.dependencies import get_normalization_service
 
 
 @asynccontextmanager
@@ -24,6 +26,7 @@ async def lifespan(_app: FastAPI):
     get_settings()
     get_jwt_manager()
     get_password_manager()
+    get_normalization_service()
 
     engine = get_engine()
     redis_provider = get_redis_provider()
@@ -40,6 +43,7 @@ async def lifespan(_app: FastAPI):
         finally:
             await engine.dispose()
         logger.info("应用资源释放完成")
+
 
 app = FastAPI(
     title="PM-Agent Python Backend",

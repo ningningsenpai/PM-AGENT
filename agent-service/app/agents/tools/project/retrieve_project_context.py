@@ -1,12 +1,12 @@
 """项目上下文受控召回 Agent 工具。"""
+
 from __future__ import annotations
 
-from pydantic import BaseModel
-
-from app.agents.retrieval import AgentProjectContextRetriever
+from app.agents.retrieval import AgentInputContextGateway
 from app.agents.tools.base import BaseAgentTool
 from app.agents.tools.schemas import ToolExecutionContext
 from app.input_context import RetrievalQuery, RetrievalResult
+from pydantic import BaseModel
 
 
 class RetrieveProjectContextTool(BaseAgentTool):
@@ -22,8 +22,8 @@ class RetrieveProjectContextTool(BaseAgentTool):
     output_model = RetrievalResult
     timeout_seconds = 20.0
 
-    def __init__(self, retriever: AgentProjectContextRetriever) -> None:
-        self._retriever = retriever
+    def __init__(self, gateway: AgentInputContextGateway) -> None:
+        self._gateway = gateway
 
     async def execute(
         self,
@@ -31,4 +31,4 @@ class RetrieveProjectContextTool(BaseAgentTool):
         arguments: BaseModel,
     ) -> BaseModel:
         request = RetrievalQuery.model_validate(arguments)
-        return await self._retriever.retrieve(context, request)
+        return await self._gateway.retrieve(context, request)

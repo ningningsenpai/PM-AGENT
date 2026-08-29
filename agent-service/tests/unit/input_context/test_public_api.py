@@ -7,8 +7,12 @@ from app.input_context import (
 from app.normalization import (
     NormalizationService as LegacyNormalizationService,
 )
+from app.normalization.service import (
+    NormalizationService as LegacyModuleNormalizationService,
+)
 
 
 def test_input_context_reuses_compatible_normalization_api() -> None:
     assert NormalizationService is LegacyNormalizationService
+    assert NormalizationService is LegacyModuleNormalizationService
     assert isinstance(create_default_normalization_service(), NormalizationService)

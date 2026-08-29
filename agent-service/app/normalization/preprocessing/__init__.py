@@ -1,5 +1,3 @@
-"""文本预处理包。"""
+"""旧文本预处理导入路径的兼容门面。"""
 
-from app.normalization.preprocessing.text_normalizer import TextNormalizationResult, TextNormalizer
-
-__all__ = ["TextNormalizationResult", "TextNormalizer"]
+from app.input_context.normalization.preprocessing import *

@@ -1,5 +1,3 @@
-"""同义词和标准术语映射包。"""
+"""旧同义词映射导入路径的兼容门面。"""
 
-from app.normalization.mapping.synonym_mapper import SynonymMapper
-
-__all__ = ["SynonymMapper"]
+from app.input_context.normalization.mapping import *

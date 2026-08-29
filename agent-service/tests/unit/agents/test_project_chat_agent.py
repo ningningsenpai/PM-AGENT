@@ -1,9 +1,10 @@
 """项目问答 Agent 原生工具调用测试。"""
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from copy import deepcopy
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
@@ -11,6 +12,13 @@ from unittest.mock import AsyncMock, patch
 from app.agents.tools import ToolExecutor, ToolRegistry
 from app.agents.tools.project import GetCurrentProjectTool
 from app.core.errors import AppException, ErrorCode
+from app.input_context import (
+    RetrievalEvidence,
+    RetrievalHit,
+    RetrievalResult,
+    UserInputContext,
+    create_default_normalization_service,
+)
 from app.llm.contracts import (
     LLMAssistantTurn,
     LLMCapabilities,
@@ -20,11 +28,6 @@ from app.llm.contracts import (
 )
 from app.llm.orchestration.project_chat_agent import ProjectChatAgent
 from app.modules.project.schemas import ProjectResponse
-from app.input_context import (
-    RetrievalEvidence,
-    RetrievalHit,
-    RetrievalResult,
-)
 from app.streaming import StreamEventType
 from app.streaming.metrics import LLMTokenUsage
 from app.streaming.payloads import AgentChatRequest
@@ -51,7 +54,9 @@ class FakeLLM:
         self.requests.append(deepcopy(messages))
         return self.turns.pop(0)
 
-    async def stream_turn(self, messages, **_kwargs) -> AsyncIterator[LLMTurnStreamEvent]:
+    async def stream_turn(
+        self, messages, **_kwargs
+    ) -> AsyncIterator[LLMTurnStreamEvent]:
         self.requests.append(deepcopy(messages))
         for event in self.streams.pop(0):
             yield event
@@ -80,7 +85,7 @@ def _request(*, stream: bool = False) -> AgentChatRequest:
 
 
 def _agent(llm: FakeLLM):
-    now = datetime(2026, 8, 3, 10, 0, 0)
+    now = datetime(2026, 8, 3, 10, 0, 0, tzinfo=UTC)
     projects = SimpleNamespace(
         get_owned=AsyncMock(
             return_value=ProjectResponse(
@@ -103,29 +108,35 @@ class TestProjectChatAgent(IsolatedAsyncioTestCase):
         llm = FakeLLM()
         llm.turns = [LLMAssistantTurn(content="项目当前完成度约为 50%。")]
         agent, _projects = _agent(llm)
-        retriever = SimpleNamespace(
-            retrieve=AsyncMock(
-                return_value=RetrievalResult(
-                    query="当前项目是什么？",
-                    hits=[
-                        RetrievalHit(
-                            source_type="project_specification",
-                            source_id="development-stage",
-                            title="项目开发阶段",
-                            summary="阶段一基础档案已完成，整体约 50%",
-                            score=10,
-                            evidence=[
-                                RetrievalEvidence(
-                                    text="阶段一基础档案已完成，整体约 50%",
-                                    logical_path="docs/开发文档.md",
-                                )
-                            ],
-                        )
-                    ],
+        gateway = SimpleNamespace(
+            prepare=AsyncMock(
+                return_value=UserInputContext(
+                    raw_query="当前项目是什么？",
+                    normalization=create_default_normalization_service().normalize_query(
+                        "当前完成度"
+                    ),
+                    retrieval=RetrievalResult(
+                        query="当前项目是什么？",
+                        hits=[
+                            RetrievalHit(
+                                source_type="project_specification",
+                                source_id="development-stage",
+                                title="项目开发阶段",
+                                summary="阶段一基础档案已完成，整体约 50%",
+                                score=10,
+                                evidence=[
+                                    RetrievalEvidence(
+                                        text="阶段一基础档案已完成，整体约 50%",
+                                        logical_path="docs/开发文档.md",
+                                    )
+                                ],
+                            )
+                        ],
+                    ),
                 )
-            )
+            ),
         )
-        agent._retriever = retriever
+        agent._input_context_gateway = gateway
 
         with patch(
             "app.llm.orchestration.project_chat_agent.get_llm_client",
@@ -134,7 +145,7 @@ class TestProjectChatAgent(IsolatedAsyncioTestCase):
             response = await agent.chat(_request(), 1)
 
         self.assertEqual("项目当前完成度约为 50%。", response.answer)
-        retriever.retrieve.assert_awaited_once()
+        gateway.prepare.assert_awaited_once()
         retrieval_message = next(
             message
             for message in llm.requests[0]
@@ -142,6 +153,8 @@ class TestProjectChatAgent(IsolatedAsyncioTestCase):
             and "项目上下文前置召回结果" in message["content"]
         )
         self.assertIn("docs/开发文档.md", retrieval_message["content"])
+        self.assertIn("项目进度", retrieval_message["content"])
+        self.assertNotIn("stage_durations_ms", retrieval_message["content"])
 
     async def test_chat_executes_native_tool_and_returns_final_answer(self) -> None:
         llm = FakeLLM()

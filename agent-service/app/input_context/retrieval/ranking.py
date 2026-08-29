@@ -1,15 +1,20 @@
-"""字段加权排序和详情切片定位。"""
+"""带权字段排序、评分解释和详情切片定位。"""
+
 from __future__ import annotations
 
 from typing import Any
 
 from app.input_context.normalization import TextNormalizer
-from app.input_context.retrieval.candidate import RetrievalCandidate
+from app.input_context.retrieval.candidate import (
+    RetrievalCandidate,
+    ScoreBreakdown,
+)
+from app.input_context.retrieval.planning import RetrievalPlan, WeightedTerm
 from app.project_context.file_detail.schemas import FileDetail
 
 
 class RetrievalRanker:
-    """提供无状态、可解释的词法评分规则。"""
+    """提供无状态、确定且可解释的词法评分规则。"""
 
     def __init__(self) -> None:
         self._text_normalizer = TextNormalizer()
@@ -17,39 +22,46 @@ class RetrievalRanker:
     def score_all(
         self,
         candidates: list[RetrievalCandidate],
-        raw_query: str,
-        terms: tuple[str, ...],
+        plan: RetrievalPlan,
     ) -> list[RetrievalCandidate]:
         for candidate in candidates:
-            candidate.score = self.score(candidate, raw_query, terms)
+            candidate.score = self.score(candidate, plan)
         return self.sort([item for item in candidates if item.score > 0])
 
     def score(
         self,
         candidate: RetrievalCandidate,
-        raw_query: str,
-        terms: tuple[str, ...],
+        plan: RetrievalPlan,
     ) -> float:
         high = self._normalized_fields(candidate.high_fields)
         medium = self._normalized_fields(candidate.medium_fields)
         low = self._normalized_fields(candidate.low_fields)
-        score = self._field_score(terms, high, 6.0)
-        score += self._field_score(terms, medium, 3.0)
-        score += self._field_score(terms, low, 1.0)
-        cleaned_query = self._text_normalizer.normalize_for_matching(raw_query)
-        if len(cleaned_query) >= 2 and any(
-            cleaned_query in field for field in [*high, *medium]
-        ):
-            score += 8.0
-        if score > 0 and candidate.importance == "high":
-            score += 1.0
-        return round(score, 4)
+        high_base, high_source = self._field_components(plan.terms, high, 6.0)
+        medium_base, medium_source = self._field_components(plan.terms, medium, 3.0)
+        low_base, low_source = self._field_components(plan.terms, low, 1.0)
+        breakdown = ScoreBreakdown(
+            high_fields=high_base,
+            medium_fields=medium_base,
+            low_fields=low_base,
+            term_source_weight=round(
+                high_source + medium_source + low_source,
+                4,
+            ),
+            exact_phrase=(
+                8.0
+                if len(plan.cleaned_query) >= 2
+                and any(plan.cleaned_query in field for field in [*high, *medium])
+                else 0.0
+            ),
+            importance=(1.0 if candidate.importance == "high" else 0.0),
+        )
+        candidate.score_breakdown = breakdown
+        return breakdown.total
 
     def best_source_range(
         self,
         detail: FileDetail,
-        raw_query: str,
-        terms: tuple[str, ...],
+        plan: RetrievalPlan,
     ) -> tuple[int, int] | None:
         best: tuple[float, int, int] | None = None
         for item in detail.content_slices:
@@ -72,14 +84,11 @@ class RetrievalRanker:
                     ]
                 )
             )
-            keyword_fields = self._normalized_fields(
-                self.strings(item.get("keywords"))
-            )
-            score = self._field_score(terms, primary_fields, 4.0)
-            score += self._field_score(terms, keyword_fields, 1.0)
-            cleaned_query = self._text_normalizer.normalize_for_matching(raw_query)
-            if len(cleaned_query) >= 2 and any(
-                cleaned_query in field for field in primary_fields
+            keyword_fields = self._normalized_fields(self.strings(item.get("keywords")))
+            score = self._field_score(plan.terms, primary_fields, 4.0)
+            score += self._field_score(plan.terms, keyword_fields, 1.0)
+            if len(plan.cleaned_query) >= 2 and any(
+                plan.cleaned_query in field for field in primary_fields
             ):
                 score += 8.0
             current = (score, start_line, end_line)
@@ -89,7 +98,7 @@ class RetrievalRanker:
 
     @staticmethod
     def sort(candidates: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
-        return sorted(candidates, key=RetrievalRanker.sort_key, reverse=True)
+        return sorted(candidates, key=RetrievalRanker.sort_key)
 
     @staticmethod
     def sort_key(candidate: RetrievalCandidate) -> tuple[float, int, str]:
@@ -102,16 +111,36 @@ class RetrievalRanker:
             "user_habit": 0,
             "update_journal": 0,
         }.get(candidate.source_type, 0)
-        return candidate.score, priority, candidate.source_id
+        return -candidate.score, -priority, candidate.source_id
 
     @staticmethod
     def _field_score(
-        terms: tuple[str, ...],
+        terms: tuple[WeightedTerm, ...],
         fields: list[str],
-        weight: float,
+        field_weight: float,
     ) -> float:
-        matched = {term for term in terms if any(term in field for field in fields)}
-        return sum(weight * min(len(term), 8) / 4 for term in matched)
+        base, source_weight = RetrievalRanker._field_components(
+            terms,
+            fields,
+            field_weight,
+        )
+        return round(base + source_weight, 4)
+
+    @staticmethod
+    def _field_components(
+        terms: tuple[WeightedTerm, ...],
+        fields: list[str],
+        field_weight: float,
+    ) -> tuple[float, float]:
+        base_score = 0.0
+        source_weight_score = 0.0
+        for term in terms:
+            if not any(term.text in field for field in fields):
+                continue
+            base = field_weight * min(len(term.text), 8) / 4
+            base_score += base
+            source_weight_score += base * (term.weight - 1.0)
+        return round(base_score, 4), round(source_weight_score, 4)
 
     def _normalized_fields(self, fields: list[str]) -> list[str]:
         return [

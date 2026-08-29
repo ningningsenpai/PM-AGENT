@@ -1,4 +1,5 @@
 """项目只读 Agent 工具测试。"""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -13,10 +14,10 @@ from app.agents.tools.project import (
     ListOwnedProjectsTool,
     RetrieveProjectContextTool,
 )
+from app.input_context import RetrievalResult
 from app.llm.contracts import LLMToolCall
 from app.modules.project.schemas import ProjectResponse
 from app.modules.project_file.management.schemas import ProjectFileResponse
-from app.input_context import RetrievalResult
 
 
 def _context(project_id: int | None = 10) -> ToolExecutionContext:
@@ -77,12 +78,10 @@ class TestProjectReadTools(IsolatedAsyncioTestCase):
                 SimpleNamespace(),
                 SimpleNamespace(),
                 SimpleNamespace(),
+                SimpleNamespace(),
             )
 
-        names = [
-            item["function"]["name"]
-            for item in agent._registry.definitions()
-        ]
+        names = [item["function"]["name"] for item in agent._registry.definitions()]
         self.assertEqual(
             [
                 "get_current_project",
@@ -158,9 +157,7 @@ class TestProjectReadTools(IsolatedAsyncioTestCase):
         projects.list_owned.assert_awaited_once_with(1)
 
     async def test_list_current_project_files_returns_safe_fields(self) -> None:
-        files = SimpleNamespace(
-            list_files=AsyncMock(return_value=[_file_response()])
-        )
+        files = SimpleNamespace(list_files=AsyncMock(return_value=[_file_response()]))
         registry = ToolRegistry([ListCurrentProjectFilesTool(files)])
 
         result = await ToolExecutor(registry).execute(

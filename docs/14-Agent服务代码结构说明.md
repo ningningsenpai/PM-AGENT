@@ -64,7 +64,7 @@ agent-service/app/
 │   └── specification/
 ├── maintenance/
 │   └── remove_analysis_version.py
-└── memory、normalization、rag
+└── input_context、memory、rag
 ```
 
 普通在线业务模块采用垂直分层：
@@ -124,4 +124,4 @@ agent-service/app/
 - `archive/agent-service-deferred/scripts/`
 - `project_test/`
 
-`app.normalization` 的公开符号保持兼容，避免影响现有评测依赖。
+归一化正式实现位于 `app.input_context.normalization`；`app.normalization` 仅保留公开符号和历史子模块路径的兼容门面，避免影响现有评测依赖。

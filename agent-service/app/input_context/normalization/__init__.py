@@ -1,14 +1,16 @@
-"""输入上下文模块对既有归一化能力的稳定适配入口。"""
+"""用户输入归一化能力的稳定公开入口。"""
 
-from app.normalization import (
+from app.input_context.normalization.lexicon.json_provider import LexiconLoadError
+from app.input_context.normalization.preprocessing import TextNormalizer
+from app.input_context.normalization.schemas import (
     NormalizationRequest,
     NormalizationResult,
-    NormalizationService,
     TermMatch,
+)
+from app.input_context.normalization.service import (
+    NormalizationService,
     create_default_normalization_service,
 )
-from app.normalization.lexicon.json_provider import LexiconLoadError
-from app.normalization.preprocessing import TextNormalizer
 
 __all__ = [
     "LexiconLoadError",

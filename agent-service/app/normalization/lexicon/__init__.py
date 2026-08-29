@@ -1,4 +1,3 @@
-"""术语库加载、校验、合并和版本注册包。"""
+"""旧术语库包导入路径的兼容门面。"""
 
-# 子模块之间存在构建期依赖，调用方应从具体模块导入公开类型。
-__all__: list[str] = []
+from app.input_context.normalization.lexicon import *

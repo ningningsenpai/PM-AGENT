@@ -1,8 +1,10 @@
 """原项目文件证据读取、截取与敏感处理。"""
+
 from __future__ import annotations
 
 from app.core.errors import AppException
 from app.input_context.retrieval.candidate import RetrievalCandidate
+from app.input_context.retrieval.policy import RetrievalPolicy
 from app.input_context.retrieval.schemas import RetrievalEvidence
 from app.input_context.retrieval.snapshot import ProjectSnapshot, ProjectSnapshotReader
 from app.project_context.file_detail.extraction import FileContentExtractionService
@@ -10,9 +12,6 @@ from app.project_context.file_detail.sensitive_content import (
     SensitiveContentBlockedError,
     sanitize_sensitive_content,
 )
-
-_MAX_RAW_FILES = 2
-_MAX_RAW_EVIDENCE_BYTES = 12 * 1024
 
 
 class RawEvidenceLoader:
@@ -22,9 +21,11 @@ class RawEvidenceLoader:
         self,
         reader: ProjectSnapshotReader,
         extraction: FileContentExtractionService,
+        policy: RetrievalPolicy,
     ) -> None:
         self._reader = reader
         self._extraction = extraction
+        self._policy = policy
 
     async def hydrate(
         self,
@@ -32,10 +33,10 @@ class RawEvidenceLoader:
         snapshot: ProjectSnapshot,
         warnings: list[str],
     ) -> None:
-        remaining_bytes = _MAX_RAW_EVIDENCE_BYTES
+        remaining_bytes = self._policy.max_raw_evidence_bytes
         hydrated = 0
         for candidate in selected:
-            if hydrated >= _MAX_RAW_FILES or remaining_bytes <= 0:
+            if hydrated >= self._policy.max_raw_files or remaining_bytes <= 0:
                 break
             entry = candidate.file_entry
             if entry is None:
@@ -68,7 +69,6 @@ class RawEvidenceLoader:
                 continue
             remaining_bytes -= len(source_text.encode("utf-8"))
             candidate.source_type = "source_file"
-            candidate.score += 2.0
             candidate.evidence.insert(
                 0,
                 RetrievalEvidence(

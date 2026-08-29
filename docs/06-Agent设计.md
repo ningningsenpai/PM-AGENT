@@ -62,7 +62,7 @@ Agent、LLM、Prompt 和工具不得获取数据库 Session，不跨模块访问
 | `get_current_project` | 只读 | 无模型业务参数 | 项目 ID、名称、状态、创建和更新时间 | `ProjectService.get_owned` |
 | `list_current_project_files` | 只读 | 可选 `business_code`：`project` / `user` | 公开文件总数及文件名称、相对路径、类型、大小、处理状态和更新时间 | `ProjectFileService.list_files` |
 | `list_owned_projects` | 只读 | 无模型业务参数 | 当前用户项目总数及项目 ID、名称、状态、创建和更新时间 | `ProjectService.list_owned` |
-| `retrieve_project_context` | 只读 | 查询文本、召回范围、证据深度和结果上限 | 规范、文件详情、记忆及按需脱敏原文证据 | `AgentProjectContextRetriever` → `InputContextRetrievalService` |
+| `retrieve_project_context` | 只读 | 查询文本、召回范围、证据深度和结果上限 | 规范、文件详情、记忆及按需脱敏原文证据 | `AgentInputContextGateway` → `InputContextRetrievalService` |
 
 工具会再次执行资源归属校验。完整业务结果只作为模型 Observation 使用，对客户端仅暴露工具状态和安全摘要。项目文件工具不向模型返回 MinIO 存储路径、对象键或预签名地址。
 
@@ -97,7 +97,7 @@ Trace 落库后至少记录：
 
 ## 10. 输入上下文受控召回
 
-项目问答在首次模型判断前执行一次轻量召回，并把结构化结果作为 system 上下文注入；模型发现证据不足时，可调用 `retrieve_project_context` 使用新关键词或原文证据深度再次召回。前置召回和工具召回复用同一个请求级 `InputContextRetrievalService`，相同查询和已读取 MinIO 对象不会重复加载，单次对话最多执行三次不同召回。
+项目问答在首次模型判断前通过 `UserInputContextService` 归一化当前轮最后一条用户消息，并执行最多五条、仅摘要证据的轻量召回。模型发现证据不足时，可调用 `retrieve_project_context` 使用新关键词或原文证据深度再次召回。前置召回和工具召回复用同一个请求级 `InputContextRetrievalService`，相同查询和已读取 MinIO 对象不会重复加载，单次 Agent 请求最多执行三次不同召回。
 
 在线召回归入 `app.input_context`，与用户输入归一化形成同一个输入处理模块；`app.project_context` 只保留索引、文件详情和项目规范等上下文资产的模型、生成及提取能力。依赖方向固定为 `Agent / Tool → input_context → project_context 资产模型与基础设施`，资产生成代码不得反向依赖在线召回。
 
@@ -105,15 +105,18 @@ Trace 落库后至少记录：
 
 | 组件 | 职责 |
 |---|---|
-| `normalization/` | 统一暴露现有输入归一化能力，并预留内部实现迁移位置；`app.normalization` 暂时作为评测兼容入口保留 |
-| `retrieval/query.py` | 保留原问题，生成归一化词项并判断习惯、变更和原文证据意图 |
+| `normalization/` | 归一化正式实现，负责词库、文本处理、匹配、消歧、映射和运行时降级；`app.normalization` 仅保留兼容导出 |
+| `schemas.py`、`service.py` | 定义并组装 `UserInputContext`，统一承载原文、归一化结果、召回结果和降级状态 |
+| `retrieval/planning.py`、`policy.py` | 生成带来源和权重的词项，决定数据源、证据级别、候选预算和请求级限制 |
 | `retrieval/snapshot.py` | 校验可信项目身份和对象前缀，限制相对路径并缓存 MinIO 对象 |
-| `retrieval/sources.py` | 把索引、规范、记忆、习惯和更新日志转换为统一候选，补充文件详情证据 |
-| `retrieval/ranking.py` | 执行字段加权评分、证据优先级排序和最佳内容切片定位 |
+| `retrieval/sources/` | 由独立 Provider 把文件、规范、记忆、习惯和更新日志转换为统一候选，并为短名单补充文件详情 |
+| `retrieval/ranking.py` | 执行带权字段评分、完整短语加分、稳定排序、评分分解和最佳内容切片定位 |
 | `retrieval/evidence.py` | 在原文配额内完成文件提取、行号截取、敏感阻断和脱敏 |
 | `retrieval/service.py` | 只负责编排上述组件、结果缓存、召回次数限制和统一结果组装 |
 
-第一版只使用现有 system 快照做可解释词法召回：先按 `index.json`、项目规范和长短期记忆生成候选，再读取排名靠前的文件详情二次排序。用户习惯只参与偏好问题，更新日志只参与变更问题。需要代码、SQL、配置或行号证据时，最多读取两个命中的原文件，总原文证据限制为 12KB，并在进入模型前执行既有敏感内容阻断和脱敏。
+第一版只使用现有 system 快照做可解释词法召回：标准术语、技术标识、原始短语和中文兜底词组按来源赋予不同权重；先按 `index.json`、项目规范和长短期记忆生成候选，再为前 `2 × limit`、最多十六个文件候选读取详情并二次排序。用户习惯只参与偏好问题，更新日志只参与变更问题。只有 Agent 工具明确需要代码、SQL、配置或行号证据时才读取原文件，最多两个文件、总计 12KB，并在进入模型前执行既有敏感内容阻断和脱敏。原文补证不改变相关性分数。
+
+`NormalizationService` 是应用级只读单例，应用启动时必须完成公共和项目管理词库校验及自动机预热；项目词库缺失时退回前两级词库。`InputContextRetrievalService` 保持请求级实例，其对象缓存、结果缓存和三次召回限制不得跨请求共享。
 
 召回位置先使用 `StorageLocationFactory` 的标准路径，再兼容四位补零的测试路径；任何索引都必须校验项目 ID、用户 ID、桶名和对象前缀。当前固定夹具使用 bucket `pm-agent`、对象前缀 `PM-AGENT/0721/0721/`、项目目录 `project_test/`。对象引用必须是受控相对路径，模型不能传入用户 ID、项目 ID、MinIO 对象键或预签名地址。
 

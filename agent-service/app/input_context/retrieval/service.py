@@ -1,4 +1,5 @@
 """在线输入上下文召回用例编排。"""
+
 from __future__ import annotations
 
 from time import perf_counter
@@ -7,9 +8,14 @@ from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
 from app.input_context.normalization import NormalizationService
+from app.input_context.normalization.query import QueryNormalization, QueryNormalizer
 from app.input_context.retrieval.candidate import RetrievalCandidate
 from app.input_context.retrieval.evidence import RawEvidenceLoader
-from app.input_context.retrieval.query import RetrievalQueryAnalyzer
+from app.input_context.retrieval.planning import RetrievalPlanner
+from app.input_context.retrieval.policy import (
+    DEFAULT_RETRIEVAL_POLICY,
+    RetrievalPolicy,
+)
 from app.input_context.retrieval.ranking import RetrievalRanker
 from app.input_context.retrieval.schemas import (
     RetrievalHit,
@@ -24,7 +30,7 @@ logger = get_logger(__name__)
 
 
 class InputContextRetrievalService:
-    """协调问题理解、快照读取、候选排序和证据补充。"""
+    """协调归一化、计划生成、可信读取、排序和证据补充。"""
 
     def __init__(
         self,
@@ -32,18 +38,25 @@ class InputContextRetrievalService:
         locations: StorageLocationFactory,
         normalization: NormalizationService,
         extraction: FileContentExtractionService,
+        policy: RetrievalPolicy = DEFAULT_RETRIEVAL_POLICY,
     ) -> None:
         reader = ProjectSnapshotReader(storage, locations)
         ranker = RetrievalRanker()
-        self._query_analyzer = RetrievalQueryAnalyzer(normalization)
+        self._query_normalizer = QueryNormalizer(normalization)
+        self._planner = RetrievalPlanner(policy)
         self._candidate_source = RetrievalCandidateSource(reader, ranker)
-        self._raw_evidence = RawEvidenceLoader(reader, extraction)
+        self._raw_evidence = RawEvidenceLoader(reader, extraction, policy)
         self._reader = reader
         self._ranker = ranker
+        self._policy = policy
         self._result_cache: dict[
             tuple[int, int, str, str, str, int], RetrievalResult
         ] = {}
         self._unique_retrievals = 0
+
+    def normalize_query(self, raw_query: str, *, project_id: int) -> QueryNormalization:
+        """复用同一归一化依赖生成可显式降级的查询结果。"""
+        return self._query_normalizer.normalize(raw_query, project_id=project_id)
 
     async def retrieve(
         self,
@@ -52,6 +65,7 @@ class InputContextRetrievalService:
         project_id: int,
         request: RetrievalQuery,
         trace_id: str | None = None,
+        normalization: QueryNormalization | None = None,
     ) -> RetrievalResult:
         """在可信项目身份下执行一次可缓存召回。"""
         cache_key = (
@@ -65,19 +79,25 @@ class InputContextRetrievalService:
         cached = self._result_cache.get(cache_key)
         if cached is not None:
             return cached.model_copy(deep=True)
-        if self._unique_retrievals >= 3:
+        if self._unique_retrievals >= self._policy.max_unique_retrievals:
             raise AppException(
                 ErrorCode.AGENT_TOOL_LOOP_LIMIT_EXCEEDED,
-                "单次对话最多执行三次项目上下文召回",
+                "单次 Agent 请求最多执行三次项目上下文召回",
             )
         self._unique_retrievals += 1
 
         started_at = perf_counter()
-        warnings: list[str] = []
+        normalized = normalization or self.normalize_query(
+            request.query,
+            project_id=project_id,
+        )
+        warnings = list(normalized.warnings)
+        plan = self._planner.build(request, normalized)
         snapshot = await self._reader.load(user_id, project_id, warnings)
         if snapshot is None:
             result = RetrievalResult(
                 query=request.query,
+                normalized_terms=list(plan.normalized_terms),
                 warnings=self._unique(warnings),
                 degraded=True,
                 no_evidence=True,
@@ -85,37 +105,27 @@ class InputContextRetrievalService:
             self._result_cache[cache_key] = result
             return result.model_copy(deep=True)
 
-        analysis = self._query_analyzer.analyze(request, project_id, warnings)
-        candidates = await self._candidate_source.build(
-            snapshot,
-            request,
-            analysis,
-            warnings,
-        )
-        ranked = self._ranker.score_all(
-            candidates,
-            analysis.raw_query,
-            analysis.normalized_terms,
-        )
+        candidates = await self._candidate_source.build(snapshot, plan, warnings)
+        ranked = self._ranker.score_all(candidates, plan)
         await self._candidate_source.hydrate_details(
             ranked,
             snapshot,
-            analysis,
+            plan,
             warnings,
         )
         ranked = self._ranker.sort(ranked)
-        selected = ranked[: request.limit]
+        selected = ranked[: plan.result_limit]
 
-        if analysis.read_source:
+        if plan.read_source:
             await self._raw_evidence.hydrate(selected, snapshot, warnings)
 
         result = RetrievalResult(
             query=request.query,
-            normalized_terms=list(analysis.normalized_terms),
+            normalized_terms=list(plan.normalized_terms),
             index_updated_at=snapshot.index.updated_at,
             hits=[self._to_hit(candidate) for candidate in selected],
             warnings=self._unique(warnings),
-            degraded=bool(warnings),
+            degraded=normalized.degraded or bool(warnings),
             no_evidence=not selected,
         )
         self._result_cache[cache_key] = result

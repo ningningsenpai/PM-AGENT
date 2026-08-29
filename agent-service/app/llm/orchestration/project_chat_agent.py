@@ -1,19 +1,20 @@
 """项目问答 Agent 原生工具调用编排。"""
+
 from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
 
+from app.agents.retrieval import AgentInputContextGateway
 from app.agents.tools import (
     ToolExecutionContext,
     ToolExecutionResult,
     ToolExecutor,
     ToolRegistry,
 )
-from app.agents.retrieval import AgentProjectContextRetriever
 from app.core.config import Settings
 from app.core.errors import AppException, ErrorCode
-from app.input_context import RetrievalQuery, RetrievalResult
+from app.input_context import UserInputContext
 from app.llm.base import BaseLLMClient
 from app.llm.contracts import LLMAssistantTurn, LLMToolCall, LLMTurnAccumulator
 from app.llm.factory import get_llm_client
@@ -44,12 +45,12 @@ class ProjectChatAgent:
         settings: Settings,
         registry: ToolRegistry,
         executor: ToolExecutor,
-        retriever: AgentProjectContextRetriever | None = None,
+        input_context_gateway: AgentInputContextGateway | None = None,
     ) -> None:
         self.settings = settings
         self._registry = registry
         self._executor = executor
-        self._retriever = retriever
+        self._input_context_gateway = input_context_gateway
 
     async def chat(
         self,
@@ -60,8 +61,8 @@ class ProjectChatAgent:
         llm = self._resolve_llm(request)
         tools = self._tool_definitions(llm)
         context = self._execution_context(request, user_id)
-        retrieval = await self._pre_retrieve(request, context)
-        messages = self._build_messages(request, llm, retrieval)
+        input_context = await self._prepare_input_context(request, context)
+        messages = self._build_messages(request, llm, input_context)
         records: list[ToolCallRecord] = []
         usage_summary = LLMTokenUsageSummary()
         total_tool_calls = 0
@@ -108,8 +109,8 @@ class ProjectChatAgent:
                 f"模型提供方 {llm.provider} 暂不支持流式工具调用",
             )
         context = self._execution_context(request, user_id)
-        retrieval = await self._pre_retrieve(request, context)
-        messages = self._build_messages(request, llm, retrieval)
+        input_context = await self._prepare_input_context(request, context)
+        messages = self._build_messages(request, llm, input_context)
         usage_summary = LLMTokenUsageSummary()
         total_tool_calls = 0
 
@@ -193,7 +194,7 @@ class ProjectChatAgent:
     def _build_messages(
         request: AgentChatRequest,
         llm: BaseLLMClient,
-        retrieval: RetrievalResult | None = None,
+        input_context: UserInputContext | None = None,
     ) -> list[dict]:
         base_messages = LLMContextBuilder(
             request,
@@ -203,20 +204,16 @@ class ProjectChatAgent:
         return build_project_chat_messages(
             request,
             base_messages=base_messages,
-            retrieval_context=(
-                retrieval.model_dump(mode="json")
-                if retrieval is not None
-                else None
-            ),
+            input_context=input_context,
         )
 
-    async def _pre_retrieve(
+    async def _prepare_input_context(
         self,
         request: AgentChatRequest,
         context: ToolExecutionContext,
-    ) -> RetrievalResult | None:
-        """在首次模型判断前执行一次轻量项目上下文召回。"""
-        if self._retriever is None or context.project_id is None:
+    ) -> UserInputContext | None:
+        """在首次模型判断前归一化当前问题并执行轻量召回。"""
+        if self._input_context_gateway is None or context.project_id is None:
             return None
         current_question = next(
             (
@@ -228,10 +225,7 @@ class ProjectChatAgent:
         )
         if not current_question.strip():
             return None
-        return await self._retriever.retrieve(
-            context,
-            RetrievalQuery(query=current_question),
-        )
+        return await self._input_context_gateway.prepare(context, current_question)
 
     @staticmethod
     def _execution_context(
