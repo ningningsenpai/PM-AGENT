@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
-from app.modules.project.schemas import CreateProjectRequest
+from app.modules.project.schemas import CreateProjectRequest, ProjectResponse
 
 
 def test_create_project_request_normalizes_name() -> None:
@@ -27,3 +29,17 @@ def test_create_project_request_rejects_blank_name() -> None:
     """
     with pytest.raises(ValidationError):
         CreateProjectRequest(project_name="   ")
+
+
+def test_project_response_serializes_snowflake_id_as_string() -> None:
+    """验证项目响应不会把大整数 ID 作为 JSON 数字输出。"""
+    response = ProjectResponse(
+        id=9007199254740993,
+        project_name="PM-Agent",
+        status="active",
+        record_status="active",
+        created_at=datetime(2026, 9, 2, 10, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 9, 2, 10, 0, 0, tzinfo=UTC),
+    )
+
+    assert response.model_dump(mode="json")["id"] == "9007199254740993"

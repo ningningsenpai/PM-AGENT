@@ -13,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base, TimestampMixin
-from app.modules.project.domain import ProjectStatus
+from app.modules.project.domain import ProjectRecordStatus, ProjectStatus
 
 
 class Project(TimestampMixin, Base):
@@ -28,13 +28,22 @@ class Project(TimestampMixin, Base):
             "status IN ('initializing', 'active', 'init_failed')",
             name="ck_project_status",
         ),
+        CheckConstraint(
+            "record_status IN ('active', 'inactive')",
+            name="ck_project_record_status",
+        ),
         Index("idx_project_owner_status", "owner_user_id", "status"),
+        Index(
+            "idx_project_owner_record_status",
+            "owner_user_id",
+            "record_status",
+        ),
     )
 
     id: Mapped[int] = mapped_column(
         BigInteger().with_variant(Integer, "sqlite"),
         primary_key=True,
-        autoincrement=True,
+        autoincrement=False,
     )
     owner_user_id: Mapped[int] = mapped_column(
         BigInteger,
@@ -46,4 +55,9 @@ class Project(TimestampMixin, Base):
         String(32),
         nullable=False,
         default=ProjectStatus.INITIALIZING.value,
+    )
+    record_status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default=ProjectRecordStatus.ACTIVE.value,
     )

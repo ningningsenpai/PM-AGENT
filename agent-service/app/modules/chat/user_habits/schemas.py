@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.identifiers import SnowflakeId
+
 UserHabitCategory = Literal[
     "work",
     "thinking",
@@ -24,7 +26,7 @@ class UserHabitsDocument(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    project_id: int
+    project_id: SnowflakeId
     schema_version: str = "1.0.0"
     category: UserHabitCategory
     updated_at: datetime

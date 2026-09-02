@@ -8,6 +8,7 @@ from .application import (
     FileConfig,
     RedisConfig,
     SecurityConfig,
+    SnowflakeConfig,
     StorageConfig,
 )
 from .llm_config import Settings, get_llm_settings
@@ -19,6 +20,7 @@ __all__ = [
     "RedisConfig",
     "SecurityConfig",
     "Settings",
+    "SnowflakeConfig",
     "StorageConfig",
     "get_settings",
 ]
@@ -32,6 +34,7 @@ class AppConfig:
         self.database = DatabaseConfig.from_env()
         self.redis = RedisConfig.from_env()
         self.security = SecurityConfig.from_env()
+        self.snowflake = SnowflakeConfig.from_env()
         self.storage = StorageConfig.from_env()
         self.file = FileConfig.from_env()
 

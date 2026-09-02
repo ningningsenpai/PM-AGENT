@@ -6,6 +6,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
+from app.core.identifiers import SnowflakeId
+
 
 class FileSchema(BaseModel):
     model_config = ConfigDict(
@@ -23,7 +25,7 @@ class UpdateProjectFilePathRequest(FileSchema):
 
 class ProjectFileResponse(FileSchema):
     id: int
-    project_id: int
+    project_id: SnowflakeId
     business_code: str
     relative_path: str
     file_name: str

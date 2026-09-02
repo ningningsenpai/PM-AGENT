@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 import json
+from datetime import datetime
 from typing import Any, Iterable, Literal
 
 from pydantic import ValidationError
@@ -226,7 +226,7 @@ class ProjectSpecificationService:
         source_json = json.dumps(sources, ensure_ascii=False, indent=2)
         source_meta = json.dumps(
             {
-                "project_id": project.id,
+                "project_id": str(project.id),
                 "project_name": project.project_name,
                 "source_selection": "全部当前有效文件详情中的结构化规则候选",
                 "source_inventory_is_complete": True,
@@ -241,8 +241,9 @@ class ProjectSpecificationService:
             f"\n\nnew_content（结构化规则候选）：\n{source_json}"
             f"\n\nsource_meta：\n{source_meta}"
             "\n\n# 最终约束\n"
-            f"project_id 必须为整数 {project.id}。"
-            "规则引用文件时必须原样复制候选中的 file_id、path、content_hash 和 detail_ref；"
+            f"project_id 必须为十进制字符串 \"{project.id}\"。"
+            "规则引用文件时必须原样复制候选中的 file_id、path、"
+            "content_hash 和 detail_ref；"
             "不得仅因某个文件没有规则候选就删除旧规则；"
             "只有旧规则引用的文件不在完整 current_sources 中时，"
             "才可基于来源删除将其标记为 deprecated 或 pending_review。"

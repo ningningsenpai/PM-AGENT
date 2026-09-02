@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.identifiers import SnowflakeId
 from app.streaming.metrics import ContextLengthStatus
 
 # TODO 对话持久化模块完成后重新审查该模块数据结构字段的默认值
@@ -51,7 +52,7 @@ class ChatMessage(BaseModel):
 class ConversationContext(BaseModel):
     """对话业务上下文"""
 
-    project_id: int = Field(..., description="当前项目 ID")
+    project_id: SnowflakeId = Field(..., description="当前项目 ID")
     iteration_id: int = Field(..., description="当前迭代 ID, 用于区分多轮对话")
     context_total_usage: int = Field(
         ...,
@@ -63,7 +64,7 @@ class ConversationContext(BaseModel):
 class UserContext(BaseModel):
     """用户身份。"""
 
-    user_id: int = Field(..., description="用户 ID")
+    user_id: SnowflakeId = Field(..., description="用户 ID")
     user_name: str = Field(..., description="用户显示名称")
 
 

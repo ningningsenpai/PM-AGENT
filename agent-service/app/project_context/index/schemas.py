@@ -6,6 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.identifiers import SnowflakeId
+
 
 class ProjectIndexSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -75,9 +77,9 @@ class ProjectIndexSystemReferences(ProjectIndexSchema):
 class ProjectIndexDocument(ProjectIndexSchema):
     """index.json 的完整结构化快照。"""
 
-    project_id: int
+    project_id: SnowflakeId
     project_name: str
-    owner_user_id: int
+    owner_user_id: SnowflakeId
     schema_version: str
     generated_at: datetime
     updated_at: datetime

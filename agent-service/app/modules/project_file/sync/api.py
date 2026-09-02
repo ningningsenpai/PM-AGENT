@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from app.core.identifiers import SnowflakeId
 from app.core.response import ApiResponse, success
 from app.core.security import AuthPrincipal, require_principal
 from app.modules.project_file.sync.dependencies import get_project_file_sync_service
@@ -15,7 +16,7 @@ router = APIRouter()
 
 @router.post("/sync/plan", response_model=ApiResponse)
 async def plan_project_file_sync(
-    project_id: int,
+    project_id: SnowflakeId,
     request: ProjectFileSyncPlanRequest,
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectFileSyncService = Depends(get_project_file_sync_service),

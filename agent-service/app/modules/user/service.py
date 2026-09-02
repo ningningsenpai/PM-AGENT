@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
+from app.core.identifiers import SnowflakeIdGenerator
 from app.core.logger import get_logger
 from app.core.security import PasswordManager
 from app.modules.user.domain import UserStatus
@@ -27,9 +28,11 @@ class UserService:
         self,
         repository: UserRepository,
         password_manager: PasswordManager,
+        id_generator: SnowflakeIdGenerator,
     ) -> None:
         self._repository = repository
         self._passwords = password_manager
+        self._id_generator = id_generator
 
     async def register(
         self,
@@ -42,6 +45,7 @@ class UserService:
         normalized_email = email.strip().lower()
         await self._validate_unique(None, normalized_username, normalized_email)
         user = User(
+            id=self._id_generator.next_id(),
             username=normalized_username,
             email=normalized_email,
             password_hash=self._passwords.hash(password),

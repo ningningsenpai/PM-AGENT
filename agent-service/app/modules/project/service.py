@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
-
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
+from app.core.identifiers import SnowflakeIdGenerator
 from app.core.logger import get_logger
-from app.infrastructure.storage import (
-    ObjectStorage,
-    StorageLocationFactory,
-)
 from app.modules.chat import ChatContextInitializationService
-from app.modules.project.domain import ProjectStatus
+from app.modules.project.domain import ProjectRecordStatus, ProjectStatus
 from app.modules.project.errors import (
     project_disabled,
     project_name_exists,
@@ -36,15 +31,13 @@ class ProjectService:
     def __init__(
         self,
         repository: ProjectRepository,
-        storage: ObjectStorage,
-        locations: StorageLocationFactory,
+        id_generator: SnowflakeIdGenerator,
         index_service: ProjectIndexService,
         specification_service: ProjectSpecificationService,
         chat_context_initializer: ChatContextInitializationService,
     ) -> None:
         self._repository = repository
-        self._storage = storage
-        self._locations = locations
+        self._id_generator = id_generator
         self._index = index_service
         self._specification = specification_service
         self._chat_context = chat_context_initializer
@@ -61,7 +54,17 @@ class ProjectService:
             request.project_name,
         )
         if existing is not None:
-            if existing.status == ProjectStatus.ACTIVE.value:
+            if existing.record_status == ProjectRecordStatus.INACTIVE.value:
+                existing.record_status = ProjectRecordStatus.ACTIVE.value
+                await self._repository.session.commit()
+                await self._repository.session.refresh(existing)
+                logger.info(
+                    "项目恢复成功 action=project.restore userId=%s projectId=%s",
+                    owner_user_id,
+                    existing.id,
+                )
+                return to_response(existing)
+            if existing.status != ProjectStatus.INIT_FAILED.value:
                 logger.error(
                     "项目名称已存在 action=project.existing userId=%s project_name=%s",
                     owner_user_id,
@@ -93,9 +96,11 @@ class ProjectService:
                 return to_response(existing)
 
         project = Project(
+            id=self._id_generator.next_id(),
             owner_user_id=owner_user_id,
             project_name=request.project_name,
             status=ProjectStatus.INITIALIZING.value,
+            record_status=ProjectRecordStatus.ACTIVE.value,
         )
         try:
             await self._repository.add(project)
@@ -167,6 +172,8 @@ class ProjectService:
         project = await self._repository.get_by_id(project_id)
         if project is None or project.owner_user_id != owner_user_id:
             raise project_not_found()
+        if project.record_status != ProjectRecordStatus.ACTIVE.value:
+            raise project_not_found()
         if project.status != ProjectStatus.ACTIVE.value:
             raise project_disabled()
         return project
@@ -178,19 +185,8 @@ class ProjectService:
             project_id,
         )
         project = await self.require_owned(owner_user_id, project_id)
-        prefix = self._locations.project_prefix(project.owner_user_id, project.id)
+        project.record_status = ProjectRecordStatus.INACTIVE.value
         try:
-            await asyncio.to_thread(self._storage.remove_prefix, prefix)
-        except AppException as exception:
-            logger.exception(
-                "项目对象清理失败 action=project.delete stage=storage "
-                "userId=%s projectId=%s",
-                owner_user_id,
-                project_id,
-            )
-            raise AppException(ErrorCode.PROJECT_DELETE_FAILED) from exception
-        try:
-            await self._repository.delete(project.id)
             await self._repository.session.commit()
         except Exception as exception:
             await self._repository.session.rollback()
@@ -202,7 +198,7 @@ class ProjectService:
             )
             raise AppException(ErrorCode.PROJECT_DELETE_FAILED) from exception
         logger.info(
-            "项目删除成功 action=project.delete userId=%s projectId=%s",
+            "项目惰性删除成功 action=project.delete userId=%s projectId=%s",
             owner_user_id,
             project_id,
         )

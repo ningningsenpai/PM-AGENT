@@ -7,6 +7,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
+from app.core.identifiers import SnowflakeId
+
 _EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
@@ -19,7 +21,7 @@ class UserSchema(BaseModel):
 
 
 class UserProfileResponse(UserSchema):
-    id: int
+    id: SnowflakeId
     username: str
     email: str
     status: str

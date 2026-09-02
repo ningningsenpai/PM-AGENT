@@ -64,7 +64,7 @@ class FileSemanticAnalysisService:
                 error_code="FILE_DETAIL_SENSITIVE_CONTENT_BLOCKED",
             )
         metadata = {
-            "project_id": request.project_id,
+            "project_id": str(request.project_id),
             "file_id": request.file_id,
             "business": request.business,
             "filename": request.filename,

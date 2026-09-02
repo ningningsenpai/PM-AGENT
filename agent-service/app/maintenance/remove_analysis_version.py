@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from dataclasses import asdict, dataclass, field
-from datetime import datetime
 import json
 import sys
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any, Iterable
 
 from pydantic import ValidationError
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from app.core.config import get_settings
 from app.infrastructure.database import get_session_factory
@@ -186,7 +187,21 @@ class RemoveAnalysisVersionMigration:
         return {int(row[0]): row[1] for row in result.all()}
 
     async def _load_projects(self) -> list[Project]:
-        result = await self._session.scalars(select(Project).order_by(Project.id))
+        statement = (
+            select(Project)
+            .options(
+                load_only(
+                    Project.id,
+                    Project.owner_user_id,
+                    Project.project_name,
+                    Project.status,
+                    Project.created_at,
+                    Project.updated_at,
+                )
+            )
+            .order_by(Project.id)
+        )
+        result = await self._session.scalars(statement)
         return list(result.all())
 
     async def _load_files(self, project_id: int) -> list[ProjectFile]:
@@ -356,7 +371,11 @@ class RemoveAnalysisVersionMigration:
         mismatched = [
             key
             for key, value in expected_identity.items()
-            if migrated.get(key) != value
+            if (
+                str(migrated.get(key)) != str(value)
+                if key == "project_id"
+                else migrated.get(key) != value
+            )
         ]
         if mismatched:
             fields = "、".join(mismatched)
@@ -397,7 +416,7 @@ class RemoveAnalysisVersionMigration:
             raise MaintenanceMigrationError(
                 f"项目 {project.id} 的 project_specification.json 格式无效"
             ) from exception
-        if payload.get("project_id") != project.id:
+        if str(payload.get("project_id")) != str(project.id):
             raise MaintenanceMigrationError(
                 f"项目 {project.id} 的 specification 项目身份不匹配"
             )

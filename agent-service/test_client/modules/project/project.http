@@ -7,7 +7,7 @@ Content-Type: application/json
 X-Trace-Id: http-project-create-{{$uuid}}
 
 {
-  "projectName": "{{projectName2}}"
+  "projectName": "{{projectName}}"
 }
 
 ### 查询当前用户项目列表

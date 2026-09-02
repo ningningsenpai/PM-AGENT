@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.identifiers import SnowflakeIdGenerator, get_snowflake_id_generator
 from app.core.response import ApiResponse, success
 from app.core.security import (
     AuthPrincipal,
@@ -28,8 +29,9 @@ def get_auth_service(
     password_manager: PasswordManager = Depends(get_password_manager),
     jwt_manager: JwtManager = Depends(get_jwt_manager),
     sessions: SessionStore = Depends(get_session_store),
+    id_generator: SnowflakeIdGenerator = Depends(get_snowflake_id_generator),
 ) -> AuthService:
-    users = UserService(UserRepository(session), password_manager)
+    users = UserService(UserRepository(session), password_manager, id_generator)
     return AuthService(users, jwt_manager, sessions)
 
 

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
+from datetime import datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock
 
 from app.infrastructure.storage import StorageLocationFactory
+from app.project_context.file_detail.schemas import FileRuleCandidate
 from app.project_context.specification.schemas import (
     DevelopmentApproachRule,
     ProjectSpecificationBody,
@@ -16,7 +17,6 @@ from app.project_context.specification.schemas import (
     SpecificationSourceRef,
     merge_specifications,
 )
-from app.project_context.file_detail.schemas import FileRuleCandidate
 from app.project_context.specification.service import ProjectSpecificationService
 from tests.unit.modules.project_file.analysis.factories import file_detail
 from tests.unit.modules.project_file.factories import (
@@ -150,7 +150,7 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
         self.assertTrue(
             location.object_key.endswith("system/project_specification.json")
         )
-        self.assertEqual(10, payload["project_id"])
+        self.assertEqual("10", payload["project_id"])
         self.assertEqual(
             [],
             payload["project_specification"]["technical_constraints"],

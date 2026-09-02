@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from app.agents.tools.base import BaseAgentTool
 from app.agents.tools.schemas import ToolExecutionContext
 from app.core.errors import AppException, ErrorCode
+from app.core.identifiers import SnowflakeId
 from app.modules.project.service import ProjectService
 
 
@@ -16,7 +17,7 @@ class GetCurrentProjectInput(BaseModel):
 
 
 class GetCurrentProjectOutput(BaseModel):
-    id: int
+    id: SnowflakeId
     project_name: str
     status: str
     created_at: datetime

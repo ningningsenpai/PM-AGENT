@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field
 
+from app.core.identifiers import SnowflakeId
 from app.streaming.metrics import LLMTokenUsage
 
 
@@ -43,7 +44,7 @@ class StreamMetaPayload(BaseModel):
 
     traceId: str = Field(..., description="链路追踪 ID")
     conversationId: int = Field(..., description="会话 ID")
-    userId: int = Field(..., description="用户 ID")
+    userId: SnowflakeId = Field(..., description="用户 ID")
     tenantId: int = Field(..., description="租户 ID")
 
 

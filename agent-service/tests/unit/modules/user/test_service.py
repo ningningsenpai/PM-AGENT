@@ -54,6 +54,12 @@ def _repository(**overrides):
     return SimpleNamespace(**defaults)
 
 
+def _id_generator(value: int = 7) -> Mock:
+    generator = Mock()
+    generator.next_id.return_value = value
+    return generator
+
+
 class UserServiceTest(IsolatedAsyncioTestCase):
     async def test_register_normalizes_and_persists_user(self) -> None:
         """验证注册会规范化身份字段并持久化启用用户。
@@ -67,14 +73,10 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         """
         repository = _repository()
 
-        async def assign_id(user: User) -> User:
-            user.id = 7
-            return user
-
-        repository.add.side_effect = assign_id
         passwords = Mock()
         passwords.hash.return_value = "hashed-secret"
-        service = UserService(repository, passwords)
+        id_generator = _id_generator()
+        service = UserService(repository, passwords, id_generator)
         last_login_at = datetime(2026, 7, 27, 10, 0, 0)
 
         with patch.object(user_service_module, "logger") as logger:
@@ -86,12 +88,14 @@ class UserServiceTest(IsolatedAsyncioTestCase):
             )
 
         self.assertEqual("tester", result.username)
+        self.assertEqual(7, result.id)
         self.assertEqual("tester@example.com", result.email)
         self.assertEqual("hashed-secret", result.password_hash)
         self.assertEqual("enabled", result.status)
         passwords.hash.assert_called_once_with("sensitive-password")
         repository.add.assert_awaited_once_with(result)
         repository.session.commit.assert_awaited_once()
+        id_generator.next_id.assert_called_once_with()
         self.assertIn("action=user.create", repr(logger.method_calls))
         self.assertNotIn("sensitive-password", repr(logger.method_calls))
 
@@ -117,7 +121,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
 
         for repository, expected_error in cases:
             with self.subTest(error=expected_error):
-                service = UserService(repository, Mock())
+                service = UserService(repository, Mock(), _id_generator())
                 with self.assertRaises(AppException) as caught:
                     await service.register(
                         "tester",
@@ -145,7 +149,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         )
         passwords = Mock()
         passwords.hash.return_value = "hashed-secret"
-        service = UserService(repository, passwords)
+        service = UserService(repository, passwords, _id_generator())
 
         with self.assertRaises(AppException) as caught:
             await service.register(
@@ -170,7 +174,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         repository = _repository(get_by_email=AsyncMock(return_value=user))
         passwords = Mock()
         passwords.verify.return_value = True
-        service = UserService(repository, passwords)
+        service = UserService(repository, passwords, _id_generator())
         previous_login = user.last_login_at
 
         result = await service.authenticate("TESTER@example.com", "secret-password")
@@ -200,7 +204,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
 
         for repository, passwords in cases:
             with self.subTest(user_exists=repository.get_by_email.return_value is not None):
-                service = UserService(repository, passwords)
+                service = UserService(repository, passwords, _id_generator())
                 with self.assertRaises(AppException) as caught:
                     await service.authenticate(
                         "tester@example.com",
@@ -221,7 +225,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         )
         passwords = Mock()
         passwords.verify.return_value = True
-        service = UserService(repository, passwords)
+        service = UserService(repository, passwords, _id_generator())
 
         with self.assertRaises(AppException) as caught:
             await service.authenticate("tester@example.com", "secret-password")
@@ -236,7 +240,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         @Return: 对应用户的 UserProfileResponse。
         """
         repository = _repository(get_by_id=AsyncMock(return_value=_user()))
-        service = UserService(repository, Mock())
+        service = UserService(repository, Mock(), _id_generator())
 
         result = await service.get_profile(7)
 
@@ -249,7 +253,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         @Param user_id: 数据库中不存在的用户 ID。
         @Return: 抛出 USER_NOT_FOUND 的 AppException。
         """
-        service = UserService(_repository(), Mock())
+        service = UserService(_repository(), Mock(), _id_generator())
 
         with self.assertRaises(AppException) as caught:
             await service.get_profile(404)
@@ -266,7 +270,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         """
         user = _user()
         repository = _repository(get_by_id=AsyncMock(return_value=user))
-        service = UserService(repository, Mock())
+        service = UserService(repository, Mock(), _id_generator())
         request = UpdateUserProfileRequest(
             username="NewName",
             email="NEW@example.com",
@@ -308,7 +312,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
 
         for repository, expected_error in cases:
             with self.subTest(error=expected_error):
-                service = UserService(repository, Mock())
+                service = UserService(repository, Mock(), _id_generator())
                 with self.assertRaises(AppException) as caught:
                     await service.update_profile(7, request)
                 self.assertIs(expected_error, caught.exception.error)
@@ -333,7 +337,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
             session=session,
             get_by_id=AsyncMock(return_value=user),
         )
-        service = UserService(repository, Mock())
+        service = UserService(repository, Mock(), _id_generator())
         request = UpdateUserProfileRequest(
             username="other",
             email="other@example.com",
@@ -358,7 +362,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         passwords = Mock()
         passwords.verify.return_value = True
         passwords.hash.return_value = "new-hash"
-        service = UserService(repository, passwords)
+        service = UserService(repository, passwords, _id_generator())
         request = ChangePasswordRequest(
             old_password="old-password",
             new_password="new-password",
@@ -381,7 +385,7 @@ class UserServiceTest(IsolatedAsyncioTestCase):
         repository = _repository(get_by_id=AsyncMock(return_value=_user()))
         passwords = Mock()
         passwords.verify.return_value = False
-        service = UserService(repository, passwords)
+        service = UserService(repository, passwords, _id_generator())
         request = ChangePasswordRequest(
             old_password="wrong-password",
             new_password="new-password",

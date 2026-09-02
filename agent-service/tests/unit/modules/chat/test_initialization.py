@@ -75,7 +75,7 @@ class ChatContextInitializationServiceTest(IsolatedAsyncioTestCase):
             json.loads(storage.objects[key]) for key in expected_keys[:-1]
         ]
         self.assertTrue(
-            all(document["project_id"] == 12 for document in json_documents)
+            all(document["project_id"] == "12" for document in json_documents)
         )
         self.assertTrue(
             all(document["schema_version"] == "1.0.0" for document in json_documents)

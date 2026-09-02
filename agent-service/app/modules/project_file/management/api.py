@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 
 from app.core.config import get_settings
+from app.core.identifiers import SnowflakeId
 from app.core.response import ApiResponse, success
 from app.core.security import AuthPrincipal, require_principal
 from app.modules.project_file.management.dependencies import (
@@ -17,7 +18,7 @@ router = APIRouter()
 
 @router.post("", response_model=ApiResponse)
 async def upload_project_file(
-    project_id: int,
+    project_id: SnowflakeId,
     relative_path: str = Form(alias="relativePath"),
     source_mtime_ms: int = Form(alias="sourceMtimeMs"),
     file: UploadFile = File(),
@@ -44,7 +45,7 @@ async def upload_project_file(
 
 @router.put("/{file_id}/content", response_model=ApiResponse)
 async def overwrite_project_file(
-    project_id: int,
+    project_id: SnowflakeId,
     file_id: int,
     source_mtime_ms: int = Form(alias="sourceMtimeMs"),
     lock_version: int = Form(alias="lockVersion"),
@@ -73,7 +74,7 @@ async def overwrite_project_file(
 
 @router.patch("/{file_id}/path", response_model=ApiResponse)
 async def update_project_file_path(
-    project_id: int,
+    project_id: SnowflakeId,
     file_id: int,
     request: UpdateProjectFilePathRequest,
     principal: AuthPrincipal = Depends(require_principal),
@@ -91,7 +92,7 @@ async def update_project_file_path(
 
 @router.get("", response_model=ApiResponse)
 async def list_project_files(
-    project_id: int,
+    project_id: SnowflakeId,
     business_code: str | None = Query(default=None, alias="businessCode"),
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectFileService = Depends(get_project_file_service),
@@ -107,7 +108,7 @@ async def list_project_files(
 
 @router.get("/{file_id}/read-url", response_model=ApiResponse)
 async def create_project_file_read_url(
-    project_id: int,
+    project_id: SnowflakeId,
     file_id: int,
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectFileService = Depends(get_project_file_service),
@@ -123,7 +124,7 @@ async def create_project_file_read_url(
 
 @router.delete("/{file_id}", response_model=ApiResponse)
 async def delete_project_file(
-    project_id: int,
+    project_id: SnowflakeId,
     file_id: int,
     lock_version: int = Query(alias="lockVersion"),
     principal: AuthPrincipal = Depends(require_principal),

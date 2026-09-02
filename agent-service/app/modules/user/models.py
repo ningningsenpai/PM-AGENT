@@ -31,7 +31,7 @@ class User(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(
         BigInteger().with_variant(Integer, "sqlite"),
         primary_key=True,
-        autoincrement=True,
+        autoincrement=False,
     )
     username: Mapped[str] = mapped_column(String(64), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

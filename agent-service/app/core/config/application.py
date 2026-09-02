@@ -1,8 +1,8 @@
 """业务后端基础设施配置。"""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 from app.core.config.load_env_file import LoadConfig
 
@@ -67,6 +67,23 @@ class SecurityConfig:
             jwt_algorithm=os.getenv("PM_AGENT_JWT_ALGORITHM", "HS256"),
             token_ttl_seconds=int(os.getenv("PM_AGENT_TOKEN_TTL_SECONDS", "2592000")),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SnowflakeConfig:
+    node_id: int
+
+    @classmethod
+    def from_env(cls) -> SnowflakeConfig:
+        _load_env()
+        raw_node_id = os.getenv("PM_AGENT_SNOWFLAKE_NODE_ID", "0")
+        try:
+            node_id = int(raw_node_id)
+        except ValueError as exception:
+            raise ValueError("雪花算法节点编号必须是 0 到 1023 的整数") from exception
+        if not 0 <= node_id <= 1023:
+            raise ValueError("雪花算法节点编号必须在 0 到 1023 之间")
+        return cls(node_id=node_id)
 
 
 @dataclass(frozen=True, slots=True)

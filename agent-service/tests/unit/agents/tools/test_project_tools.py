@@ -153,7 +153,10 @@ class TestProjectReadTools(IsolatedAsyncioTestCase):
 
         self.assertEqual("success", result.status)
         self.assertEqual(2, result.output["total"])
-        self.assertEqual([10, 11], [item["id"] for item in result.output["projects"]])
+        self.assertEqual(
+            ["10", "11"],
+            [item["id"] for item in result.output["projects"]],
+        )
         projects.list_owned.assert_awaited_once_with(1)
 
     async def test_list_current_project_files_returns_safe_fields(self) -> None:

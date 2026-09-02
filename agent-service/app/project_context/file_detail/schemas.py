@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
+from app.core.identifiers import SnowflakeId
+
 __all__ = [
     "FileSemanticAnalysisRequest",
     "FileSemanticAnalysisResult",
@@ -27,8 +29,8 @@ class FileSemanticAnalysisRequest(BaseModel):
         frozen=True,
     )
 
-    user_id: int
-    project_id: int
+    user_id: SnowflakeId
+    project_id: SnowflakeId
     business: str
     file_id: int
     filename: str
@@ -95,7 +97,7 @@ class FileDetail(BaseModel):
     )
 
     id: str
-    project_id: int
+    project_id: SnowflakeId
     file_id: int
     schema_version: str
     generated_at: datetime
@@ -137,7 +139,7 @@ class FileSemanticAnalysisResult(BaseModel):
         frozen=True,
     )
 
-    project_id: int
+    project_id: SnowflakeId
     file_id: int
     content_hash: str
     status: Literal["success", "failed"]

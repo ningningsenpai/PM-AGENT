@@ -116,6 +116,8 @@ agent-service/
 
 所有本地配置从 `.env.example` 复制到 `.env` 后修改。`.env` 包含数据库密码、JWT 密钥和模型密钥，不得提交 Git。
 
+单实例可使用默认 `PM_AGENT_SNOWFLAKE_NODE_ID=0`。部署多个后端实例时，每个实例必须配置不同的 0～1023 节点编号，避免跨实例生成重复的用户 ID 或项目 ID。
+
 ## 安装中间件
 
 如果使用仓库提供的 Docker Compose，请在项目根目录执行：

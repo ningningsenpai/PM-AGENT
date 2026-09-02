@@ -1,9 +1,10 @@
 """项目数据访问。"""
 from __future__ import annotations
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.project.domain import ProjectRecordStatus
 from app.modules.project.models import Project
 
 
@@ -32,7 +33,10 @@ class ProjectRepository:
     async def list_by_owner(self, owner_user_id: int) -> list[Project]:
         statement = (
             select(Project)
-            .where(Project.owner_user_id == owner_user_id)
+            .where(
+                Project.owner_user_id == owner_user_id,
+                Project.record_status == ProjectRecordStatus.ACTIVE.value,
+            )
             .order_by(Project.created_at.desc())
         )
         return list((await self.session.scalars(statement)).all())
@@ -41,6 +45,3 @@ class ProjectRepository:
         self.session.add(project)
         await self.session.flush()
         return project
-
-    async def delete(self, project_id: int) -> None:
-        await self.session.execute(delete(Project).where(Project.id == project_id))

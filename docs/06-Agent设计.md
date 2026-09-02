@@ -76,8 +76,10 @@ Provider 通过能力对象显式声明 `native_tool_calling`、`streaming_tool_
 
 - `/api/v1/agent/chat` 必须携带 Bearer JWT。
 - JWT `sub` 必须与请求体 `user.user_id` 一致。
+- Agent 请求、工具输出和项目上下文 JSON 中的用户 ID、项目 ID 使用十进制字符串；进入可信业务上下文后转换为 Python 整数参与归属校验。
 - 客户端不得提交 `assistant.tool_calls` 或 `tool` 消息，避免伪造 Observation。
 - 工具执行前由目标模块 Service 再次校验资源归属和状态。
+- `record_status=inactive` 的项目在工具层表现为项目不存在，模型不能读取已惰性删除项目的上下文。
 - 删除、权限变更、对外通知等高风险动作必须保留人工确认。
 - 写工具需要权限校验、幂等门禁、人工确认和 Agent Trace，当前版本不注册写工具。
 

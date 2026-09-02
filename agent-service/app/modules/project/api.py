@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from app.core.identifiers import SnowflakeId
 from app.core.response import ApiResponse, success
 from app.core.security import AuthPrincipal, require_principal
 from app.modules.project.dependencies import get_project_service
@@ -30,7 +31,7 @@ async def list_projects(
 
 @router.get("/{project_id}", response_model=ApiResponse)
 async def get_project(
-    project_id: int,
+    project_id: SnowflakeId,
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectService = Depends(get_project_service),
 ) -> ApiResponse:
@@ -39,7 +40,7 @@ async def get_project(
 
 @router.delete("/{project_id}", response_model=ApiResponse)
 async def delete_project(
-    project_id: int,
+    project_id: SnowflakeId,
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectService = Depends(get_project_service),
 ) -> ApiResponse:

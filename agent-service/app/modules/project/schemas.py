@@ -6,6 +6,9 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
+from app.core.identifiers import SnowflakeId
+from app.modules.project.domain import ProjectRecordStatus
+
 
 class ProjectSchema(BaseModel):
     model_config = ConfigDict(
@@ -28,9 +31,10 @@ class CreateProjectRequest(ProjectSchema):
 
 
 class ProjectResponse(ProjectSchema):
-    id: int
+    id: SnowflakeId
     project_name: str
     status: str
+    record_status: str = ProjectRecordStatus.ACTIVE.value
     created_at: datetime
     updated_at: datetime
 

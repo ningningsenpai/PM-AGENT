@@ -7,6 +7,8 @@ from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.identifiers import SnowflakeId
+
 RuleT = TypeVar("RuleT", bound="SpecificationRule")
 
 
@@ -91,7 +93,7 @@ class SpecificationIgnoredItem(SpecificationSchema):
 
 class ProjectSpecificationDocument(SpecificationSchema):
     """ 项目规则文件 project_specification.json 的结构化模型 """
-    project_id: int
+    project_id: SnowflakeId
     schema_version: str = "1.0.0"
     updated_at: datetime
     project_specification: ProjectSpecificationBody = Field(

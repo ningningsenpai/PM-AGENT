@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.tools.base import BaseAgentTool
 from app.agents.tools.schemas import ToolExecutionContext
+from app.core.identifiers import SnowflakeId
 from app.modules.project.service import ProjectService
 
 
@@ -17,7 +18,7 @@ class ListOwnedProjectsInput(BaseModel):
 class OwnedProjectItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: SnowflakeId
     project_name: str
     status: str
     created_at: datetime

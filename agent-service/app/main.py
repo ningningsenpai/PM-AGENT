@@ -10,6 +10,7 @@ from sqlalchemy import text
 from app.api.v1.router import router as api_v1_router
 from app.core.config import get_settings
 from app.core.errors import install_exception_handlers
+from app.core.identifiers import get_snowflake_id_generator
 from app.core.logger import get_logger
 from app.core.security import get_jwt_manager, get_password_manager
 from app.core.trace import TraceMiddleware
@@ -26,6 +27,7 @@ async def lifespan(_app: FastAPI):
     get_settings()
     get_jwt_manager()
     get_password_manager()
+    get_snowflake_id_generator()
     get_normalization_service()
 
     engine = get_engine()
