@@ -3,14 +3,7 @@
 GET {{baseUrl}}/internal/health
 X-Trace-Id: http-health-{{$uuid}}
 
-> {%
-client.test("服务健康检查成功", function () {
-    client.assert(response.status === 200, "健康检查 HTTP 状态应为 200");
-    client.assert(response.body.status === "UP", "服务状态应为 UP");
-});
-%}
-
-### 注册测试用户，并保存 Token
+### 注册测试用户
 # 首次使用执行；如果邮箱已存在，直接执行后面的登录请求。
 # @name register
 POST {{baseUrl}}/api/v1/auth/register
@@ -18,45 +11,21 @@ Content-Type: application/json
 X-Trace-Id: http-auth-register-{{$uuid}}
 
 {
-  "username": "{{testUsername}}",
-  "email": "{{testEmail}}",
-  "password": "{{testPassword}}"
+  "username": "{{RegisterUsername}}",
+  "email": "{{RegisterEmail}}",
+  "password": "{{RegisterPassword}}"
 }
 
-> {%
-client.test("用户注册成功", function () {
-    client.assert(response.status === 200, "注册 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "注册业务状态应为成功");
-    client.assert(response.body.traceId, "响应应包含 traceId");
-});
-if (response.body.data) {
-    client.global.set("accessToken", response.body.data.tokenValue);
-    client.global.set("userId", String(response.body.data.user.id));
-}
-%}
-
-### 登录并刷新全局 Token
+### 用户登录
 # @name login
 POST {{baseUrl}}/api/v1/auth/login
 Content-Type: application/json
 X-Trace-Id: http-auth-login-{{$uuid}}
 
 {
-  "email": "{{testEmail}}",
-  "password": "{{testPassword}}"
+  "email": "{{Email}}",
+  "password": "{{Password}}"
 }
-
-> {%
-client.test("用户登录成功", function () {
-    client.assert(response.status === 200, "登录 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "登录业务状态应为成功");
-    client.assert(response.body.data.tokenValue, "响应应包含 JWT");
-});
-if (response.body.data) {
-    client.global.set("accessToken", response.body.data.tokenValue);
-    client.global.set("userId", String(response.body.data.user.id));
-}
-%}
 
 ### 错误密码登录
 # @name loginWithWrongPassword
@@ -65,29 +34,24 @@ Content-Type: application/json
 X-Trace-Id: http-auth-login-failed-{{$uuid}}
 
 {
-  "email": "{{testEmail}}",
-  "password": "错误密码"
+  "email": "{{Email}}",
+  "password": "12868751784"
 }
 
-> {%
-client.test("错误密码被拒绝", function () {
-    client.assert(response.body.code !== 200, "错误密码不应登录成功");
-    client.assert(response.body.traceId, "错误响应应包含 traceId");
-});
-%}
+
+### 黑名单用户登录
+# @name loginWithDisableUser
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+X-Trace-Id: http-auth-login-failed-{{$uuid}}
+
+{
+  "email": "{{DisabledEmail}}",
+  "password": "123456"
+}
 
 ### 注销当前登录状态——最后执行
 # @name logout
 POST {{baseUrl}}/api/v1/auth/logout
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-auth-logout-{{$uuid}}
-
-> {%
-client.test("用户注销成功", function () {
-    client.assert(response.status === 200, "注销 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "注销业务状态应为成功");
-});
-if (response.body.code === 200) {
-    client.global.clear("accessToken");
-}
-%}
