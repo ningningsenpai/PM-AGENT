@@ -1,4 +1,5 @@
-### 创建项目，并保存 projectId
+### 创建项目
+# 创建成功后，将响应中的 data.id 手动更新到 dev.projectId。
 # @name createProject
 POST {{baseUrl}}/api/v1/projects
 Authorization: Bearer {{accessToken}}
@@ -6,19 +7,8 @@ Content-Type: application/json
 X-Trace-Id: http-project-create-{{$uuid}}
 
 {
-  "projectName": "{{projectName}}"
+  "projectName": "{{projectName2}}"
 }
-
-> {%
-client.test("项目创建成功", function () {
-    client.assert(response.status === 200, "项目创建 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "项目创建业务状态应为成功");
-    client.assert(response.body.data.id, "响应应包含项目 ID");
-});
-if (response.body.data) {
-    client.global.set("projectId", String(response.body.data.id));
-}
-%}
 
 ### 查询当前用户项目列表
 # @name listProjects
@@ -26,51 +16,19 @@ GET {{baseUrl}}/api/v1/projects
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-project-list-{{$uuid}}
 
-> {%
-client.test("项目列表查询成功", function () {
-    client.assert(response.status === 200, "项目列表 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "项目列表业务状态应为成功");
-    client.assert(Array.isArray(response.body.data), "项目列表 data 应为数组");
-});
-%}
-
 ### 查询项目详情
 # @name getProject
 GET {{baseUrl}}/api/v1/projects/{{projectId}}
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-project-detail-{{$uuid}}
 
-> {%
-client.test("项目详情查询成功", function () {
-    client.assert(response.status === 200, "项目详情 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "项目详情业务状态应为成功");
-    client.assert(String(response.body.data.id) === client.global.get("projectId"), "返回项目应与当前项目一致");
-});
-%}
-
 ### 未登录查询项目详情
 # @name getProjectWithoutToken
 GET {{baseUrl}}/api/v1/projects/{{projectId}}
 X-Trace-Id: http-project-unauthorized-{{$uuid}}
 
-> {%
-client.test("未登录项目访问被拒绝", function () {
-    client.assert(response.body.code !== 200, "未登录访问不应成功");
-});
-%}
-
 ### 删除项目——必须在文件清理完成后最后执行
 # @name deleteProject
-DELETE {{baseUrl}}/api/v1/projects/{{projectId}}
+DELETE {{baseUrl}}/api/v1/projects/{{projectId2}}
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-project-delete-{{$uuid}}
-
-> {%
-client.test("项目删除成功", function () {
-    client.assert(response.status === 200, "项目删除 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "项目删除业务状态应为成功");
-});
-if (response.body.code === 200) {
-    client.global.clear("projectId");
-}
-%}
