@@ -17,7 +17,7 @@ class AuthSchema(BaseModel):
 
 class LoginRequest(AuthSchema):
     email: str = Field(min_length=1, max_length=128)
-    password: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=6, max_length=64)
 
     @field_validator("email")
     @classmethod

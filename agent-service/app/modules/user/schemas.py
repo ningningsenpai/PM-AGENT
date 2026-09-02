@@ -1,8 +1,8 @@
 """用户请求与响应模型。"""
 from __future__ import annotations
 
-from datetime import datetime
 import re
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
@@ -48,9 +48,9 @@ class UpdateUserProfileRequest(UserSchema):
 
 
 class ChangePasswordRequest(UserSchema):
-    old_password: str = Field(min_length=1, max_length=64)
-    new_password: str = Field(min_length=8, max_length=64)
-    confirm_password: str = Field(min_length=8, max_length=64)
+    old_password: str = Field(min_length=6, max_length=64)
+    new_password: str = Field(min_length=6, max_length=64)
+    confirm_password: str = Field(min_length=6, max_length=64)
 
     @model_validator(mode="after")
     def validate_confirmation(self) -> "ChangePasswordRequest":
