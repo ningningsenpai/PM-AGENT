@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     Computed,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -40,6 +43,7 @@ class Project(TimestampMixin, Base):
             "owner_user_id",
             "record_status",
         ),
+        Index("idx_project_record_purge", "record_status", "purge_after"),
     )
 
     id: Mapped[int] = mapped_column(
@@ -71,3 +75,5 @@ class Project(TimestampMixin, Base):
         ),
         nullable=True,
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    purge_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

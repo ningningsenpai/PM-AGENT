@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
@@ -25,6 +27,8 @@ from app.project_context.index import ProjectIndexService
 from app.project_context.specification import ProjectSpecificationService
 
 logger = get_logger(__name__)
+
+PROJECT_PURGE_DELAY = timedelta(days=30)
 
 
 class ProjectService:
@@ -170,7 +174,10 @@ class ProjectService:
             project_id,
         )
         project = await self.require_owned(owner_user_id, project_id)
+        deleted_at = datetime.now()  # noqa: DTZ005
         project.record_status = ProjectRecordStatus.DISABLED.value
+        project.deleted_at = deleted_at
+        project.purge_after = deleted_at + PROJECT_PURGE_DELAY
         try:
             await self._repository.session.commit()
         except Exception as exception:

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.project.domain import ProjectRecordStatus
@@ -42,6 +44,32 @@ class ProjectRepository:
             .order_by(Project.created_at.desc())
         )
         return list((await self.session.scalars(statement)).all())
+
+    async def list_purge_due(self, now: datetime) -> list[Project]:
+        statement = (
+            select(Project)
+            .where(
+                Project.record_status == ProjectRecordStatus.DISABLED.value,
+                Project.purge_after.is_not(None),
+                Project.purge_after <= now,
+            )
+            .order_by(Project.purge_after.asc(), Project.id.asc())
+        )
+        return list((await self.session.scalars(statement)).all())
+
+    async def delete_purge_due(self, project_id: int, now: datetime) -> bool:
+        statement = (
+            delete(Project)
+            .where(
+                Project.id == project_id,
+                Project.record_status == ProjectRecordStatus.DISABLED.value,
+                Project.purge_after.is_not(None),
+                Project.purge_after <= now,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        result = await self.session.execute(statement)
+        return result.rowcount == 1
 
     async def add(self, project: Project) -> Project:
         self.session.add(project)

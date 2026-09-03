@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
@@ -376,20 +376,28 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
                 self.assertIs(expected_error, caught.exception.error)
 
     async def test_delete_owned_marks_record_disabled(self) -> None:
-        """验证删除项目只把项目记录标记为不可见。
+        """验证删除项目时记录三十天保留期限。
 
         @Param owner_user_id: 项目所有者用户 ID。
         @Param project_id: 状态为 active 的项目 ID。
         @Return: None，操作成功完成。
-        @SideEffect: 将 record_status 改为 disabled 并提交事务。
+        @SideEffect: 禁用项目、记录删除时间和最早清理时间并提交事务。
         """
         project = _project()
         repository = _repository(get_by_id=AsyncMock(return_value=project))
         service = _service(repository)
+        deleted_at = datetime(2026, 9, 3, 10, 0, 0, tzinfo=UTC)
 
-        await service.delete_owned(7, 12)
+        with patch.object(project_service_module, "datetime") as current_datetime:
+            current_datetime.now.return_value = deleted_at
+            await service.delete_owned(7, 12)
 
         self.assertEqual(ProjectRecordStatus.DISABLED.value, project.record_status)
+        self.assertEqual(deleted_at, project.deleted_at)
+        self.assertEqual(
+            datetime(2026, 10, 3, 10, 0, 0, tzinfo=UTC),
+            project.purge_after,
+        )
         repository.session.commit.assert_awaited_once()
 
     async def test_delete_owned_rolls_back_database_failure(self) -> None:
@@ -412,4 +420,6 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
 
         self.assertIs(ErrorCode.PROJECT_DELETE_FAILED, caught.exception.error)
         self.assertEqual(ProjectRecordStatus.DISABLED.value, project.record_status)
+        self.assertIsNotNone(project.deleted_at)
+        self.assertIsNotNone(project.purge_after)
         repository.session.rollback.assert_awaited_once()
