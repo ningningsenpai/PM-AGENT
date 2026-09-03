@@ -1,4 +1,5 @@
 """项目请求与响应模型。"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -34,7 +35,7 @@ class ProjectResponse(ProjectSchema):
     id: SnowflakeId
     project_name: str
     status: str
-    record_status: str = ProjectRecordStatus.ACTIVE.value
+    record_status: str = ProjectRecordStatus.ENABLED.value
     created_at: datetime
     updated_at: datetime
 

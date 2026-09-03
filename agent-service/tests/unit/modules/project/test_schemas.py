@@ -37,7 +37,7 @@ def test_project_response_serializes_snowflake_id_as_string() -> None:
         id=9007199254740993,
         project_name="PM-Agent",
         status="active",
-        record_status="active",
+        record_status="enabled",
         created_at=datetime(2026, 9, 2, 10, 0, 0, tzinfo=UTC),
         updated_at=datetime(2026, 9, 2, 10, 0, 0, tzinfo=UTC),
     )

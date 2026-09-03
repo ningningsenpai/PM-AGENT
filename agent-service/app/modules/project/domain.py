@@ -1,4 +1,5 @@
 """项目领域状态。"""
+
 from enum import StrEnum
 
 
@@ -11,5 +12,5 @@ class ProjectStatus(StrEnum):
 class ProjectRecordStatus(StrEnum):
     """项目记录是否对业务查询可见。"""
 
-    ACTIVE = "active"
-    INACTIVE = "inactive"
+    ENABLED = "enabled"
+    DISABLED = "disabled"

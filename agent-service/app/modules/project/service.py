@@ -49,21 +49,11 @@ class ProjectService:
     ) -> ProjectResponse:
         """创建项目。"""
         logger.info("创建项目 action=project.create userId=%s", owner_user_id)
-        existing = await self._repository.find_by_owner_and_name(
+        existing = await self._repository.find_enabled_by_owner_and_name(
             owner_user_id,
             request.project_name,
         )
         if existing is not None:
-            if existing.record_status == ProjectRecordStatus.INACTIVE.value:
-                existing.record_status = ProjectRecordStatus.ACTIVE.value
-                await self._repository.session.commit()
-                await self._repository.session.refresh(existing)
-                logger.info(
-                    "项目恢复成功 action=project.restore userId=%s projectId=%s",
-                    owner_user_id,
-                    existing.id,
-                )
-                return to_response(existing)
             if existing.status != ProjectStatus.INIT_FAILED.value:
                 logger.error(
                     "项目名称已存在 action=project.existing userId=%s project_name=%s",
@@ -71,36 +61,31 @@ class ProjectService:
                     request.project_name,
                 )
                 raise project_name_exists()
-            """项目状态为 INIT_FAILED，则重试初始化流程。
-            INIT_FAILED 状态可能的原因如下：
-            1. index、specification 或 Chat 上下文文件初始化失败。
-            2. 修改状态为 active 状态的事务失效
-            """
-            if existing.status == ProjectStatus.INIT_FAILED.value:
-                logger.info(
-                    "重试项目初始化 action=project.create userId=%s projectId=%s",
-                    owner_user_id,
-                    existing.id,
-                )
-                await self._repository.session.commit()
-                await self._specification.initialize(existing)
-                await self._chat_context.initialize(existing)
-                await self._index.initialize(existing)
-                existing.status = ProjectStatus.ACTIVE.value
-                await self._repository.session.commit()
-                logger.info(
-                    "项目创建成功 action=project.create userId=%s projectId=%s",
-                    owner_user_id,
-                    existing.id,
-                )
-                return to_response(existing)
+            logger.info(
+                "重试项目初始化 action=project.create userId=%s projectId=%s",
+                owner_user_id,
+                existing.id,
+            )
+            # 结束查询事务，避免项目上下文初始化运行在数据库事务中。
+            await self._repository.session.commit()
+            await self._specification.initialize(existing)
+            await self._chat_context.initialize(existing)
+            await self._index.initialize(existing)
+            existing.status = ProjectStatus.ACTIVE.value
+            await self._repository.session.commit()
+            logger.info(
+                "项目创建成功 action=project.create userId=%s projectId=%s",
+                owner_user_id,
+                existing.id,
+            )
+            return to_response(existing)
 
         project = Project(
             id=self._id_generator.next_id(),
             owner_user_id=owner_user_id,
             project_name=request.project_name,
             status=ProjectStatus.INITIALIZING.value,
-            record_status=ProjectRecordStatus.ACTIVE.value,
+            record_status=ProjectRecordStatus.ENABLED.value,
         )
         try:
             await self._repository.add(project)
@@ -172,7 +157,7 @@ class ProjectService:
         project = await self._repository.get_by_id(project_id)
         if project is None or project.owner_user_id != owner_user_id:
             raise project_not_found()
-        if project.record_status != ProjectRecordStatus.ACTIVE.value:
+        if project.record_status != ProjectRecordStatus.ENABLED.value:
             raise project_not_found()
         if project.status != ProjectStatus.ACTIVE.value:
             raise project_disabled()
@@ -185,7 +170,7 @@ class ProjectService:
             project_id,
         )
         project = await self.require_owned(owner_user_id, project_id)
-        project.record_status = ProjectRecordStatus.INACTIVE.value
+        project.record_status = ProjectRecordStatus.DISABLED.value
         try:
             await self._repository.session.commit()
         except Exception as exception:

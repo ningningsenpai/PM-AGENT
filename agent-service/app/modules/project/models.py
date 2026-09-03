@@ -1,9 +1,11 @@
 """项目持久化模型。"""
+
 from __future__ import annotations
 
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    Computed,
     ForeignKey,
     Index,
     Integer,
@@ -21,15 +23,15 @@ class Project(TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint(
             "owner_user_id",
-            "project_name",
-            name="uk_project_owner_name",
+            "enabled_project_name",
+            name="uk_project_owner_enabled_name",
         ),
         CheckConstraint(
             "status IN ('initializing', 'active', 'init_failed')",
             name="ck_project_status",
         ),
         CheckConstraint(
-            "record_status IN ('active', 'inactive')",
+            "record_status IN ('enabled', 'disabled')",
             name="ck_project_record_status",
         ),
         Index("idx_project_owner_status", "owner_user_id", "status"),
@@ -59,5 +61,13 @@ class Project(TimestampMixin, Base):
     record_status: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
-        default=ProjectRecordStatus.ACTIVE.value,
+        default=ProjectRecordStatus.ENABLED.value,
+    )
+    enabled_project_name: Mapped[str | None] = mapped_column(
+        String(128),
+        Computed(
+            "CASE WHEN record_status = 'enabled' THEN project_name ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
     )

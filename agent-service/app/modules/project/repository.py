@@ -1,4 +1,5 @@
 """项目数据访问。"""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -15,7 +16,7 @@ class ProjectRepository:
     async def get_by_id(self, project_id: int) -> Project | None:
         return await self.session.get(Project, project_id)
 
-    async def find_by_owner_and_name(
+    async def find_enabled_by_owner_and_name(
         self,
         owner_user_id: int,
         project_name: str,
@@ -25,6 +26,7 @@ class ProjectRepository:
             .where(
                 Project.owner_user_id == owner_user_id,
                 Project.project_name == project_name,
+                Project.record_status == ProjectRecordStatus.ENABLED.value,
             )
             .limit(1)
         )
@@ -35,7 +37,7 @@ class ProjectRepository:
             select(Project)
             .where(
                 Project.owner_user_id == owner_user_id,
-                Project.record_status == ProjectRecordStatus.ACTIVE.value,
+                Project.record_status == ProjectRecordStatus.ENABLED.value,
             )
             .order_by(Project.created_at.desc())
         )

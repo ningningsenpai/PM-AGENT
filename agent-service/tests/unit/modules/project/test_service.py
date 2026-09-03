@@ -23,7 +23,7 @@ def _project(
     owner_user_id: int = 7,
     project_name: str = "PM-Agent",
     status: str = "active",
-    record_status: str = "active",
+    record_status: str = "enabled",
 ) -> Project:
     project = Project(
         owner_user_id=owner_user_id,
@@ -36,6 +36,7 @@ def _project(
     project.updated_at = datetime(2026, 7, 27, 9, 0, 0)
     return project
 
+
 def _repository(**overrides):
     defaults = {
         "session": SimpleNamespace(
@@ -43,7 +44,7 @@ def _repository(**overrides):
             rollback=AsyncMock(),
             refresh=AsyncMock(),
         ),
-        "find_by_owner_and_name": AsyncMock(return_value=None),
+        "find_enabled_by_owner_and_name": AsyncMock(return_value=None),
         "list_by_owner": AsyncMock(return_value=[]),
         "get_by_id": AsyncMock(return_value=None),
         "add": AsyncMock(),
@@ -124,7 +125,7 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         created = repository.add.await_args.args[0]
         self.assertEqual(12, created.id)
         self.assertEqual("active", created.status)
-        self.assertEqual("active", created.record_status)
+        self.assertEqual("enabled", created.record_status)
         self.assertEqual("active", result.status)
         specification.initialize.assert_awaited_once_with(created)
         chat_context.initialize.assert_awaited_once_with(created)
@@ -142,7 +143,7 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         @Return: 抛出 PROJECT_NAME_EXISTS 的 AppException。
         """
         repository = _repository(
-            find_by_owner_and_name=AsyncMock(return_value=_project())
+            find_enabled_by_owner_and_name=AsyncMock(return_value=_project())
         )
         service = _service(repository)
 
@@ -155,24 +156,32 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         self.assertIs(ErrorCode.PROJECT_NAME_EXISTS, caught.exception.error)
         repository.add.assert_not_awaited()
 
-    async def test_create_restores_inactive_project(self) -> None:
-        """验证同名已删除项目会恢复原记录。"""
-        existing = _project(record_status="inactive")
-        repository = _repository(
-            find_by_owner_and_name=AsyncMock(return_value=existing)
-        )
-        service = _service(repository)
+    async def test_create_uses_new_record_when_disabled_duplicate_is_ignored(
+        self,
+    ) -> None:
+        """验证同名已删除项目不参与创建判重。"""
+        repository = _repository()
+
+        async def stamp_timestamps(project: Project) -> Project:
+            project.created_at = datetime(2026, 7, 27, 9, 0, 0)
+            project.updated_at = datetime(2026, 7, 27, 9, 0, 0)
+            return project
+
+        repository.add.side_effect = stamp_timestamps
+        service = _service(repository, id_generator=_id_generator(24))
 
         result = await service.create(
             7,
             CreateProjectRequest(project_name="PM-Agent"),
         )
 
-        self.assertEqual(12, result.id)
-        self.assertEqual(ProjectRecordStatus.ACTIVE.value, result.record_status)
-        repository.add.assert_not_awaited()
-        repository.session.commit.assert_awaited_once()
-        repository.session.refresh.assert_awaited_once_with(existing)
+        self.assertEqual(24, result.id)
+        self.assertEqual(ProjectRecordStatus.ENABLED.value, result.record_status)
+        repository.find_enabled_by_owner_and_name.assert_awaited_once_with(
+            7,
+            "PM-Agent",
+        )
+        repository.add.assert_awaited_once()
 
     async def test_create_retries_failed_initialization(self) -> None:
         """验证初始化失败的同名项目会复用原记录重试。
@@ -184,7 +193,7 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         """
         existing = _project(status="init_failed")
         repository = _repository(
-            find_by_owner_and_name=AsyncMock(return_value=existing)
+            find_enabled_by_owner_and_name=AsyncMock(return_value=existing)
         )
         index = AsyncMock()
         specification = AsyncMock()
@@ -352,7 +361,7 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
             (None, ErrorCode.PROJECT_NOT_FOUND),
             (_project(owner_user_id=8), ErrorCode.PROJECT_NOT_FOUND),
             (
-                _project(record_status="inactive"),
+                _project(record_status="disabled"),
                 ErrorCode.PROJECT_NOT_FOUND,
             ),
             (_project(status="init_failed"), ErrorCode.PROJECT_DISABLED),
@@ -366,13 +375,13 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
                     await service.get_owned(7, 12)
                 self.assertIs(expected_error, caught.exception.error)
 
-    async def test_delete_owned_marks_record_inactive(self) -> None:
+    async def test_delete_owned_marks_record_disabled(self) -> None:
         """验证删除项目只把项目记录标记为不可见。
 
         @Param owner_user_id: 项目所有者用户 ID。
         @Param project_id: 状态为 active 的项目 ID。
         @Return: None，操作成功完成。
-        @SideEffect: 将 record_status 改为 inactive 并提交事务。
+        @SideEffect: 将 record_status 改为 disabled 并提交事务。
         """
         project = _project()
         repository = _repository(get_by_id=AsyncMock(return_value=project))
@@ -380,7 +389,7 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
 
         await service.delete_owned(7, 12)
 
-        self.assertEqual(ProjectRecordStatus.INACTIVE.value, project.record_status)
+        self.assertEqual(ProjectRecordStatus.DISABLED.value, project.record_status)
         repository.session.commit.assert_awaited_once()
 
     async def test_delete_owned_rolls_back_database_failure(self) -> None:
@@ -402,5 +411,5 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
             await service.delete_owned(7, 12)
 
         self.assertIs(ErrorCode.PROJECT_DELETE_FAILED, caught.exception.error)
-        self.assertEqual(ProjectRecordStatus.INACTIVE.value, project.record_status)
+        self.assertEqual(ProjectRecordStatus.DISABLED.value, project.record_status)
         repository.session.rollback.assert_awaited_once()
