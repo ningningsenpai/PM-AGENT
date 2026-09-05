@@ -25,6 +25,12 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 docker compose --profile rag --env-file deploy/.env -f deploy/docker-compose.yml up -d qdrant
 ```
 
+## 后端开发启动
+
+在 `agent-service/` 目录中，普通开发使用 `python -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8000`，热重载只监听 `app/`。测试脚本、调用记录和测试源文件不纳入监听范围。
+
+PyCharm 断点调试使用项目提供的 `agent-service 调试` 运行配置，以单进程启动并关闭热重载；`agent-service 热重载` 配置用于普通 Run。切换配置前停止已有后端进程，修改 `.env` 后手动重启。详细步骤见 `agent-service/README.md` 的“启动后端”。
+
 ## 数据库迁移
 
 容器只负责创建空数据库，不在 `deploy/mysql/init/` 放业务建表脚本。唯一 Schema 所有者是 Python Alembic：

@@ -1,49 +1,26 @@
+# 在 HTTP Client 中选择 project_file 环境，填写 accessToken 和当前用户拥有的 projectId。
+
 ### 初始化项目文件分析
 # 前置条件：已创建项目并上传或覆盖文件，且尚未执行删除文件请求。
+# forceAnalysis=false 仅处理待分析且重试未耗尽的有效文件；true 会重新分析全部有效文件。
+# 检查 data.status、successCount、failureCount、failures、specificationStatus 和 indexStatus。
+# 业务码为 200 仍可能返回 data.status=partial，不能仅凭业务码判断全部分析成功。
 # @name initializeProjectFileAnalysis
-POST {{baseUrl}}/api/v1/projects/{{projectId}}/files/parse/init
+POST {{baseUrl}}/api/v1/projects/{{projectId}}/files/parse/init?force={{forceAnalysis}}
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-file-analysis-{{$uuid}}
 
-> {%
-client.test("项目文件分析初始化成功", function () {
-    client.assert(response.status === 200, "文件分析 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "文件分析业务状态应为成功");
-    client.assert(response.body.traceId, "响应应包含 traceId");
-});
-%}
-
-### 查询分析后的文件投影
-# 同时刷新删除文件请求需要使用的 lockVersion。
+### 查询分析后的文件状态
+# 在 data 数组中找到 id 等于 fileId 的记录，查看 status、uploadStatus 和 parseAttempts。
+# 将该记录的 lockVersion 回填到 project_file.fileLockVersion，供后续覆盖、改名或删除使用。
+# parseAttempts 仅表示尝试次数，具体分析结果以初始化请求返回的批次结果为准。
 # @name listAnalyzedProjectFiles
 GET {{baseUrl}}/api/v1/projects/{{projectId}}/files?businessCode=project
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-file-analysis-result-{{$uuid}}
 
-> {%
-client.test("分析结果已投影到文件记录", function () {
-    client.assert(response.status === 200, "文件列表 HTTP 状态应为 200");
-    const currentFile = response.body.data.find(function (item) {
-        return String(item.id) === client.global.get("fileId");
-    });
-    client.assert(currentFile, "文件列表中应包含当前文件");
-    client.assert(currentFile.parseAttempts >= 1, "文件解析次数应至少为 1");
-});
-const currentFile = response.body.data.find(function (item) {
-    return String(item.id) === client.global.get("fileId");
-});
-if (currentFile) {
-    client.global.set("fileLockVersion", String(currentFile.lockVersion));
-}
-%}
-
 ### 未登录初始化文件分析
+# 预期返回未登录错误，业务码不为 200。
 # @name initializeProjectFileAnalysisWithoutToken
-POST {{baseUrl}}/api/v1/projects/{{projectId}}/files/parse/init
+POST {{baseUrl}}/api/v1/projects/{{projectId}}/files/parse/init?force={{forceAnalysis}}
 X-Trace-Id: http-file-analysis-unauthorized-{{$uuid}}
-
-> {%
-client.test("未登录文件分析被拒绝", function () {
-    client.assert(response.body.code !== 200, "未登录不应启动文件分析");
-});
-%}

@@ -203,9 +203,28 @@ python -m alembic upgrade head --sql
 
 ## 启动后端
 
+在 `agent-service/` 目录中执行。普通开发只监听后端源码目录：
+
 ```powershell
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8000
 ```
+
+`--reload-dir app` 将热重载监听范围限制在后端源码，修改 `tests/` 中的调试脚本、写入调用记录或调整 `project_test/` 样例不会触发服务重启。修改 `.env` 后需手动重启服务。
+
+使用 PyCharm 打开 `agent-service/` 时，可选用 `.run/` 中的项目运行配置，解释器沿用项目模块 SDK：
+
+| 配置名称 | 使用方式 | 行为 |
+|---|---|---|
+| `agent-service 调试` | 点击 Debug，进行接口断点调试 | 单进程、关闭热重载，修改后端代码后手动重启 |
+| `agent-service 热重载` | 点击 Run，进行普通开发 | 只监听 `app/`，源码变化后自动重启 |
+
+已有会监听整个目录的 FastAPI 运行配置应切换到上述配置。停止旧进程后再启动新配置，避免占用同一个 8000 端口。断点调试对应的启动参数为：
+
+```powershell
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+Windows 下热重载会通过中断信号停止子进程；如果 PyCharm 正在附加调试器，可能在 `pydevd` 栈中出现 `KeyboardInterrupt`。此时应区分业务请求异常和重载中断，并检查后续是否出现 `Application startup complete`。关闭调试配置中的热重载可避免这条子进程重启链路。
 
 健康检查：
 

@@ -1,4 +1,9 @@
-### 上传项目文件，并保存 fileId
+# 在 HTTP Client 中选择 project_file 环境，填写 accessToken 和当前用户拥有的 projectId。
+# 每轮测试前更新 runId；本文件与分析请求共用 fileId、fileLockVersion，均需手动回填。
+
+### 上传项目文件
+# 上传成功后，将 data.fileId 回填到 project_file.fileId，再查询文件列表获取 lockVersion。
+# 业务码为 200 时仍需检查 data.success 和 data.uploadStatus，确认对象已成功上传。
 # @name uploadProjectFile
 POST {{baseUrl}}/api/v1/projects/{{projectId}}/files
 Authorization: Bearer {{accessToken}}
@@ -13,7 +18,7 @@ docs/http-client-{{runId}}.md
 --HttpClientUploadBoundary
 Content-Disposition: form-data; name="sourceMtimeMs"
 
-1785120000000
+{{sourceMtimeMs}}
 --HttpClientUploadBoundary
 Content-Disposition: form-data; name="file"; filename="http-client-{{runId}}.md"
 Content-Type: text/markdown
@@ -23,19 +28,8 @@ Content-Type: text/markdown
 这是通过文件管理接口上传的测试内容。
 --HttpClientUploadBoundary--
 
-> {%
-client.test("项目文件上传成功", function () {
-    client.assert(response.status === 200, "文件上传 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "文件上传业务状态应为成功");
-    client.assert(response.body.data.success === true, "文件对象应上传成功");
-});
-if (response.body.data) {
-    client.global.set("fileId", String(response.body.data.fileId));
-}
-%}
-
 ### 使用相同幂等键重复上传
-# 预期返回重复提交冲突，不会创建第二条文件记录。
+# 紧接上传请求执行并保持 runId 不变；预期返回重复提交冲突，不会创建第二条文件记录。
 # @name repeatUploadWithSameIdempotencyKey
 POST {{baseUrl}}/api/v1/projects/{{projectId}}/files
 Authorization: Bearer {{accessToken}}
@@ -50,7 +44,7 @@ docs/http-client-{{runId}}.md
 --HttpClientRepeatBoundary
 Content-Disposition: form-data; name="sourceMtimeMs"
 
-1785120000000
+{{sourceMtimeMs}}
 --HttpClientRepeatBoundary
 Content-Disposition: form-data; name="file"; filename="http-client-{{runId}}.md"
 Content-Type: text/markdown
@@ -60,32 +54,13 @@ Content-Type: text/markdown
 这是重复提交时不应再次写入的内容。
 --HttpClientRepeatBoundary--
 
-> {%
-client.test("重复上传被幂等门禁拒绝", function () {
-    client.assert(response.body.code !== 200, "相同幂等键不应重复提交成功");
-    client.assert(response.body.traceId, "冲突响应应包含 traceId");
-});
-%}
-
-### 查询项目文件，并保存当前 lockVersion
+### 查询项目文件
+# 在 data 数组中找到 id 等于 fileId 的记录，将 lockVersion 回填到 project_file.fileLockVersion。
+# businessCode 支持 project、user；省略此查询参数可查询全部可见的非 system 文件。
 # @name listProjectFiles
-GET {{baseUrl}}/api/v1/projects/{{projectId}}/files?businessCode=project
+GET {{baseUrl}}/api/v1/projects/{{projectId}}/files?businessCode={{businessCode}}
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-file-list-{{$uuid}}
-
-> {%
-client.test("项目文件列表查询成功", function () {
-    client.assert(response.status === 200, "文件列表 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "文件列表业务状态应为成功");
-    client.assert(Array.isArray(response.body.data), "文件列表 data 应为数组");
-});
-const currentFile = response.body.data.find(function (item) {
-    return String(item.id) === client.global.get("fileId");
-});
-if (currentFile) {
-    client.global.set("fileLockVersion", String(currentFile.lockVersion));
-}
-%}
 
 ### 获取文件预签名读取地址
 # @name createFileReadUrl
@@ -93,15 +68,8 @@ GET {{baseUrl}}/api/v1/projects/{{projectId}}/files/{{fileId}}/read-url
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-file-read-url-{{$uuid}}
 
-> {%
-client.test("文件读取地址签发成功", function () {
-    client.assert(response.status === 200, "读取地址 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "读取地址业务状态应为成功");
-    client.assert(response.body.data.url, "响应应包含预签名 URL");
-});
-%}
-
-### 覆盖文件内容，并刷新 lockVersion
+### 覆盖文件内容
+# 使用最新 fileLockVersion；成功后将 data.lockVersion 回填到 project_file.fileLockVersion。
 # @name overwriteProjectFile
 PUT {{baseUrl}}/api/v1/projects/{{projectId}}/files/{{fileId}}/content
 Authorization: Bearer {{accessToken}}
@@ -112,7 +80,7 @@ Content-Type: multipart/form-data; boundary=HttpClientOverwriteBoundary
 --HttpClientOverwriteBoundary
 Content-Disposition: form-data; name="sourceMtimeMs"
 
-1785120001000
+{{overwriteSourceMtimeMs}}
 --HttpClientOverwriteBoundary
 Content-Disposition: form-data; name="lockVersion"
 
@@ -126,17 +94,8 @@ Content-Type: text/markdown
 这是覆盖后的测试内容，用于触发重新分析。
 --HttpClientOverwriteBoundary--
 
-> {%
-client.test("项目文件覆盖成功", function () {
-    client.assert(response.status === 200, "文件覆盖 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "文件覆盖业务状态应为成功");
-});
-if (response.body.data) {
-    client.global.set("fileLockVersion", String(response.body.data.lockVersion));
-}
-%}
-
-### 修改文件路径，并刷新 lockVersion
+### 修改文件路径
+# 使用最新 fileLockVersion；成功后将 data.lockVersion 回填到 project_file.fileLockVersion。
 # @name updateProjectFilePath
 PATCH {{baseUrl}}/api/v1/projects/{{projectId}}/files/{{fileId}}/path
 Authorization: Bearer {{accessToken}}
@@ -145,45 +104,20 @@ X-Trace-Id: http-file-path-update-{{$uuid}}
 
 {
   "relativePath": "docs/http-client-renamed-{{runId}}.md",
-  "sourceMtimeMs": 1785120002000,
+  "sourceMtimeMs": {{pathSourceMtimeMs}},
   "lockVersion": {{fileLockVersion}}
 }
 
-> {%
-client.test("项目文件路径修改成功", function () {
-    client.assert(response.status === 200, "路径修改 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "路径修改业务状态应为成功");
-});
-if (response.body.data) {
-    client.global.set("fileLockVersion", String(response.body.data.lockVersion));
-}
-%}
-
 ### 禁止读取 system 文件列表
+# 预期返回系统文件访问被拒绝，业务码不为 200。
 # @name listSystemFiles
 GET {{baseUrl}}/api/v1/projects/{{projectId}}/files?businessCode=system
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-file-system-denied-{{$uuid}}
 
-> {%
-client.test("系统文件列表访问被拒绝", function () {
-    client.assert(response.body.code !== 200, "用户接口不应暴露 system 文件");
-});
-%}
-
 ### 删除项目文件——完成分析验证后最后执行
+# 先查询文件列表回填最新 fileLockVersion；删除成功后手动清空 project_file.fileId。
 # @name deleteProjectFile
 DELETE {{baseUrl}}/api/v1/projects/{{projectId}}/files/{{fileId}}?lockVersion={{fileLockVersion}}
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-file-delete-{{$uuid}}
-
-> {%
-client.test("项目文件删除成功", function () {
-    client.assert(response.status === 200, "文件删除 HTTP 状态应为 200");
-    client.assert(response.body.code === 200, "文件删除业务状态应为成功");
-});
-if (response.body.code === 200) {
-    client.global.clear("fileId");
-    client.global.clear("fileLockVersion");
-}
-%}

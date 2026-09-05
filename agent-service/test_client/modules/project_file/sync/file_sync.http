@@ -1,0 +1,26 @@
+# 在 HTTP Client 中选择 project_file 环境，填写 accessToken 和当前用户拥有的 projectId。
+
+### 生成项目文件同步计划
+# 将 syncRelativePath、syncSizeBytes、syncSourceMtimeMs、syncContentHash、syncContentType 替换为本地文件元数据。
+# syncContentHash 必须是文件实际内容的完整 SHA-256；缺失或格式错误的文件会进入 rejected。
+# syncSnapshotComplete=false 表示部分清单；仅提交完整项目清单时才设为 true，以生成删除计划。
+# 接口仅返回差异计划，不会执行上传、覆盖、移动或删除。
+# @name planProjectFileSync
+POST {{baseUrl}}/api/v1/projects/{{projectId}}/files/sync/plan
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+X-Trace-Id: http-file-sync-plan-{{$uuid}}
+
+{
+  "snapshotComplete": {{syncSnapshotComplete}},
+  "scope": "project",
+  "items": [
+    {
+      "relativePath": "{{syncRelativePath}}",
+      "sizeBytes": {{syncSizeBytes}},
+      "sourceMtimeMs": {{syncSourceMtimeMs}},
+      "contentHash": "{{syncContentHash}}",
+      "contentType": "{{syncContentType}}"
+    }
+  ]
+}

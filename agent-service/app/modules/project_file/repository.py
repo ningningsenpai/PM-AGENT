@@ -51,6 +51,7 @@ class ProjectFileRepository:
         *,
         include_system: bool = False,
     ) -> list[ProjectFile]:
+        """返回 MySQL 中该项目文件的记录信息"""
         statement = select(ProjectFile).where(ProjectFile.project_id == project_id)
         if business_code:
             statement = statement.where(ProjectFile.business_code == business_code)

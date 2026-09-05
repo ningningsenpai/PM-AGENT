@@ -12,6 +12,7 @@ class IdempotencyGuard:
         self._redis = redis_provider
 
     async def claim(self, user_id: int, scope: str, key: str | None) -> None:
+        """文件上传幂等判断"""
         normalized = (key or "").strip()
         if not normalized:
             raise AppException(ErrorCode.IDEMPOTENCY_KEY_MISSING)
