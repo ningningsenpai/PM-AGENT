@@ -1,4 +1,5 @@
 """项目上下文结构化模型生成器测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -8,7 +9,7 @@ from unittest.mock import AsyncMock
 from pydantic import BaseModel
 
 from app.llm.contracts import LLMAssistantTurn
-from app.llm.structured import StructuredJsonGenerator
+from app.llm.structured import StructuredJsonGenerator, StructuredOutputError
 
 
 class _Payload(BaseModel):
@@ -72,3 +73,54 @@ class StructuredJsonGeneratorTest(IsolatedAsyncioTestCase):
 
         with self.assertRaisesRegex(ValueError, "未返回结构化 JSON"):
             await generator.generate("请返回 JSON", _Payload)
+
+    async def test_truncation_diagnostics_do_not_log_content_or_reasoning(self) -> None:
+        client = SimpleNamespace(
+            complete_turn=AsyncMock(
+                return_value=LLMAssistantTurn(
+                    content="未完成的敏感正文",
+                    reasoning_content="模型内部推理内容",
+                    finish_reason="length",
+                )
+            )
+        )
+        generator = StructuredJsonGenerator(
+            client, max_tokens=4096, timeout_seconds=120
+        )
+
+        with (
+            self.assertLogs("app.llm.structured", level="INFO") as logs,
+            self.assertRaisesRegex(StructuredOutputError, "max_tokens=4096"),
+        ):
+            await generator.generate("项目文件原文", _Payload)
+
+        text = "\n".join(logs.output)
+        self.assertIn("finishReason=length", text)
+        self.assertNotIn("未完成的敏感正文", text)
+        self.assertNotIn("模型内部推理内容", text)
+        self.assertNotIn("项目文件原文", text)
+
+    async def test_validation_diagnostics_omit_input_values(self) -> None:
+        client = SimpleNamespace(
+            complete_turn=AsyncMock(
+                return_value=LLMAssistantTurn(
+                    content='{"name":{"secret":"敏感字段值"}}',
+                    finish_reason="stop",
+                )
+            )
+        )
+        generator = StructuredJsonGenerator(
+            client, max_tokens=4096, timeout_seconds=120
+        )
+
+        with (
+            self.assertLogs("app.llm.structured", level="WARNING") as logs,
+            self.assertRaisesRegex(StructuredOutputError, "不符合字段要求"),
+        ):
+            await generator.generate("请返回 JSON", _Payload)
+
+        text = "\n".join(logs.output)
+        self.assertIn("name", text)
+        self.assertIn("string_type", text)
+        self.assertNotIn("敏感字段值", text)
+        self.assertNotIn("secret", text)

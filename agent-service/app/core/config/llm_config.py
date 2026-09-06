@@ -26,6 +26,7 @@ class FileDetailLLMConfig:
     provider: str
     request_timeout_seconds: float
     max_semantic_input_bytes: int
+    max_output_tokens: int = 16384
 
     @classmethod
     def from_env(cls) -> "FileDetailLLMConfig":
@@ -44,6 +45,9 @@ class FileDetailLLMConfig:
             ),
             max_semantic_input_bytes=int(
                 os.getenv("PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES", "262144")
+            ),
+            max_output_tokens=int(
+                os.getenv("PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS", "16384")
             ),
         )
 
@@ -97,6 +101,8 @@ class Settings:
             raise ValueError("文件语义分析模型请求超时必须大于 0 秒")
         if self.file_detail.max_semantic_input_bytes <= 0:
             raise ValueError("文件语义分析输入上限必须大于 0 字节")
+        if self.file_detail.max_output_tokens <= 0:
+            raise ValueError("文件详情与项目规范生成的输出 token 上限必须大于 0")
 
         # 按 provider 分组配置；新增厂商时在这里新增一项即可。
         # 注意：环境变量名仅占位，正式接入时若官方文档要求其它命名再调整。

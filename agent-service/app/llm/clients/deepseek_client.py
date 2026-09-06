@@ -1,7 +1,6 @@
 """DeepSeek 模型适配器。
 
-DeepSeek API 与 OpenAI Chat Completions 协议兼容，
-直接复用 :class:`OpenAICompatibleClient` 的公共实现即可。
+复用 OpenAI 兼容协议，并补充已知模型的输出上限。
 """
 
 from app.llm.clients.openai_compatible import OpenAICompatibleClient
@@ -19,3 +18,25 @@ class DeepSeekClient(OpenAICompatibleClient):
         streaming_tool_calling=True,
         reasoning_content_round_trip=True,
     )
+
+    def _build_body(self, messages: list[dict], stream: bool, **kwargs) -> dict:
+        body = super()._build_body(messages, stream, **kwargs)
+        if (
+            not stream
+            and body.get("response_format") == {"type": "json_object"}
+            and not body.get("tools")
+        ):
+            # 结构化抽取需要完整 JSON，避免默认思考过程耗尽生成额度。
+            body["thinking"] = {"type": "disabled"}
+        return body
+
+    @property
+    def max_output_tokens(self) -> int | None:
+        # V4 官方最大输出为 384K，与模型的上下文窗口分别限制。
+        if self.config.model in {
+            "deepseek-v4-pro",
+            "deepseek-v4-flash",
+            "deepseek-v4-flash-vision-exp",
+        }:
+            return 384000
+        return None

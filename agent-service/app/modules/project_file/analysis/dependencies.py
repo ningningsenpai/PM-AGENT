@@ -45,7 +45,7 @@ def get_project_file_analysis_service(
     llm = get_llm_client(file_detail_config.provider, settings.llm)
     generator = StructuredJsonGenerator(
         llm,
-        max_tokens=llm.config.reserved_output_tokens,
+        max_tokens=file_detail_config.max_output_tokens,
         timeout_seconds=file_detail_config.request_timeout_seconds,
     )
     locations = StorageLocationFactory(settings.storage)

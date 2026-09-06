@@ -139,12 +139,15 @@ Trace 落库后至少记录：
 
 文件详情和项目规范复用同一个 `StructuredJsonGenerator` 与 DeepSeek 客户端，具体 Prompt 和 Pydantic 输出模型保持独立。结构化调用启用 `response_format={"type":"json_object"}`，设置最大输出 token 与文件解析专用超时，并拒绝空响应和因 token 上限截断的响应。MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件；项目规范刷新失败保留旧对象；解析接口通过结构化批次结果返回文件、规范和索引的实际状态，不把部分失败报告为完整成功。
 
+DeepSeek 对不携带工具的非流式 JSON 生成请求显式关闭思考模式，避免默认思考消耗文件详情和项目规范的输出额度；普通对话和工具编排保持原模式。解析使用独立的 `PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS`，默认 `16384`，不再复用聊天上下文的输出预留。结构化生成记录结束原因、生成额度、输出 token 数和内容长度，不记录正文或思考文本。Pydantic 失败仅记录字段位置和错误类型，业务响应区分截断、空内容和字段不符合要求，仍执行原有严格校验。
+
 文件解析模型通过以下环境变量显式启用：
 
 ```dotenv
 PM_AGENT_FILE_DETAIL_LLM_ENABLED=true
 PM_AGENT_FILE_DETAIL_LLM_PROVIDER=deepseek
 PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS=60
+PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS=16384
 PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
 ```
 

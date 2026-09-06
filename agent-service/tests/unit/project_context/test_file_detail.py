@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
+from app.llm.structured import StructuredOutputError
 from app.project_context.file_detail.extraction import ExtractedFileContent
 from app.project_context.file_detail.schemas import (
     FileDetailSemanticOutput,
@@ -125,6 +126,19 @@ class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
         )
         generated_type = generator.generate.await_args.args[1]
         self.assertIs(FileDetailSemanticOutput, generated_type)
+
+    async def test_analyze_returns_safe_output_failure_reason(self) -> None:
+        message = "模型结构化输出达到 token 上限（max_tokens=4096），结果不完整"
+        generator = SimpleNamespace(
+            generate=AsyncMock(side_effect=StructuredOutputError(message))
+        )
+        service = FileSemanticAnalysisService(generator, max_semantic_input_bytes=1024)
+
+        result = await service.analyze(_request(), _extracted("项目内容"))
+
+        self.assertEqual("FILE_DETAIL_MODEL_OUTPUT_INVALID", result.error_code)
+        self.assertEqual(message, result.error_message)
+        self.assertIsNone(result.detail)
 
     async def test_analyze_redacts_credentials_before_model_call(self) -> None:
         generator = SimpleNamespace(generate=AsyncMock(return_value=_semantic()))

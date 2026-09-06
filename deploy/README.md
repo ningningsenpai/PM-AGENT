@@ -31,6 +31,8 @@ docker compose --profile rag --env-file deploy/.env -f deploy/docker-compose.yml
 
 PyCharm 断点调试使用项目提供的 `agent-service 调试` 运行配置，以单进程启动并关闭热重载；`agent-service 热重载` 配置用于普通 Run。切换配置前停止已有后端进程，修改 `.env` 后手动重启。详细步骤见 `agent-service/README.md` 的“启动后端”。
 
+文件详情与项目规范的模型输出额度由 `agent-service/.env` 的 `PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS` 配置，默认 `16384`，直接传入 `max_tokens`。它与普通聊天的 `DEEPSEEK_RESERVED_OUTPUT_TOKENS` 输出预留、`DEEPSEEK_CONTEXT_WINDOW_TOKENS` 上下文预算分别配置。JSON 生成显式关闭 DeepSeek 思考模式，已知 V4 模型超过 `384000` 时会在本地拒绝请求。HTTP 错误查看 `模型 HTTP 请求失败` 日志；HTTP `200` 后的截断或字段问题查看 `结构化模型生成完成` 和 `结构化模型输出校验失败` 日志。修改环境变量后重启后端，详细说明见 `agent-service/README.md` 的“文件解析链路”。
+
 ## 数据库迁移
 
 容器只负责创建空数据库，不在 `deploy/mysql/init/` 放业务建表脚本。唯一 Schema 所有者是 Python Alembic：

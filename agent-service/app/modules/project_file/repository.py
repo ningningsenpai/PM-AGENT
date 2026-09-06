@@ -68,7 +68,13 @@ class ProjectFileRepository:
         *,
         force: bool = False,
     ) -> list[ProjectFile]:
-        """获取待分析文件；强制模式会忽略详情状态和重试次数。"""
+        """
+        获取待分析文件
+        前提：files 上传完成且可用（project）
+        判断条件：detail_ref -> None, parse_attempts < MAX_PARSE_ATTEMPTS
+        force：False -> 判断条件生效，True -> 判断条件无效，执行全量重新解析
+        注：文件内容或者路径修改后会清除 detail_ref 以及 parse_attempts。（即当作新文件解析）
+        """
         statement = select(ProjectFile).where(
             ProjectFile.project_id == project_id,
             ProjectFile.status == "active",

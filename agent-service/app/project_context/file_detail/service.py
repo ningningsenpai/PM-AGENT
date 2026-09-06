@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from app.core.logger import get_logger
 from app.llm.prompts.project_context import ProjectFileDetailPrompt
-from app.llm.structured import StructuredJsonGenerator
+from app.llm.structured import StructuredJsonGenerator, StructuredOutputError
 from app.project_context.file_detail.extraction import ExtractedFileContent
 from app.project_context.file_detail.schemas import (
     FileDetail,
@@ -90,12 +90,18 @@ class FileSemanticAnalysisService:
                 prompt,
                 FileDetailSemanticOutput,
             )
-        except (ValidationError, ValueError):
+        except (ValidationError, ValueError) as exception:
+            message = (
+                str(exception)
+                if isinstance(exception, StructuredOutputError)
+                else "模型返回的文件详情格式不正确"
+            )
             logger.warning(
                 "文件语义分析模型输出无效 action=project_file.semantic.analyze "
-                "projectId=%s fileId=%s",
+                "projectId=%s fileId=%s reason=%s",
                 request.project_id,
                 request.file_id,
+                message,
             )
             return FileSemanticAnalysisResult(
                 project_id=request.project_id,
@@ -103,7 +109,7 @@ class FileSemanticAnalysisService:
                 content_hash=request.content_hash,
                 status="failed",
                 error_code="FILE_DETAIL_MODEL_OUTPUT_INVALID",
-                error_message="模型返回的文件详情格式不正确",
+                error_message=message,
             )
         except Exception:
             logger.exception(

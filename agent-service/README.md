@@ -271,6 +271,14 @@ GET http://localhost:8000/internal/health
 
 `index.json` 是可重建快照，不是业务权威数据源。文件分析服务只能读取源文件并写入派生结果。
 
+文件详情和项目规范生成将 `PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS` 作为请求中的 `max_tokens`，默认值为 `16384`，为多文件规则聚合预留足够的 JSON 输出空间。`DEEPSEEK_RESERVED_OUTPUT_TOKENS` 仅用于普通聊天的输出预留；`DEEPSEEK_CONTEXT_WINDOW_TOKENS` 用于本地上下文预算判断，三者分别配置。DeepSeek V4 的输出上限为 `384000`，依据 [DeepSeek 官方接入示例](https://api-docs.deepseek.com/quick_start/agent_integrations/oh_my_pi/)。客户端会在发送前拒绝已知 V4 模型的越界输出额度。
+
+上述 JSON 生成请求显式发送 `thinking={"type":"disabled"}`，将生成额度用于最终结构化结果，避免 DeepSeek 默认思考模式先耗尽输出额度。普通对话和工具调用沿用原有模式。响应仍须通过 Pydantic 校验；不将被截断的 JSON 或空内容当作成功结果。
+
+HTTP `200` 表示模型请求已被处理，不能据此判断业务解析成功。后端的 `结构化模型生成完成` 日志包含 `finishReason`、`maxTokens`、输出 token 数、正文和思考内容的字符数；`finishReason=length` 表示输出被截断。字段校验失败时日志只保留错误位置和类型，不保留输入值或模型正文。文件级响应沿用 `FILE_DETAIL_MODEL_OUTPUT_INVALID`，并在 `errorMessage` 中区分截断、空内容和字段不符合要求。
+
+模型返回 HTTP 错误时，后端日志会记录提供方、模型、状态码、输出额度，以及限长并隐藏当前 API 密钥的 `error.type/code/param/message` 字段；不会记录完整请求或响应正文。排查 `400` 时优先查看 `模型 HTTP 请求失败` 日志中的 `upstreamError`。`PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS` 控制文件语义分析请求超时，延长超时不能修复参数越界。修改 `.env` 后需要重启后端，再调用解析接口；如果文件已达到普通模式重试上限，可按需使用 `force=true`，它会重新分析项目中所有符合条件的活动文件。
+
 ## 测试与手工验证
 
 运行完整单元测试：
