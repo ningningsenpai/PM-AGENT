@@ -72,6 +72,7 @@ class AgentInputContextGateway:
             if terms
             else raw_query,
             trace_id=context.trace_id,
+            **({"include_source": True} if self._contexts is not None else {}),
         )
         if self._contexts is not None:
             result.retrieval = self._merge(
@@ -134,6 +135,7 @@ class AgentInputContextGateway:
                     evidence=[
                         RetrievalEvidence(
                             text=entry["content"],
+                            kind="user_statement",
                             logical_path=f"conversation/message/{entry['sourceMessageId']}",
                         )
                     ],

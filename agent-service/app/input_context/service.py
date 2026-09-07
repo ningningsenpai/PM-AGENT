@@ -28,8 +28,9 @@ class UserInputContextService:
         project_id: int,
         raw_query: str,
         trace_id: str | None = None,
+        include_source: bool = False,
     ) -> UserInputContext:
-        """只归一化当前问题，并执行不读取原文件的轻量前置召回。"""
+        """归一化当前问题，按调用方要求在既有配额内补充原文。"""
         normalization = self._retrieval.normalize_query(
             raw_query,
             project_id=project_id,
@@ -39,7 +40,7 @@ class UserInputContextService:
             project_id=project_id,
             request=RetrievalQuery(
                 query=raw_query[: self._policy.max_query_chars],
-                evidence_level="summary",
+                evidence_level="source" if include_source else "summary",
                 limit=self._policy.pre_retrieval_limit,
             ),
             trace_id=trace_id,

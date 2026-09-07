@@ -322,6 +322,33 @@ class TestInputContextRetrievalService(IsolatedAsyncioTestCase):
         self.assertEqual(raw_query, context.raw_query)
         self.assertEqual(2000, len(context.retrieval.query))
 
+    async def test_prepared_context_can_include_bounded_verbatim_source(self):
+        context = await UserInputContextService(
+            _default_normalization_service(FixtureStorage())
+        ).prepare(
+            user_id=721,
+            project_id=721,
+            raw_query="searchByNameUnsafe 的代码证据是什么？",
+            include_source=True,
+        )
+        source = [
+            evidence
+            for hit in context.retrieval.hits
+            for evidence in hit.evidence
+            if evidence.kind == "source"
+        ]
+        self.assertTrue(source)
+        self.assertLessEqual(len(source), 2)
+        self.assertLessEqual(sum(len(item.text.encode()) for item in source), 12 * 1024)
+        self.assertTrue(any("searchByNameUnsafe" in item.text for item in source))
+        self.assertTrue(
+            any(
+                evidence.kind == "summary"
+                for hit in context.retrieval.hits
+                for evidence in hit.evidence
+            )
+        )
+
     async def test_invalid_file_detail_falls_back_to_index_summary(self) -> None:
         storage = FixtureStorage()
         index = json.loads((SYSTEM_ROOT / "index.json").read_text(encoding="utf-8"))

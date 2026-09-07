@@ -1,4 +1,5 @@
 """项目上下文召回输入和输出协议。"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -47,6 +48,8 @@ class RetrievalEvidence(RetrievalSchema):
     start_line: int | None = Field(default=None, ge=1)
     end_line: int | None = Field(default=None, ge=1)
     redacted: bool = False
+    truncated: bool = False
+    kind: Literal["source", "summary", "user_statement"] = "summary"
 
 
 class RetrievalHit(RetrievalSchema):

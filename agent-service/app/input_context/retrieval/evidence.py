@@ -75,9 +75,11 @@ class RawEvidenceLoader:
                 sanitized.text,
                 candidate.source_range,
             )
-            source_text = self._truncate_utf8(source_text, remaining_bytes)
+            original_slice = source_text
+            source_text = self._truncate_utf8(source_text, min(remaining_bytes, 12000))
             if not source_text.strip():
                 continue
+            end_line = start_line + len(source_text.splitlines()) - 1
             remaining_bytes -= len(source_text.encode("utf-8"))
             candidate.source_type = "source_file"
             candidate.evidence.insert(
@@ -88,6 +90,10 @@ class RawEvidenceLoader:
                     start_line=start_line,
                     end_line=end_line,
                     redacted=bool(sanitized.flags),
+                    kind="source",
+                    truncated=source_text != original_slice
+                    or start_line > 1
+                    or end_line < len(sanitized.text.splitlines()),
                 ),
             )
             hydrated += 1

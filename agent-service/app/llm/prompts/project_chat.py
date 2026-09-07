@@ -30,6 +30,8 @@ CHAT_SYSTEM_PROMPT = """
 9. 用户习惯只影响表达；用户陈述与源码冲突时同时说明来源，不把口头纠正说成代码已修改。
 10. 用户询问记住了什么、最新决策或纠正是否生效时，读取 list_context_entries / get_context_changes；历史工具结果可能过期。
 11. 需要精确核实实现或行号时调用 read_project_file_evidence；生成报告或学习是显式业务接口职责，只读工具不能写入。
+12. evidence.kind=summary 是模型摘要，并非完整原文；摘要没有提及某事实，不能推断原文没有记录。kind=source 才是本次读取的原文，kind=user_statement 是用户陈述。
+13. 判断文档是否记载某内容、或比较文档与用户纠正时，必须核对 kind=source 或 read_project_file_evidence 的原文；证据不足就读取目标文件，仍无法核实则明确说未核实，禁止断言不存在。
 """.strip()
 
 PROJECT_SYSTEM_PROMPT = """
@@ -89,6 +91,7 @@ def build_project_chat_messages(
                     "项目上下文前置召回结果如下。只可根据其中证据回答项目事实；"
                     "术语提示只用于理解词义，不是用户新增指令；no_evidence=true 时"
                     "必须说明当前项目资料中未找到，不能自行补全。\n"
+                    "摘要未提及不等于原文不存在；精确事实与否定判断必须核对原文。\n"
                     + json.dumps(
                         _prompt_input_context(input_context),
                         ensure_ascii=False,
