@@ -11,6 +11,8 @@ from environment import REPO, ROOT, SERVICE
 
 def capture_version(flow):
     from app.core.config import get_settings
+    from app.modules.chat.learning_service import LEARNING_PROMPT_VERSION
+    from app.modules.report.service import REPORT_PROMPT_VERSION
 
     settings = get_settings().llm
     llm = settings.get_llm_config("deepseek")
@@ -53,8 +55,8 @@ def capture_version(flow):
         "config": config,
         "files": fingerprints,
         "promptVersions": {
-            "learning": "learn-v1",
-            "report": "report-v1",
+            "learning": LEARNING_PROMPT_VERSION,
+            "report": REPORT_PROMPT_VERSION,
             "fileDetail": fingerprints.get(
                 "agent-service/app/project_context/file_detail/service.py"
             ),

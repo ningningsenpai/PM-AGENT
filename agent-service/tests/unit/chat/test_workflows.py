@@ -226,7 +226,7 @@ async def test_report_rejects_invented_evidence_and_saves_failed_run(services):
 
 
 async def test_report_verified_references_and_idempotency(services):
-    service = report_service(services, "F5-L1-1")
+    service = report_service(services, "E0001")
     first = await service.generate(
         1, 11, GenerateReport(kind="development"), "report-one", "trace"
     )
@@ -239,3 +239,26 @@ async def test_report_verified_references_and_idempotency(services):
     service.generator.generate.assert_awaited_once()
     assert len(await service.list(1, 11)) == 1
     assert await service.list(1, 12) == []
+
+
+async def test_report_corrects_unknown_reference_only_once(services):
+    service = report_service(services, "E0001")
+    valid = service.generator.generate.return_value
+    invalid = valid.model_copy(deep=True)
+    invalid.claims[0].evidence_ids = ["E9999"]
+    service.generator.generate.side_effect = [invalid, valid]
+    result = await service.generate(
+        1, 11, GenerateReport(kind="development"), "repair-report", "trace"
+    )
+    assert result["status"] == "success"
+    assert service.generator.generate.await_count == 2
+    assert result["events"][0]["invalidEvidenceIds"] == ["E9999"]
+    assert "E9999" not in result["result"]["report"]["markdown"]
+    service.generator.generate.side_effect = None
+    service.generator.generate.return_value = invalid
+    failed = await service.generate(
+        1, 11, GenerateReport(kind="development"), "still-invalid", "trace"
+    )
+    assert failed["status"] == "failed"
+    assert service.generator.generate.await_count == 4
+    assert len(await service.list(1, 11)) == 1
