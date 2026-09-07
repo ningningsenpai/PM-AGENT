@@ -9,7 +9,11 @@ from pydantic import ValidationError
 
 from app.core.logger import get_logger
 from app.llm.prompts.project_context import ProjectFileDetailPrompt
-from app.llm.structured import StructuredJsonGenerator, StructuredOutputError
+from app.llm.structured import (
+    StructuredJsonGenerator,
+    StructuredOutputError,
+    StructuredOutputValidationError,
+)
 from app.project_context.file_detail.extraction import ExtractedFileContent
 from app.project_context.file_detail.schemas import (
     FileDetail,
@@ -93,10 +97,31 @@ class FileSemanticAnalysisService:
             f"\n\n{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL_FINAL_CHECK.value}"
         )
         try:
-            semantic_output = await self.generator.generate(
-                prompt,
-                FileDetailSemanticOutput,
-            )
+            for attempt in range(2):
+                try:
+                    semantic_output = await self.generator.generate(
+                        prompt, FileDetailSemanticOutput
+                    )
+                    break
+                except StructuredOutputValidationError as exception:
+                    if attempt:
+                        raise
+                    logger.warning(
+                        "文件详情字段校验未通过，限定纠正一次 projectId=%s fileId=%s",
+                        request.project_id,
+                        request.file_id,
+                    )
+                    prompt += (
+                        "\n\n上次输出未通过字段校验。请重新依据相同原文生成完整 JSON，"
+                        "补齐必填字段，禁止省略字段或只输出补丁。纠正仅允许一次。\n"
+                        + json.dumps(
+                            {
+                                "validationErrors": exception.errors,
+                                "requiredSchema": FileDetailSemanticOutput.model_json_schema(),
+                            },
+                            ensure_ascii=False,
+                        )
+                    )
         except (ValidationError, ValueError) as exception:
             message = (
                 str(exception)

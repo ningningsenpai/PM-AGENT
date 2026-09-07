@@ -9,6 +9,7 @@ from typing import TypeVar
 from pydantic import BaseModel, ValidationError
 
 from app.llm.base import BaseLLMClient
+from app.llm.telemetry import record_validation
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -20,6 +21,14 @@ class StructuredOutputError(ValueError):
 
 class StructuredOutputTruncatedError(StructuredOutputError):
     """输出额度耗尽，业务层可以缩小输入批次后重新生成。"""
+
+
+class StructuredOutputValidationError(StructuredOutputError):
+    """只携带字段位置和错误类型，供业务层有限纠正。"""
+
+    def __init__(self, errors: list):
+        super().__init__("模型返回的 JSON 不符合字段要求，请查看结构化输出校验日志")
+        self.errors = errors
 
 
 class StructuredJsonGenerator:
@@ -75,9 +84,9 @@ class StructuredJsonGenerator:
                     "type": error["type"],
                     "inputType": type(error.get("input")).__name__,
                 }
-                for error in exception.errors(
-                    include_context=False, include_url=False
-                )[:20]
+                for error in exception.errors(include_context=False, include_url=False)[
+                    :20
+                ]
             ]
             logger.warning(
                 "结构化模型输出校验失败 schema=%s errorCount=%s errors=%s",
@@ -85,6 +94,5 @@ class StructuredJsonGenerator:
                 exception.error_count(),
                 json.dumps(errors, ensure_ascii=False),
             )
-            raise StructuredOutputError(
-                "模型返回的 JSON 不符合字段要求，请查看结构化输出校验日志"
-            ) from None
+            record_validation(model_type.__name__, errors)
+            raise StructuredOutputValidationError(errors) from None

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import os
+import sqlite3
+import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
-import json
-import os
 from pathlib import Path
-import sqlite3
-import time
 from uuid import uuid4
 
 _events: ContextVar[list | None] = ContextVar("llm_events", default=None)
@@ -53,6 +53,20 @@ def safe_payload(value):
         if key:
             value = value.replace(key, "[已隐藏]")
     return value
+
+
+def record_validation(schema: str, errors: list):
+    """记录安全的结构校验位置与错误类型，不保存输入字段值。"""
+    if _events.get() is not None:
+        _events.get().append(
+            {
+                "type": "validation",
+                "stage": "structured_output",
+                "schema": schema,
+                "status": "failed",
+                "errors": errors,
+            }
+        )
 
 
 def record_tool(step, result):

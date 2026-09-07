@@ -10,7 +10,12 @@ from unittest.mock import AsyncMock
 from pydantic import ValidationError
 
 from app.llm.contracts import LLMAssistantTurn
-from app.llm.structured import StructuredJsonGenerator, StructuredOutputError
+from app.llm.structured import (
+    StructuredJsonGenerator,
+    StructuredOutputError,
+    StructuredOutputTruncatedError,
+)
+from app.llm.telemetry import capture_calls
 from app.project_context.file_detail.extraction import ExtractedFileContent
 from app.project_context.file_detail.schemas import (
     FileDetailSemanticOutput,
@@ -73,6 +78,65 @@ def _semantic() -> FileDetailSemanticOutput:
 
 
 class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
+    async def test_missing_required_field_gets_one_full_schema_correction(self):
+        payload = _semantic().model_dump()
+        payload.pop("keywords")
+        client = SimpleNamespace(
+            complete_turn=AsyncMock(
+                side_effect=[
+                    LLMAssistantTurn(content=json.dumps(payload), finish_reason="stop"),
+                    LLMAssistantTurn(
+                        content=_semantic().model_dump_json(), finish_reason="stop"
+                    ),
+                ]
+            )
+        )
+        service = FileSemanticAnalysisService(
+            StructuredJsonGenerator(client, max_tokens=24576, timeout_seconds=180),
+            max_semantic_input_bytes=1024,
+        )
+        events = []
+        with capture_calls(events):
+            result = await service.analyze(_request(), _extracted("后端使用 FastAPI"))
+        self.assertEqual("success", result.status)
+        self.assertEqual(["FastAPI"], result.detail.keywords)
+        self.assertEqual(2, client.complete_turn.await_count)
+        correction = client.complete_turn.await_args.args[0][1]["content"]
+        self.assertIn("requiredSchema", correction)
+        self.assertIn("keywords", correction)
+        self.assertEqual("missing", events[0]["errors"][0]["type"])
+        self.assertEqual("validation", events[0]["type"])
+
+    async def test_repeated_missing_field_stays_failed_without_partial_detail(self):
+        payload = _semantic().model_dump()
+        payload.pop("keywords")
+        client = SimpleNamespace(
+            complete_turn=AsyncMock(
+                return_value=LLMAssistantTurn(
+                    content=json.dumps(payload), finish_reason="stop"
+                )
+            )
+        )
+        service = FileSemanticAnalysisService(
+            StructuredJsonGenerator(client, max_tokens=24576, timeout_seconds=180),
+            max_semantic_input_bytes=1024,
+        )
+        result = await service.analyze(_request(), _extracted("后端使用 FastAPI"))
+        self.assertEqual("failed", result.status)
+        self.assertIsNone(result.detail)
+        self.assertEqual(2, client.complete_turn.await_count)
+
+    async def test_truncated_output_is_not_retried_as_field_correction(self):
+        generator = SimpleNamespace(
+            generate=AsyncMock(side_effect=StructuredOutputTruncatedError("输出不完整"))
+        )
+        result = await FileSemanticAnalysisService(
+            generator,
+            max_semantic_input_bytes=1024,
+        ).analyze(_request(), _extracted("后端使用 FastAPI"))
+        self.assertEqual("failed", result.status)
+        generator.generate.assert_awaited_once()
+
     async def test_related_path_shorthand_reaches_persistable_detail(self) -> None:
         payload = _semantic().model_dump()
         reference = {"path": "StudentService.java", "relation": "调用业务服务"}
@@ -92,9 +156,7 @@ class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
         result = await service.analyze(_request(), _extracted("引用 ./api.ts"))
 
         self.assertEqual("success", result.status)
-        self.assertEqual(
-            [{"path": "./api.ts"}, reference], result.detail.related_files
-        )
+        self.assertEqual([{"path": "./api.ts"}, reference], result.detail.related_files)
         self.assertEqual(30, result.detail.file_id)
         client.complete_turn.assert_awaited_once()
 
