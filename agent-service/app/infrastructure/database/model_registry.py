@@ -3,5 +3,6 @@
 from app.modules.project.models import Project
 from app.modules.project_file.models import ProjectFile
 from app.modules.user.models import User
+from app.modules.chat.models import AgentContextChange, AgentContextEntry, AgentContextScope, AgentConversation, AgentMessage, AgentRun, ProjectReport
 
-__all__ = ["Project", "ProjectFile", "User"]
+__all__ = ["Project", "ProjectFile", "User", "AgentConversation", "AgentMessage", "AgentRun", "AgentContextEntry", "AgentContextChange", "AgentContextScope", "ProjectReport"]

@@ -42,6 +42,12 @@ def safe_payload(value):
     return value
 
 
+def record_tool(step, result):
+    """记录工具完整结果，失败也保留调用关联与耗时。"""
+    if _events.get() is not None:
+        _events.get().append({"type": "tool", "step": step, **safe_payload(result.model_dump(mode="json"))})
+
+
 class ModelCall:
     """先持久化预算预留，再发请求；未知用量保留预留，避免按零费用计算。"""
 
@@ -65,6 +71,7 @@ class ModelCall:
                     raise ValueError("本次测试的模型费用预留超过累计预算，已停止新的付费请求")
                 conn.execute("INSERT INTO calls VALUES (?,?,?,?)", (self.id, self.reserved, self.reserved, "reserved"))
         self.event = {
+            "type": "model",
             "callId": self.id, "startedAt": datetime.now(UTC).isoformat(),
             "request": safe_payload(body), "status": "running", "reservedCny": self.reserved,
         }

@@ -53,12 +53,12 @@ class ConversationContext(BaseModel):
     """对话业务上下文"""
 
     project_id: SnowflakeId = Field(..., description="当前项目 ID")
-    iteration_id: int = Field(..., description="当前迭代 ID, 用于区分多轮对话")
+    iteration_id: int | None = Field(None, description="当前业务迭代 ID；未使用迭代时为空")
     context_total_usage: int = Field(
         ...,
         description="当前迭代ID轮次对应的总token消耗数量，用于统计上下文长度从而进行上下文压缩或者切分"
     )
-    task_id: int = Field(..., description="当前任务 ID")
+    task_id: int | None = Field(None, description="当前任务 ID")
 
 
 class UserContext(BaseModel):

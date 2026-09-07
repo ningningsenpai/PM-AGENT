@@ -56,6 +56,9 @@ class ProjectChatAgent:
         self,
         request: AgentChatRequest,
         user_id: int,
+        *,
+        history: list[dict] | None = None,
+        protocol_out: list[dict] | None = None,
     ) -> ChatResponse:
         """执行非流式原生工具调用循环。"""
         llm = self._resolve_llm(request)
@@ -63,6 +66,9 @@ class ProjectChatAgent:
         context = self._execution_context(request, user_id)
         input_context = await self._prepare_input_context(request, context)
         messages = self._build_messages(request, llm, input_context)
+        if history is not None:
+            messages = [message for message in messages if message["role"] == "system"] + history + [{"role": "user", "content": request.messages[-1].content}]
+        protocol_start = len(messages) - 1
         records: list[ToolCallRecord] = []
         usage_summary = LLMTokenUsageSummary()
         total_tool_calls = 0
@@ -80,6 +86,9 @@ class ProjectChatAgent:
                     raise AppException(ErrorCode.SYSTEM_ERROR, "模型回答达到输出上限，未生成完整结果")
                 if not turn.content:
                     raise AppException(ErrorCode.SYSTEM_ERROR, "模型未返回有效回答")
+                if protocol_out is not None:
+                    protocol_out.extend(messages[protocol_start:])
+                    protocol_out.append({"role": "assistant", "content": turn.content})
                 return ChatResponse(
                     answer=turn.content,
                     model=llm.config.model,
@@ -93,6 +102,8 @@ class ProjectChatAgent:
             messages.append(self._assistant_message(turn))
             for call in turn.tool_calls:
                 result = await self._executor.execute(call, context)
+                from app.llm.telemetry import record_tool
+                record_tool(_step, result)
                 records.append(self._public_record(result))
                 messages.append(self._tool_message(call, result))
 
