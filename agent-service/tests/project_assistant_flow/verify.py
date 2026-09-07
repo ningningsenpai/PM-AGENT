@@ -220,6 +220,7 @@ def verify_round(flow):
         flow.client.token = token
     flow.trace()
     successful_tools, protocol_valid, calls_finished = set(), True, True
+    integrity_warnings = set()
     for path in (flow.output / "模型与工具轨迹").glob("*.json"):
         run = json.loads(path.read_text(encoding="utf-8"))
         for event in run.get("events", []):
@@ -231,6 +232,19 @@ def verify_round(flow):
                 )
                 pending = set()
                 for message in event["request"]["messages"]:
+                    if message.get("role") == "system":
+                        content = message.get("content", "")
+                        if "{" in content:
+                            try:
+                                context = json.loads(content[content.index("{") :])
+                            except (ValueError, TypeError):
+                                context = {}
+                            if isinstance(context, dict):
+                                integrity_warnings.update(
+                                    warning
+                                    for warning in context.get("warnings", [])
+                                    if "哈希" in warning or "身份" in warning
+                                )
                     if message.get("tool_calls"):
                         protocol_valid &= not pending
                         pending.update(call["id"] for call in message["tool_calls"])
@@ -247,6 +261,9 @@ def verify_round(flow):
     )
     check("模型与工具协议关联完整", protocol_valid)
     check("全部模型调用有结局和耗时", calls_finished)
+    check(
+        "真实详情与索引身份哈希一致", not integrity_warnings, sorted(integrity_warnings)
+    )
     for report_id in flow.state["reports"]:
         reports = flow.request(
             "report-read",

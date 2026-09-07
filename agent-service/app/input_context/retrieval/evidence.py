@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from app.core.errors import AppException
 from app.input_context.retrieval.candidate import RetrievalCandidate
 from app.input_context.retrieval.policy import RetrievalPolicy
 from app.input_context.retrieval.schemas import RetrievalEvidence
-from app.input_context.retrieval.snapshot import ProjectSnapshot, ProjectSnapshotReader
+from app.input_context.retrieval.snapshot import (
+    ProjectSnapshot,
+    ProjectSnapshotReader,
+    normalize_content_hash,
+)
 from app.project_context.file_detail.extraction import FileContentExtractionService
 from app.project_context.file_detail.sensitive_content import (
     SensitiveContentBlockedError,
@@ -45,6 +51,11 @@ class RawEvidenceLoader:
                 source_bytes = await self._reader.read_bytes(
                     self._reader.project_file_location(snapshot, entry.minio_path)
                 )
+                if hashlib.sha256(source_bytes).hexdigest() != normalize_content_hash(
+                    entry.content_hash
+                ):
+                    warnings.append(f"原文件内容哈希与索引不一致：{entry.logical_path}")
+                    continue
                 extracted = await self._extraction.extract_from_bytes(
                     source_bytes,
                     entry.file_type or entry.content_type,

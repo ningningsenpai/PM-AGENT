@@ -11,7 +11,11 @@ from app.input_context.retrieval.candidate import RetrievalCandidate
 from app.input_context.retrieval.planning import RetrievalPlan
 from app.input_context.retrieval.ranking import RetrievalRanker
 from app.input_context.retrieval.schemas import RetrievalEvidence
-from app.input_context.retrieval.snapshot import ProjectSnapshot, ProjectSnapshotReader
+from app.input_context.retrieval.snapshot import (
+    ProjectSnapshot,
+    ProjectSnapshotReader,
+    normalize_content_hash,
+)
 from app.project_context.file_detail.schemas import FileDetail
 
 
@@ -50,7 +54,10 @@ class FileDetailHydrator:
             if (
                 detail.project_id != snapshot.index.project_id
                 or detail.file_id != candidate.file_id
-                or detail.content_hash != candidate.content_hash
+                or not normalize_content_hash(detail.content_hash)
+                or normalize_content_hash(detail.content_hash)
+                != normalize_content_hash(candidate.content_hash)
+                or detail.original_path != candidate.logical_path
                 or detail.detail_ref != candidate.detail_ref
             ):
                 warnings.append(

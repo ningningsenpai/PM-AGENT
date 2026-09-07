@@ -1,17 +1,29 @@
 """可信项目快照定位与请求级对象缓存。"""
+
 from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
 import json
+import re
 from pathlib import PurePosixPath
 from typing import Any
 
 from pydantic import ValidationError
 
 from app.core.errors import AppException
-from app.infrastructure.storage import ObjectStorage, StorageLocation, StorageLocationFactory
+from app.infrastructure.storage import (
+    ObjectStorage,
+    StorageLocation,
+    StorageLocationFactory,
+)
 from app.project_context.index.schemas import ProjectIndexDocument
+
+
+def normalize_content_hash(value: str | None) -> str | None:
+    """兼容索引的算法前缀与详情的裸摘要，同时拒绝无效 SHA-256。"""
+    digest = (value or "").lower().removeprefix("sha256:")
+    return digest if re.fullmatch(r"[0-9a-f]{64}", digest) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,9 +60,7 @@ class ProjectSnapshotReader:
             return cached
 
         standard = self._locations.project_prefix(user_id, project_id)
-        padded_prefix = (
-            f"{self._locations.ROOT_PREFIX}/{user_id:04d}/{project_id:04d}/"
-        )
+        padded_prefix = f"{self._locations.ROOT_PREFIX}/{user_id:04d}/{project_id:04d}/"
         prefixes = tuple(dict.fromkeys((standard.object_key, padded_prefix)))
         for prefix in prefixes:
             location = StorageLocation(
@@ -96,9 +106,7 @@ class ProjectSnapshotReader:
         warnings: list[str],
     ) -> Any | None:
         try:
-            return await self.read_json(
-                self.system_location(snapshot, relative_path)
-            )
+            return await self.read_json(self.system_location(snapshot, relative_path))
         except (AppException, json.JSONDecodeError, UnicodeDecodeError, ValueError):
             warnings.append(f"{label}无法读取或结构不合法")
             return None

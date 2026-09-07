@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
@@ -357,6 +358,15 @@ class TestInputContextRetrievalService(IsolatedAsyncioTestCase):
         storage.objects[("pm-agent", f"{OBJECT_PREFIX}{entry['minio_path']}")] = (
             b"-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----"
         )
+        raw = storage.objects[("pm-agent", f"{OBJECT_PREFIX}{entry['minio_path']}")]
+        entry["content_hash"] = "sha256:" + hashlib.sha256(raw).hexdigest()
+        storage.objects[("pm-agent", f"{OBJECT_PREFIX}system/index.json")] = json.dumps(
+            index
+        ).encode()
+        detail_key = ("pm-agent", f"{OBJECT_PREFIX}{entry['detail_ref']}")
+        detail = json.loads(storage.objects[detail_key])
+        detail["content_hash"] = entry["content_hash"]
+        storage.objects[detail_key] = json.dumps(detail).encode()
 
         result = await _service(storage).retrieve(
             user_id=721,
@@ -455,3 +465,82 @@ class TestInputContextRetrievalService(IsolatedAsyncioTestCase):
                 recalled += 1
 
         self.assertEqual(len(cases), recalled)
+
+    async def test_new_bare_detail_hash_matches_prefixed_index(self):
+        storage = FixtureStorage()
+        for key, raw in list(storage.objects.items()):
+            if "/system/file_details/" in key[1]:
+                detail = json.loads(raw)
+                detail["content_hash"] = detail["content_hash"].removeprefix("sha256:")
+                storage.objects[key] = json.dumps(detail).encode()
+        result = await _service(storage).retrieve(
+            user_id=721,
+            project_id=721,
+            request=RetrievalQuery(
+                query="StudentRepository SQL 注入",
+                focus="files",
+                evidence_level="summary",
+            ),
+        )
+        self.assertFalse(
+            any("身份或内容哈希" in warning for warning in result.warnings)
+        )
+        hit = next(
+            item
+            for item in result.hits
+            if item.logical_path
+            and item.logical_path.endswith("StudentRepository.java")
+        )
+        self.assertTrue(any(item.start_line is not None for item in hit.evidence))
+
+    async def test_changed_source_does_not_become_verified_evidence(self):
+        storage = FixtureStorage()
+        index = json.loads((SYSTEM_ROOT / "index.json").read_text(encoding="utf-8"))
+        entry = next(
+            item
+            for item in index["project"]
+            if item["logical_path"].endswith("StudentRepository.java")
+        )
+        storage.objects[("pm-agent", f"{OBJECT_PREFIX}{entry['minio_path']}")] = (
+            b"unindexed-source-change"
+        )
+        result = await _service(storage).retrieve(
+            user_id=721,
+            project_id=721,
+            request=RetrievalQuery(
+                query="StudentRepository SQL 注入", evidence_level="source"
+            ),
+        )
+        self.assertTrue(any("原文件内容哈希" in warning for warning in result.warnings))
+        hit = next(
+            item for item in result.hits if item.logical_path == entry["logical_path"]
+        )
+        self.assertNotEqual("source_file", hit.source_type)
+        self.assertNotIn("unindexed-source-change", str(hit.evidence))
+
+    async def test_different_detail_hash_is_still_rejected(self):
+        storage = FixtureStorage()
+        index = json.loads((SYSTEM_ROOT / "index.json").read_text(encoding="utf-8"))
+        entry = next(
+            item
+            for item in index["project"]
+            if item["logical_path"].endswith("StudentRepository.java")
+        )
+        key = ("pm-agent", f"{OBJECT_PREFIX}{entry['detail_ref']}")
+        detail = json.loads(storage.objects[key])
+        detail["content_hash"] = "0" * 64
+        storage.objects[key] = json.dumps(detail).encode()
+        result = await _service(storage).retrieve(
+            user_id=721,
+            project_id=721,
+            request=RetrievalQuery(
+                query="StudentRepository SQL 注入",
+                focus="files",
+                evidence_level="summary",
+            ),
+        )
+        self.assertTrue(any("身份或内容哈希" in warning for warning in result.warnings))
+        hit = next(
+            item for item in result.hits if item.logical_path == entry["logical_path"]
+        )
+        self.assertEqual(entry["summary"], hit.evidence[0].text)
