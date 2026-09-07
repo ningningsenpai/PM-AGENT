@@ -319,7 +319,12 @@ class Flow:
         verify_round(self)
 
     def trace(self):
-        for run in self.state["runs"]:
+        runs = {run["id"]: run for run in self.state["runs"]}
+        for stage in ("parse", "retry"):
+            result = self.state.get(stage, {})
+            if result.get("runId"):
+                runs[result["runId"]] = {"id": result["runId"], "label": stage}
+        for run in runs.values():
             trace = self.request("trace", "GET", f"/api/v1/agent/runs/{run['id']}")
             save(self.output / "模型与工具轨迹" / f"{run['id']}.json", trace)
 
@@ -354,11 +359,18 @@ def main():
                     json={"fileIds": ids},
                 )
                 flow.state["retry"] = result
+                if result.get("runId"):
+                    trace = flow.request(
+                        "retry-trace", "GET", f"/api/v1/agent/runs/{result['runId']}"
+                    )
+                    flow.run_result("retry", trace)
             else:
                 getattr(flow, stage.replace("-", "_"))()
             if stage not in flow.state["stages"]:
                 flow.state["stages"].append(stage)
             flow.checkpoint()
+        flow.state.pop("lastError", None)
+        flow.checkpoint()
     except Exception as exc:
         flow.state["lastError"] = str(exc)
         flow.checkpoint()
@@ -386,6 +398,9 @@ def main():
                 f"累计保守记账：{sum(row['accountedCny'] for row in calls):.6f} 元 / 30 元",
                 flush=True,
             )
+        from summarize import summarize
+
+        summarize(flow.output)
 
 
 if __name__ == "__main__":

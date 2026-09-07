@@ -60,6 +60,29 @@ async def archive(output):
                 ),
                 encoding="utf-8",
             )
+        related = {
+            "agent_message": "SELECT m.* FROM agent_message m JOIN agent_conversation c ON c.id=m.conversation_id WHERE c.project_id=:id AND c.user_id=:user",
+            "agent_context_change": "SELECT c.* FROM agent_context_change c JOIN agent_context_entry e ON e.id=c.entry_id WHERE e.user_id=:user AND (e.project_id=:id OR e.project_id IS NULL)",
+        }
+        for table, statement in related.items():
+            rows = (
+                (
+                    await connection.execute(
+                        text(statement), {"id": project_id, "user": user_id}
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            (root / f"{table}.json").write_text(
+                json.dumps(
+                    [dict(row) for row in rows],
+                    ensure_ascii=False,
+                    indent=2,
+                    default=str,
+                ),
+                encoding="utf-8",
+            )
     await engine.dispose()
     storage = get_object_storage()
     for label, prefix in (

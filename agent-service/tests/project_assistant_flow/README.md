@@ -44,3 +44,12 @@ docker compose --env-file agent-service/tests/project_assistant_flow/.env.local 
 测试后端每次调用前预留预算，账本固定在活动目录，重启或新轮次不会清零。未知 usage 的失败请求保留保守估算。活动累计达到 30 元前停止新的付费请求；不要通过换活动 ID 绕过本次授权预算。
 
 每轮保留源码和配置指纹、项目/会话/runId、HTTP 请求、模型与工具轨迹、文件/条目状态、Markdown 报告、自动检查和人工事实审阅结果。源码或 Prompt 修改后重新计算连续通过轮次；最终结论需连续三轮满足固定基准，不能把脚本正常退出当作全面验收。
+
+每次阶段调用完成或失败后会更新 `本轮汇总.md`，同时在 `汇总历史/` 保留旧版本。工具次数、token、费用和 runId/traceId 从真实轨迹计算；未完成的人工事实审阅、重启检查明确标记为待办。
+
+基础设施快照独立于前端模拟脚本执行，保存本轮业务表、消息、变更记录及 MinIO 产物：
+
+```powershell
+& $flowPython agent-service/tests/project_assistant_flow/archive_round.py --campaign mvp-20260908 --round round-001
+& $flowPython agent-service/tests/project_assistant_flow/summarize.py --campaign mvp-20260908 --round round-001
+```
