@@ -111,7 +111,7 @@ def merge_specifications(
     existing: ProjectSpecificationDocument | None,
     generated: ProjectSpecificationDocument,
 ) -> ProjectSpecificationDocument:
-    """按稳定 ID 合并规则，避免模型遗漏导致旧规则丢失。"""
+    """按稳定 ID 合并增量，保留未返回的规则、阶段和其他批次的记录。"""
     if existing is None:
         return generated
 
@@ -119,6 +119,9 @@ def merge_specifications(
     new_body = generated.project_specification
     body = new_body.model_copy(
         update={
+            "development_stage": old_body.development_stage.model_copy(
+                update=new_body.development_stage.model_dump(exclude_unset=True)
+            ),
             "development_approach": _merge_rules(
                 old_body.development_approach,
                 new_body.development_approach,
@@ -145,6 +148,12 @@ def merge_specifications(
         update={
             "project_specification": body,
             "changes": _merge_changes(existing.changes, generated.changes),
+            "ignored_items": list(
+                {
+                    (item.content, item.reason): item
+                    for item in [*existing.ignored_items, *generated.ignored_items]
+                }.values()
+            ),
         }
     )
 

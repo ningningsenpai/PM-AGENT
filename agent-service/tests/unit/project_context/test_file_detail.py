@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
-from app.llm.structured import StructuredOutputError
+from app.llm.contracts import LLMAssistantTurn
+from app.llm.structured import StructuredJsonGenerator, StructuredOutputError
 from app.project_context.file_detail.extraction import ExtractedFileContent
 from app.project_context.file_detail.schemas import (
     FileDetailSemanticOutput,
@@ -71,6 +73,42 @@ def _semantic() -> FileDetailSemanticOutput:
 
 
 class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
+    async def test_related_path_shorthand_reaches_persistable_detail(self) -> None:
+        payload = _semantic().model_dump()
+        reference = {"path": "StudentService.java", "relation": "调用业务服务"}
+        payload["related_files"] = ["./api.ts", reference]
+        client = SimpleNamespace(
+            complete_turn=AsyncMock(
+                return_value=LLMAssistantTurn(
+                    content=json.dumps(payload), finish_reason="stop"
+                )
+            )
+        )
+        service = FileSemanticAnalysisService(
+            StructuredJsonGenerator(client, max_tokens=16384, timeout_seconds=120),
+            max_semantic_input_bytes=1024,
+        )
+
+        result = await service.analyze(_request(), _extracted("引用 ./api.ts"))
+
+        self.assertEqual("success", result.status)
+        self.assertEqual(
+            [{"path": "./api.ts"}, reference], result.detail.related_files
+        )
+        self.assertEqual(30, result.detail.file_id)
+        client.complete_turn.assert_awaited_once()
+
+    def test_related_files_reject_invalid_types_and_keep_array_limit(self) -> None:
+        for value in ([None], [123], [False], [[]], [""], ["   "], "api.ts", None):
+            with self.subTest(value=value), self.assertRaises(ValidationError):
+                FileDetailSemanticOutput.model_validate(
+                    {**_semantic().model_dump(), "related_files": value}
+                )
+        with self.assertRaises(ValidationError):
+            FileDetailSemanticOutput.model_validate(
+                {**_semantic().model_dump(), "related_files": ["api.ts"] * 51}
+            )
+
     def test_semantic_output_rejects_database_field_overflow(self) -> None:
         payload = _semantic().model_dump()
         payload["module"] = "x" * 129

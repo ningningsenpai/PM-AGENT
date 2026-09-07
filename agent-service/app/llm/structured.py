@@ -18,6 +18,10 @@ class StructuredOutputError(ValueError):
     """可向业务层回传的输出错误，消息不包含模型正文或校验输入值。"""
 
 
+class StructuredOutputTruncatedError(StructuredOutputError):
+    """输出额度耗尽，业务层可以缩小输入批次后重新生成。"""
+
+
 class StructuredJsonGenerator:
     """统一执行 JSON 模型调用并用 Pydantic 校验结果。"""
 
@@ -57,7 +61,7 @@ class StructuredJsonGenerator:
             turn.usage.output_tokens if turn.usage else None,
         )
         if turn.finish_reason == "length":
-            raise StructuredOutputError(
+            raise StructuredOutputTruncatedError(
                 f"模型结构化输出达到 token 上限（max_tokens={self._max_tokens}），结果不完整"
             )
         if not turn.content.strip():
@@ -66,9 +70,13 @@ class StructuredJsonGenerator:
             return model_type.model_validate_json(turn.content)
         except ValidationError as exception:
             errors = [
-                {"loc": str(error["loc"])[:200], "type": error["type"]}
+                {
+                    "loc": str(error["loc"])[:200],
+                    "type": error["type"],
+                    "inputType": type(error.get("input")).__name__,
+                }
                 for error in exception.errors(
-                    include_input=False, include_context=False, include_url=False
+                    include_context=False, include_url=False
                 )[:20]
             ]
             logger.warning(

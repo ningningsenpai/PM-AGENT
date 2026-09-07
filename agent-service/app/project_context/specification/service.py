@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections import deque
 from datetime import datetime
 from typing import Any, Iterable, Literal
 
@@ -13,7 +14,7 @@ from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
 from app.llm.prompts.project_context import ProjectSpecificationPrompt
-from app.llm.structured import StructuredJsonGenerator
+from app.llm.structured import StructuredJsonGenerator, StructuredOutputTruncatedError
 from app.project_context.file_detail.schemas import FileDetail
 from app.project_context.file_detail.sensitive_content import (
     SensitiveContentBlockedError,
@@ -31,7 +32,10 @@ SpecificationRefreshStatus = Literal["updated", "kept"]
 
 
 class ProjectSpecificationService:
-    """聚合全部有效详情规则候选，并稳定合并项目规范。"""
+    """分批聚合全部有效详情规则候选，合并完成后发布项目规范。"""
+
+    _MAX_BATCH_CANDIDATES = 12
+    _MAX_BATCH_SOURCE_CHARS = 12000
 
     _RULE_FIELDS = (
         "development_approach",
@@ -81,14 +85,10 @@ class ProjectSpecificationService:
         if self._generator is None:
             raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED)
 
-        prompt = self._build_prompt(project, existing, sources, inventory)
         try:
-            generated = await self._generator.generate(
-                prompt,
-                ProjectSpecificationDocument,
+            generated = await self._generate_batches(
+                project, existing, sources, inventory
             )
-            if generated.project_id != project.id:
-                raise ValueError("项目规范中的项目 ID 与当前项目不一致")
             document = merge_specifications(existing, generated)
             document = self._mark_unreconciled_rules(
                 document,
@@ -118,6 +118,88 @@ class ProjectSpecificationService:
             raise AppException(
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
             ) from exception
+
+    async def _generate_batches(
+        self,
+        project,
+        existing: ProjectSpecificationDocument | None,
+        sources: list[dict[str, Any]],
+        inventory: list[dict[str, Any]],
+    ) -> ProjectSpecificationDocument:
+        """仅合并完整批次；截断时二分候选，最小批次仍失败则保留旧规范。"""
+        assert self._generator is not None
+        pending = deque(self._batch_sources(sources) or [[]])
+        generated: ProjectSpecificationDocument | None = None
+        completed = 0
+        while pending:
+            batch = pending.popleft()
+            candidate_count = sum(len(item["rule_candidates"]) for item in batch)
+            current = (
+                merge_specifications(existing, generated)
+                if generated is not None
+                else existing
+            )
+            logger.info(
+                "开始生成项目规范批次 action=project.specification.batch "
+                "projectId=%s batch=%s candidateCount=%s remainingBatches=%s",
+                project.id, completed + 1, candidate_count, len(pending),
+            )
+            try:
+                result = await self._generator.generate(
+                    self._build_prompt(project, current, batch, inventory),
+                    ProjectSpecificationDocument,
+                )
+            except StructuredOutputTruncatedError:
+                if candidate_count <= 1:
+                    raise
+                smaller_batches = self._batch_sources(
+                    batch, max_candidates=(candidate_count + 1) // 2
+                )
+                pending.extendleft(reversed(smaller_batches))
+                logger.warning(
+                    "项目规范批次输出被截断，拆分后重试 "
+                    "action=project.specification.batch projectId=%s "
+                    "candidateCount=%s splitCount=%s",
+                    project.id, candidate_count, len(smaller_batches),
+                )
+                continue
+            if result.project_id != project.id:
+                raise ValueError("项目规范中的项目 ID 与当前项目不一致")
+            generated = merge_specifications(generated, result)
+            completed += 1
+        assert generated is not None
+        return generated
+
+    def _batch_sources(
+        self,
+        sources: list[dict[str, Any]],
+        *,
+        max_candidates: int = _MAX_BATCH_CANDIDATES,
+    ) -> list[list[dict[str, Any]]]:
+        """按候选数量和文本长度分批，单个大文件也可拆分，不丢弃候选。"""
+        batches: list[list[dict[str, Any]]] = []
+        batch: list[dict[str, Any]] = []
+        count = size = 0
+        for source in sources:
+            for candidate in source["rule_candidates"]:
+                entry = {**source, "rule_candidates": [candidate]}
+                entry_size = len(json.dumps(entry, ensure_ascii=False))
+                if batch and (
+                    count >= max_candidates
+                    or size + entry_size > self._MAX_BATCH_SOURCE_CHARS
+                ):
+                    batches.append(batch)
+                    batch = []
+                    count = size = 0
+                if batch and batch[-1]["source_ref"] == source["source_ref"]:
+                    batch[-1]["rule_candidates"].append(candidate)
+                else:
+                    batch.append(entry)
+                count += 1
+                size += entry_size
+        if batch:
+            batches.append(batch)
+        return batches
 
     def _location(self, project):
         return self._locations.system_file(
@@ -230,6 +312,7 @@ class ProjectSpecificationService:
                 "project_name": project.project_name,
                 "source_selection": "全部当前有效文件详情中的结构化规则候选",
                 "source_inventory_is_complete": True,
+                "rule_candidates_are_partial": True,
                 "current_sources": inventory,
             },
             ensure_ascii=False,
@@ -247,6 +330,12 @@ class ProjectSpecificationService:
             "不得仅因某个文件没有规则候选就删除旧规则；"
             "只有旧规则引用的文件不在完整 current_sources 中时，"
             "才可基于来源删除将其标记为 deprecated 或 pending_review。"
+            "本次 new_content 只包含一批规则候选；所有批次共享完整文件清单。"
+            "只返回本批新增或需要修改的规则、变更和忽略项，不要重写整份旧规范。"
+            "已存在的同一规则必须复用原 ID；更新条目须保留原有来源和历史。"
+            "没有变化的规则数组返回 []，development_stage 没有新证据时省略。"
+            "不得把当前批次没有提供某条候选视为规则被删除。"
+            "每条规则和变更说明使用简洁中文，不复制候选全文或旧 changes。"
         )
         try:
             return sanitize_sensitive_content(prompt).text

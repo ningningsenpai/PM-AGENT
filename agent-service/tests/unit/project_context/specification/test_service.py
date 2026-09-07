@@ -203,9 +203,11 @@ class ProjectSpecificationServiceTest(IsolatedAsyncioTestCase):
 
         await service.refresh(project(), files)
 
-        prompt = generator.generate.await_args.args[0]
-        self.assertIn("文档规则 20", prompt)
-        self.assertIn('"path": "docs/20.md"', prompt)
+        prompts = [call.args[0] for call in generator.generate.await_args_list]
+        self.assertGreater(len(prompts), 1)
+        for offset in range(21):
+            self.assertTrue(any(f"文档规则 {offset}" in prompt for prompt in prompts))
+        self.assertTrue(any('"path": "docs/20.md"' in prompt for prompt in prompts))
 
     async def test_refresh_reconciles_deleted_file_source_without_new_candidates(
         self,

@@ -28,7 +28,7 @@ class ProjectFileDetailPrompt(str, Enum):
 - `importance`：high、medium 或 low。
 - `summary`、`role`：中文简洁说明。
 - `content_slices`：高价值内容切片摘要，不得复制敏感值。
-- `related_files`：只记录能从内容确认的路径关系。
+- `related_files`：对象数组，每项使用 `{"path":"内容中出现的文件路径","relation":"关系说明"}`；不得使用路径字符串数组。只记录能从内容确认的路径关系，不能确认时返回 `[]`，不要复制示例路径。
 - `risk_flags`、`sensitive_flags`、`evidence`：没有内容时使用空数组。
 - `parser`：记录分析策略，不得写入服务端身份字段。
 
@@ -60,7 +60,9 @@ class ProjectFileDetailPrompt(str, Enum):
     }
   ],
   "related_topics": ["文件存储"],
-  "related_files": [],
+  "related_files": [
+    {"path": "deploy/docker-compose.yml", "relation": "文档引用的存储部署配置"}
+  ],
   "risk_flags": [],
   "sensitive_flags": [],
   "evidence": [],
@@ -82,4 +84,5 @@ class ProjectFileDetailPrompt(str, Enum):
     PROJECT_FILE_DETAIL_FINAL_CHECK = """
 # 最终检查
 只输出上述语义 JSON。确保字段完整、类型正确，不包含任何服务端身份字段，也不包含源文件中的原始秘密。
+related_files 必须是对象数组或空数组，不得输出字符串元素。
 """.strip()

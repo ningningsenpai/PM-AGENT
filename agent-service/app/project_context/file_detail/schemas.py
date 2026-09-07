@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.identifiers import SnowflakeId
@@ -86,6 +86,17 @@ class FileDetailSemanticOutput(BaseModel):
     rule_candidates: list[FileRuleCandidate] = Field(
         default_factory=list, max_length=100
     )
+
+    @field_validator("related_files", mode="before")
+    @classmethod
+    def normalize_related_file_paths(cls, value: Any) -> Any:
+        """兼容模型的路径字符串简写，存储时仍统一为对象数组。"""
+        if not isinstance(value, list):
+            return value
+        return [
+            {"path": item} if isinstance(item, str) and item.strip() else item
+            for item in value
+        ]
 
 
 class FileDetail(BaseModel):

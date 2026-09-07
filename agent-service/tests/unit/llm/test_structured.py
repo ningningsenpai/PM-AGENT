@@ -9,7 +9,11 @@ from unittest.mock import AsyncMock
 from pydantic import BaseModel
 
 from app.llm.contracts import LLMAssistantTurn
-from app.llm.structured import StructuredJsonGenerator, StructuredOutputError
+from app.llm.structured import (
+    StructuredJsonGenerator,
+    StructuredOutputError,
+    StructuredOutputTruncatedError,
+)
 
 
 class _Payload(BaseModel):
@@ -56,7 +60,7 @@ class StructuredJsonGeneratorTest(IsolatedAsyncioTestCase):
             timeout_seconds=30,
         )
 
-        with self.assertRaisesRegex(ValueError, "结果不完整"):
+        with self.assertRaisesRegex(StructuredOutputTruncatedError, "结果不完整"):
             await generator.generate("请返回 JSON", _Payload)
 
     async def test_generate_rejects_empty_response(self) -> None:
@@ -122,5 +126,6 @@ class StructuredJsonGeneratorTest(IsolatedAsyncioTestCase):
         text = "\n".join(logs.output)
         self.assertIn("name", text)
         self.assertIn("string_type", text)
+        self.assertIn('"inputType": "dict"', text)
         self.assertNotIn("敏感字段值", text)
         self.assertNotIn("secret", text)
