@@ -70,6 +70,8 @@ python -m app.maintenance.purge_disabled_projects
 
 ## 停止与重置
 
+助手闭环联调使用独立 Compose 文件 `agent-service/tests/project_assistant_flow/docker-compose.yml`，MySQL、Redis、MinIO 分别仅绑定本机 19306、19379、19000 端口，后端 18080。它使用独立数据库、桶和 Redis 前缀，不复用现有业务数据。测试启动、迁移、费用预留、分阶段调用和归档方法见 `agent-service/tests/project_assistant_flow/README.md`。测试服务关闭自动重载，代码变更后显式重启。
+
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml down
 ```

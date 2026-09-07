@@ -1,0 +1,5 @@
+{
+  "database": "mysql",
+  "request_timeout_seconds": 30,
+  "deployment_status": "not_started"
+}

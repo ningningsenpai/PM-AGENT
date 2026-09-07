@@ -58,3 +58,6 @@ dataset
 
 # AGI-saber
 agent-service/AGI-saber
+
+# 助手闭环测试：请求、快照、费用和模型输出只在本地归档
+agent-service/tests/project_assistant_flow/output/
