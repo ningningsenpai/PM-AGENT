@@ -139,6 +139,31 @@ def test_output_budget_must_be_positive_integer(deepseek_client, max_tokens):
         deepseek_client._build_body([], False, max_tokens=max_tokens)
 
 
+def test_complete_turn_does_not_replace_zero_budget(deepseek_client, mock_transport):
+    def unexpected_request(request):
+        pytest.fail("无效额度不能被默认值覆盖后发送请求")
+
+    mock_transport(unexpected_request)
+    with pytest.raises(RuntimeError, match="max_tokens 必须为正整数"):
+        asyncio.run(deepseek_client.complete_turn([], max_tokens=0))
+
+
+def test_cancelled_model_request_closes_trace(deepseek_client, mock_transport):
+    from app.llm.telemetry import capture_calls
+
+    async def handler(request):
+        raise asyncio.CancelledError()
+
+    mock_transport(handler)
+    events = []
+    with capture_calls(events), pytest.raises(asyncio.CancelledError):
+        asyncio.run(deepseek_client.complete_turn([], max_tokens=128))
+    assert events[0]["status"] == "failed"
+    assert events[0]["error"] == "CancelledError"
+    assert events[0]["accountedCny"] == events[0]["reservedCny"] > 0
+    assert "elapsedMs" in events[0]
+
+
 def test_deepseek_limit_does_not_apply_to_unknown_models_or_other_providers(
     deepseek_client,
 ):

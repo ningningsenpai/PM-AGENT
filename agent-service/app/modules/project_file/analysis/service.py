@@ -99,6 +99,9 @@ class ProjectFileAnalysisService:
                 else None,
             )
             return result
+        except asyncio.CancelledError:
+            await self._runs.cancel(run_id, user_id, events)
+            raise
         except Exception as exc:
             logger.exception("文件批次运行中断，保留模型轨迹")
             await self._repository.session.rollback()

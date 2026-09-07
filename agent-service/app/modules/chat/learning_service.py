@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import json
 import logging
 import re
@@ -103,6 +104,9 @@ class LearningService:
                 "promptVersion": LEARNING_PROMPT_VERSION,
             }
             await self.runs.finish(run_id, user_id, events, result)
+        except asyncio.CancelledError:
+            await self.runs.cancel(run_id, user_id, events)
+            raise
         except Exception as exc:
             logging.getLogger(__name__).exception(
                 "上下文业务运行失败，保留当前调用记录"
@@ -189,6 +193,11 @@ class LearningService:
                     ):
                         status = "pending"
                         break
+            if row is not None and row.status != "pending" and status == "pending":
+                raise AppException(
+                    ErrorCode.PARAM_INVALID,
+                    "未经确认的候选不能覆盖已有生效或失效条目，请明确确认纠正内容后重新学习",
+                )
             before = entry_data(row) if row else {}
             if row is None:
                 row = await self.repo.add(

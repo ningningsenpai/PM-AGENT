@@ -150,7 +150,8 @@ class OpenAICompatibleClient(BaseLLMClient):
         timeout_seconds: float | None = None,
     ) -> LLMAssistantTurn:
         """非流式返回文本、工具调用和需要回传的推理字段。"""
-        max_tokens = max_tokens or self.config.max_output_tokens
+        if max_tokens is None:
+            max_tokens = self.config.max_output_tokens
         body = self._build_body(
             messages,
             stream=False,
@@ -184,7 +185,7 @@ class OpenAICompatibleClient(BaseLLMClient):
                 reasoning_content=message.get("reasoning_content"),
                 usage=self._usage_from_response(data),
             )
-        except Exception as exception:
+        except (Exception, asyncio.CancelledError) as exception:
             record.finish(
                 response=data if isinstance(data, dict) else None, error=exception
             )

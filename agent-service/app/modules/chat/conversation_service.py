@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 
 from app.core.errors import AppException, ErrorCode
 from app.llm.telemetry import capture_calls
@@ -132,12 +133,21 @@ class ConversationService:
                     "conversationId": str(conversation_id),
                     "answer": answer.answer,
                     "model": answer.model,
-                    "toolCalls": [record.model_dump(mode="json") for record in answer.tool_calls],
-                    "usage": answer.usage.model_dump(mode="json") if answer.usage else None,
+                    "toolCalls": [
+                        record.model_dump(mode="json") for record in answer.tool_calls
+                    ],
+                    "usage": answer.usage.model_dump(mode="json")
+                    if answer.usage
+                    else None,
                 },
             )
+        except asyncio.CancelledError:
+            await self.runs.cancel(run_id, user_id, events)
+            raise
         except Exception as exc:
-            logging.getLogger(__name__).exception("上下文业务运行失败，保留当前调用记录")
+            logging.getLogger(__name__).exception(
+                "上下文业务运行失败，保留当前调用记录"
+            )
             await self.repo.session.rollback()
             error = (
                 exc.message

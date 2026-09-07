@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import logging
 
 from app.core.errors import AppException, ErrorCode
@@ -218,6 +219,9 @@ class ReportService:
                 events,
                 {"report": report_data(row), "promptVersion": REPORT_PROMPT_VERSION},
             )
+        except asyncio.CancelledError:
+            await self.runs.cancel(run_id, user_id, events)
+            raise
         except Exception as exc:
             logging.getLogger(__name__).exception("报告生成失败，保留调用轨迹")
             await self.repo.session.rollback()

@@ -1,19 +1,23 @@
 """学习游标、快照重试和报告引用边界的业务测试。"""
 
 from types import SimpleNamespace
+import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
 from app.modules.chat.models import AgentMessage
+from app.core.errors import AppException
 from app.modules.chat.schemas import (
     CreateConversation,
     GenerateReport,
     LearningOutput,
     ReportDraft,
+    SendMessage,
 )
 from app.modules.report.repository import ReportRepository
 from app.modules.report.service import ReportService
 from tests.unit.chat.test_persistence import services  # noqa: F401
+from tests.unit.chat.test_persistence import candidate
 
 pytestmark = pytest.mark.anyio
 
@@ -100,6 +104,60 @@ async def test_inferred_memory_remains_pending(services):
     assert (await services.contexts.list_entries(1, 11, effective=False))[0][
         "status"
     ] == "pending"
+
+
+async def test_unconfirmed_correction_preserves_active_memory(services):
+    confirmed = candidate()
+    original = (
+        await services.learning.apply(
+            1,
+            11,
+            confirmed,
+            [{"id": "100", "content": confirmed.candidates[0].content}],
+            {},
+        )
+    )[0]
+    await services.repo.session.commit()
+    uncertain = "可能要推迟到 10 月 8 日"
+    proposed = candidate(uncertain, replacesEntryId=original["id"], confirmed=False)
+    with pytest.raises(AppException, match="未经确认"):
+        await services.learning.apply(
+            1,
+            11,
+            proposed,
+            [{"id": "100", "content": uncertain}],
+            {int(original["id"]): 1},
+        )
+    await services.repo.session.rollback()
+    current = await services.contexts.list_entries(1, 11)
+    assert len(current) == 1
+    assert current[0]["content"] == original["content"]
+    assert current[0]["version"] == 1
+
+
+async def test_cancelled_chat_retains_run_and_releases_conversation(services):
+    conversation = await services.conversations.create(
+        1, CreateConversation(projectId="11")
+    )
+    conversation_id = conversation.id
+    agent = SimpleNamespace(chat=AsyncMock(side_effect=asyncio.CancelledError()))
+    with pytest.raises(asyncio.CancelledError):
+        await services.conversations.send(
+            1,
+            conversation_id,
+            SendMessage(content="查询项目"),
+            "cancel-one",
+            "trace",
+            agent,
+        )
+    run = await services.repo.duplicate(1, "chat", "cancel-one")
+    assert run.status == "failed" and "取消" in run.error
+    row = await services.repo.conversation(1, conversation_id)
+    assert row.active_run_id is None and row.busy_until is None
+    _, fresh = await services.runs.start(
+        1, 11, "chat", "after-cancel", {}, "trace", conversation_id
+    )
+    assert fresh
 
 
 def report_service(services, evidence_id):

@@ -73,7 +73,9 @@ class RunService:
             await self.repo.session.commit()
             return existing, False
         if conversation and conversation.active_run_id:
-            if conversation.busy_until and conversation.busy_until > datetime.now(UTC).replace(tzinfo=None):
+            if conversation.busy_until and conversation.busy_until > datetime.now(
+                UTC
+            ).replace(tzinfo=None):
                 raise AppException(ErrorCode.RESOURCE_CONFLICT, "会话仍有运行中的请求")
             previous = await self.repo.run(user_id, conversation.active_run_id)
             if previous and previous.status == "running":
@@ -94,7 +96,9 @@ class RunService:
         if conversation:
             conversation.active_run_id = run.id
             # 单轮至多五次 180 秒模型交互，预留工具与发布耗时。
-            conversation.busy_until = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=20)
+            conversation.busy_until = datetime.now(UTC).replace(
+                tzinfo=None
+            ) + timedelta(minutes=20)
         try:
             await self.repo.add(run)
             await self.repo.session.commit()
@@ -104,6 +108,13 @@ class RunService:
                 ErrorCode.RESOURCE_CONFLICT, "相同幂等请求正在处理，请查询原运行"
             ) from None
         return run, True
+
+    async def cancel(self, run_id, user_id, events):
+        """请求取消时回滚未提交内容、保存已发生的调用并释放会话租约。"""
+        await self.repo.session.rollback()
+        return await self.finish(
+            run_id, user_id, events, error="运行已取消，已保留调用记录"
+        )
 
     async def finish(self, run_id, user_id, events, result=None, error=None):
         run = await self.repo.run(user_id, run_id)

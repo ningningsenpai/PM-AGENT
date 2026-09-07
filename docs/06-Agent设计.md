@@ -143,7 +143,7 @@ Trace 落库后至少记录：
 
 文件详情和项目规范复用同一个 `StructuredJsonGenerator` 与 DeepSeek 客户端，具体 Prompt 和 Pydantic 输出模型保持独立。结构化调用启用 `response_format={"type":"json_object"}`，设置最大输出 token 与文件解析专用超时，并拒绝空响应和因 token 上限截断的响应。MinIO、LLM 等外部调用位于数据库事务外。单文件分析失败记录错误并继续处理其他候选文件；项目规范刷新失败保留旧对象；解析接口通过结构化批次结果返回文件、规范和索引的实际状态，不把部分失败报告为完整成功。
 
-DeepSeek 对不携带工具的非流式 JSON 生成请求显式关闭思考模式，避免默认思考消耗文件详情和项目规范的输出额度；普通对话和工具编排保持原模式。解析使用独立的 `PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS`，默认 `16384`，不再复用聊天上下文的输出预留。结构化生成记录结束原因、生成额度、输出 token 数和内容长度，不记录正文或思考文本。Pydantic 失败仅记录字段位置、错误类型和输入值的类型名称，不记录输入值本身；业务响应区分截断、空内容和字段不符合要求。
+DeepSeek 对不携带工具的非流式 JSON 生成请求显式关闭思考模式，避免默认思考消耗文件详情和项目规范的输出额度；普通对话和工具编排保持原模式。解析使用独立的 `PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS`，默认 `24576`，不再复用聊天上下文的输出预留。结构化生成的普通日志记录结束原因、生成额度、输出 token 数和内容长度，不记录正文或思考文本；完整协议仅保存在有权限校验的运行轨迹和被 Git 忽略的本地测试记录中。Pydantic 失败仅记录字段位置、错误类型和输入值的类型名称，不记录输入值本身；业务响应区分截断、空内容和字段不符合要求。
 
 `related_files` 的标准输出为对象数组，例如 `[{"path":"src/api.ts","relation":"导入接口客户端"}]`。模型返回非空路径字符串元素时，语义模型在校验前将其转为 `{"path":"原路径"}`，不推断额外关系。空字符串、数字、空值和嵌套数组仍被拒绝，最多五十项，存储详情继续使用对象数组。
 
@@ -156,8 +156,8 @@ DeepSeek 对不携带工具的非流式 JSON 生成请求显式关闭思考模�
 ```dotenv
 PM_AGENT_FILE_DETAIL_LLM_ENABLED=true
 PM_AGENT_FILE_DETAIL_LLM_PROVIDER=deepseek
-PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS=60
-PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS=16384
+PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS=180
+PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS=24576
 PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
 ```
 
@@ -191,11 +191,11 @@ PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
 
 ## 15. 后端闭环与权威数据
 
-`agent_conversation` 保存项目归属和学习游标；`agent_message` 保存用户、助手消息与服务端生成的完整协议组；`agent_run` 保存请求幂等、状态、结果和轨迹。会话租约防止并发覆盖，过期运行保留失败记录并允许使用新幂等键重试。
+`agent_conversation` 保存项目归属和学习游标；`agent_message` 保存用户、助手消息与服务端生成的完整协议组；`agent_run` 保存请求幂等、状态、结果和轨迹。会话租约防止并发覆盖，过期运行保留失败记录并允许使用新幂等键重试。请求取消时保存已发生的调用、回滚未提交内容并释放会话租约；没有 usage 的请求继续保留费用估算。
 
 `agent_context_entry` 保存词条、习惯和长短期记忆；`agent_context_change` 保存前后版本和用户原话；`agent_context_scope` 保存作用域版本与快照发布进度。用户通用范围只允许词条和习惯，项目记忆始终归属项目。读取先过滤用户、项目、有效状态和期限，再排序。
 
-显式 `learn` 一次结构化抽取未处理的用户消息。助手回答和工具结果不作为学习事实。每条结果必须能回查消息原文，明确指示或确认才生效，推断留在待确认状态。内容按规范化主题去重，纠正要求目标范围和版本一致；短期默认七天，晋升及失效通过条目管理接口。学习提交后独立发布 MinIO 不可变版本快照，发布失败不回滚或重复学习，`publish` 可单独重试。
+显式 `learn` 一次结构化抽取未处理的用户消息。助手回答和工具结果不作为学习事实。每条结果必须能回查消息原文，明确指示或确认才生效，新推断留在待确认状态。未经确认的候选若试图覆盖已有生效或失效条目，本次学习失败并保留原内容与消息游标，待用户明确确认后重新学习。内容按规范化主题去重，纠正要求目标范围和版本一致；短期默认七天，晋升及失效通过条目管理接口。学习提交后独立发布 MinIO 不可变版本快照，发布失败不回滚或重复学习，`publish` 可单独重试。
 
 用户词库复用 Aho-Corasick、最长匹配和版本缓存；缓存键包含用户、项目及有效条目版本。同义词冲突不擅自选择词义。旧 `app.normalization` 导入仍兼容。
 
