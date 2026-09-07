@@ -26,7 +26,7 @@ class FileDetailLLMConfig:
     provider: str
     request_timeout_seconds: float
     max_semantic_input_bytes: int
-    max_output_tokens: int = 16384
+    max_output_tokens: int = 24576
 
     @classmethod
     def from_env(cls) -> "FileDetailLLMConfig":
@@ -41,13 +41,13 @@ class FileDetailLLMConfig:
                 "deepseek",
             ),
             request_timeout_seconds=float(
-                os.getenv("PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS", "60")
+                os.getenv("PM_AGENT_FILE_DETAIL_REQUEST_TIMEOUT_SECONDS", "180")
             ),
             max_semantic_input_bytes=int(
                 os.getenv("PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES", "262144")
             ),
             max_output_tokens=int(
-                os.getenv("PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS", "16384")
+                os.getenv("PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS", "24576")
             ),
         )
 
@@ -68,7 +68,8 @@ class LLMProviderConfig:
     base_url: str = ""
     model: str = ""
     context_window_tokens: int | None = None
-    reserved_output_tokens: int = 4096
+    reserved_output_tokens: int = 16384
+    max_output_tokens: int = 16384
     extra: dict = field(default_factory=dict)
 
     def require_api_key(self, provider: str) -> None:
@@ -91,6 +92,11 @@ class Settings:
                 f"未支持的默认模型提供方：{self.default_llm_provider!r}，当前可选：{sorted(supported_providers)}"
             )
 
+        self.chat_max_tokens = int(os.getenv("PM_AGENT_CHAT_MAX_OUTPUT_TOKENS", "16384"))
+        self.memory_max_tokens = int(os.getenv("PM_AGENT_MEMORY_MAX_OUTPUT_TOKENS", "8192"))
+        self.report_max_tokens = int(os.getenv("PM_AGENT_REPORT_MAX_OUTPUT_TOKENS", "16384"))
+        if min(self.chat_max_tokens, self.memory_max_tokens, self.report_max_tokens) <= 0:
+            raise ValueError("模型输出预算必须大于零")
         self.file_detail = FileDetailLLMConfig.from_env()
         if self.file_detail.provider != "deepseek":
             raise ValueError(
@@ -110,16 +116,16 @@ class Settings:
             "deepseek": LLMProviderConfig(
                 api_key=os.getenv("DEEPSEEK_API_KEY", ""),
                 base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"),
+                model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
                 context_window_tokens=int(
-                    os.getenv("DEEPSEEK_CONTEXT_WINDOW_TOKENS", 126000)
+                    os.getenv("DEEPSEEK_CONTEXT_WINDOW_TOKENS", 131072)
                 ),
                 reserved_output_tokens=int(
-                    os.getenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 4096)
+                    os.getenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", 16384)
                 ),
                 extra={
                     "timeout_seconds": float(
-                        os.getenv("DEEPSEEK_REQUEST_TIMEOUT_SECONDS", "60")
+                        os.getenv("DEEPSEEK_REQUEST_TIMEOUT_SECONDS", "180")
                     ),
                 },
             ),

@@ -8,13 +8,13 @@ from app.core.config.llm_config import Settings
 from app.modules.project_file.analysis import dependencies
 
 
-def test_file_detail_output_budget_defaults_to_16384(monkeypatch):
+def test_file_detail_output_budget_defaults_to_24576(monkeypatch):
     monkeypatch.delenv("PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS", raising=False)
     monkeypatch.setenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", "4096")
 
     settings = Settings()
 
-    assert settings.file_detail.max_output_tokens == 16384
+    assert settings.file_detail.max_output_tokens == 24576
     assert settings.get_llm_config("deepseek").reserved_output_tokens == 4096
 
 

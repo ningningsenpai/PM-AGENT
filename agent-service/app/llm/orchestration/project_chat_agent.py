@@ -72,9 +72,12 @@ class ProjectChatAgent:
                 messages,
                 tools=tools or None,
                 tool_choice="auto" if tools else None,
+                max_tokens=getattr(self.settings, "chat_max_tokens", 16384),
             )
             usage_summary.add(turn.usage)
             if not turn.tool_calls:
+                if turn.finish_reason == "length":
+                    raise AppException(ErrorCode.SYSTEM_ERROR, "模型回答达到输出上限，未生成完整结果")
                 if not turn.content:
                     raise AppException(ErrorCode.SYSTEM_ERROR, "模型未返回有效回答")
                 return ChatResponse(

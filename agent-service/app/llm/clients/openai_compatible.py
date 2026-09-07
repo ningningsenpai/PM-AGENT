@@ -25,6 +25,7 @@ from app.llm.contracts import (
     LLMTurnStreamEvent,
 )
 from app.streaming.metrics import LLMChatResult, LLMStreamChunk, LLMTokenUsage
+from app.llm.telemetry import ModelCall
 
 logger = logging.getLogger(__name__)
 
@@ -148,24 +149,22 @@ class OpenAICompatibleClient(BaseLLMClient):
         timeout_seconds: float | None = None,
     ) -> LLMAssistantTurn:
         """非流式返回文本、工具调用和需要回传的推理字段。"""
-        async with httpx.AsyncClient(
-            timeout=self._timeout_seconds(timeout_seconds)
-        ) as client:
-            response = await client.post(
-                self._endpoint(),
-                headers=self._headers(),
-                json=self._build_body(
-                    messages,
-                    stream=False,
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    response_format=response_format,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                ),
-            )
+        max_tokens = max_tokens or self.config.max_output_tokens
+        body = self._build_body(messages, stream=False, tools=tools,
+                                tool_choice=tool_choice, response_format=response_format,
+                                max_tokens=max_tokens, temperature=temperature)
+        headers = self._headers()
+        record = ModelCall(body, self.config.context_window_tokens)
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout_seconds(timeout_seconds)) as client:
+                response = await client.post(self._endpoint(), headers=headers, json=body)
             self._raise_for_status(response, max_tokens=max_tokens)
             data = response.json()
+        except Exception as exception:
+            record.finish(error=exception)
+            raise
+        else:
+            record.finish(response=data)
             choice = data["choices"][0]
             message = choice["message"]
             return LLMAssistantTurn(
