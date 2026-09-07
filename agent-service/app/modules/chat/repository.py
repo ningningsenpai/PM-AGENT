@@ -12,7 +12,6 @@ from .models import (
     AgentConversation,
     AgentMessage,
     AgentRun,
-    ProjectReport,
 )
 
 
@@ -23,6 +22,8 @@ class ChatRepository:
     async def add(self, row):
         self.session.add(row)
         await self.session.flush()
+        # MySQL 无 INSERT RETURNING，显式加载数据库生成的时间字段。
+        await self.session.refresh(row)
         return row
 
     async def conversation(self, user_id, conversation_id, *, lock=False):
@@ -96,11 +97,18 @@ class ChatRepository:
                 AgentContextEntry.status == "active",
                 or_(
                     AgentContextEntry.expires_at.is_(None),
-                    AgentContextEntry.expires_at > datetime.now(UTC).replace(tzinfo=None),
+                    AgentContextEntry.expires_at
+                    > datetime.now(UTC).replace(tzinfo=None),
                 ),
             )
         return list(
-            (await self.session.scalars(query.order_by(AgentContextEntry.id))).all()
+            (
+                await self.session.scalars(
+                    query.order_by(AgentContextEntry.id).execution_options(
+                        populate_existing=True
+                    )
+                )
+            ).all()
         )
 
     async def entry(self, user_id, entry_id, *, lock=False):
@@ -119,22 +127,6 @@ class ChatRepository:
                     .where(AgentContextChange.entry_id.in_(entry_ids))
                     .order_by(AgentContextChange.id.desc())
                     .limit(200)
-                )
-            ).all()
-        )
-
-    async def reports(self, user_id, project_id, kind=None, report_id=None):
-        query = select(ProjectReport).where(
-            ProjectReport.user_id == user_id, ProjectReport.project_id == project_id
-        )
-        if kind:
-            query = query.where(ProjectReport.kind == kind)
-        if report_id:
-            query = query.where(ProjectReport.id == report_id)
-        return list(
-            (
-                await self.session.scalars(
-                    query.order_by(ProjectReport.id.desc()).limit(20)
                 )
             ).all()
         )

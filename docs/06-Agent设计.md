@@ -2,9 +2,9 @@
 
 ## 1. 目标与范围
 
-当前版本提供模型原生工具调用、请求级工具注册表、安全执行器、有限 ReAct 循环以及 JSON/SSE 两种响应模式。当前已注册 `get_current_project`、`list_current_project_files`、`list_owned_projects` 和 `retrieve_project_context` 四个真实只读工具，分别查询当前项目、当前项目公开文件、当前用户拥有的项目和 MinIO 项目上下文。
+当前版本通过普通 JSON 接口提供模型原生工具调用、请求级工具注册表、有限工具循环、持久化会话、显式学习和文本报告。流式编排函数保留兼容测试，本轮不开放新的 SSE 业务入口。实际注册八个只读工具，目录由注册表动态生成。
 
-当前不实现写工具、人工确认持久化、Agent Trace 数据表、并行工具执行和 Qwen/Ollama 工具协议适配。这些能力保留扩展点，但不能作为已交付能力使用。
+当前不实现写工具、模型写入授权流程、并行工具执行和 Qwen/Ollama 工具协议适配。学习、条目管理及报告生成由用户明确调用业务接口；轨迹使用 `agent_run` 持久化。
 
 ## 2. 运行边界
 
@@ -37,7 +37,7 @@ Agent、LLM、Prompt 和工具不得获取数据库 Session，不跨模块访问
 ## 4. 原生工具调用链路
 
 1. FastAPI 完成 Bearer JWT 校验，并取得可信 `principal.user_id`。
-2. 请求依赖构造项目与项目文件 Service、三个只读业务工具、请求级 `ToolRegistry` 和 `ToolExecutor`。
+2. 请求依赖构造项目、文件、上下文、报告 Service、八个只读业务工具、请求级 `ToolRegistry` 和 `ToolExecutor`。
 3. Agent 根据 Provider 能力生成工具定义；不支持原生或流式工具调用时立即返回 `40001`。
 4. 模型返回文本或 `tool_calls`。工具调用 ID 和原始 JSON 参数保持字符串形式，不提前猜测类型。
 5. Agent 把 assistant 工具决策加入上下文，执行器按工具输入模型校验参数并调用公开 Service。
@@ -63,8 +63,12 @@ Agent、LLM、Prompt 和工具不得获取数据库 Session，不跨模块访问
 | `list_current_project_files` | 只读 | 可选 `business_code`：`project` / `user` | 公开文件总数及文件名称、相对路径、类型、大小、处理状态和更新时间 | `ProjectFileService.list_files` |
 | `list_owned_projects` | 只读 | 无模型业务参数 | 当前用户项目总数及项目 ID、名称、状态、创建和更新时间 | `ProjectService.list_owned` |
 | `retrieve_project_context` | 只读 | 查询文本、召回范围、证据深度和结果上限 | 规范、文件详情、记忆及按需脱敏原文证据 | `AgentInputContextGateway` → `InputContextRetrievalService` |
+| `list_context_entries` | 只读 | 可选条目类型和关键词 | 有效词条、习惯、记忆、来源和版本 | `ContextService.list_entries` |
+| `get_project_report` | 只读 | 可选报告类型或 ID | 已有报告、生成时间和来源版本 | `ReportService.list` |
+| `read_project_file_evidence` | 只读 | 文件 ID、起止行 | 真实脱敏原文、哈希和截断标记 | `ProjectFileService.read_evidence` |
+| `get_context_changes` | 只读 | 可选条目 ID | 前后版本、原因和来源消息 | `ContextService.changes` |
 
-工具会再次执行资源归属校验。完整业务结果只作为模型 Observation 使用，对客户端仅暴露工具状态和安全摘要。项目文件工具不向模型返回 MinIO 存储路径、对象键或预签名地址。
+工具会再次执行资源归属校验。普通问答响应只返回状态和安全摘要，完整 Observation 可由拥有该项目的用户通过运行轨迹接口查询。项目文件工具不向模型返回 MinIO 存储路径、对象键或预签名地址。
 
 ## 7. Provider 能力
 
@@ -95,7 +99,7 @@ Trace 落库后至少记录：
 - 人工确认状态；
 - 错误码与 traceId。
 
-当前版本只通过响应事件和应用日志提供运行观测，不宣称已经完成 Agent Trace 持久化。
+持久化接口将文件解析、问答、学习和报告的模型轨迹写入 `agent_run`，工具轨迹同时保存参数、完整结果、错误、步骤和耗时；旧 `/chat` 仍保留无状态兼容语义。每次模型请求的原始 usage、协议消息和完成原因用于排障。
 
 ## 10. 输入上下文受控召回
 
@@ -184,3 +188,19 @@ PM_AGENT_FILE_DETAIL_MAX_SOURCE_BYTES=262144
 
 - 写工具进入开发前，需要确定人工确认令牌、幂等键和 Trace 持久化的数据模型。
 - Qwen 需要保留 Ollama 当前接口还是迁移到原生工具协议，待对应 Provider 开发时确认。
+
+## 15. 后端闭环与权威数据
+
+`agent_conversation` 保存项目归属和学习游标；`agent_message` 保存用户、助手消息与服务端生成的完整协议组；`agent_run` 保存请求幂等、状态、结果和轨迹。会话租约防止并发覆盖，过期运行保留失败记录并允许使用新幂等键重试。
+
+`agent_context_entry` 保存词条、习惯和长短期记忆；`agent_context_change` 保存前后版本和用户原话；`agent_context_scope` 保存作用域版本与快照发布进度。用户通用范围只允许词条和习惯，项目记忆始终归属项目。读取先过滤用户、项目、有效状态和期限，再排序。
+
+显式 `learn` 一次结构化抽取未处理的用户消息。助手回答和工具结果不作为学习事实。每条结果必须能回查消息原文，明确指示或确认才生效，推断留在待确认状态。内容按规范化主题去重，纠正要求目标范围和版本一致；短期默认七天，晋升及失效通过条目管理接口。学习提交后独立发布 MinIO 不可变版本快照，发布失败不回滚或重复学习，`publish` 可单独重试。
+
+用户词库复用 Aho-Corasick、最长匹配和版本缓存；缓存键包含用户、项目及有效条目版本。同义词冲突不擅自选择词义。旧 `app.normalization` 导入仍兼容。
+
+`pm_report` 保存开发或风险 Markdown 报告、生成时间、来源文件哈希和上下文版本。报告从当前源文件分批取证，以服务端证据 ID 校验引用，再渲染路径和实际行范围；生成期间来源变化时拒绝保存过期报告。用户纠正与源码不一致时保留双方来源，不宣称代码已修改。
+
+新增工具：`list_context_entries`、`get_project_report`、`read_project_file_evidence`、`get_context_changes`。文件证据工具仅接受当前项目文件 ID 和行范围，最多 200 行、32 KiB，复用脱敏规则；不接受任意路径、URL 或存储键。无需数据库工具注册表。
+
+默认 `deepseek-v4-flash`；应用上下文预算 131072，问答实际输出 16384，详情/规范 24576，学习 8192，报告 16384，单请求 180 秒。发送前按实际序列化输入保守计量，追加工具结果后重新检查，历史按完整协议组裁剪；累计 usage 仅用于统计。每轮最多五次模型交互、八次工具调用。测试费用先预留后按真实 usage 结算，未知 usage 保留预留，累计上限 30 元。

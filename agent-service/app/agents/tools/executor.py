@@ -1,17 +1,17 @@
 """Agent 工具安全执行器。"""
+
 from __future__ import annotations
 
 import asyncio
 import json
 from time import perf_counter
 
-from pydantic import ValidationError
-
 from app.agents.tools.registry import ToolRegistry
 from app.agents.tools.schemas import ToolExecutionContext, ToolExecutionResult
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.llm.contracts import LLMToolCall
+from pydantic import ValidationError
 
 logger = get_logger(__name__)
 
@@ -43,12 +43,12 @@ class ToolExecutor:
             if not isinstance(raw_arguments, dict):
                 raise ValueError("工具参数必须是 JSON 对象")
             arguments = tool.input_model.model_validate(raw_arguments)
-        except (json.JSONDecodeError, ValidationError, ValueError) as exception:
+        except (json.JSONDecodeError, ValidationError, ValueError):
             return self._failed(
                 call,
                 {},
                 ErrorCode.TOOL_ARGUMENT_INVALID,
-                f"工具参数不合法：{exception}",
+                "工具参数不合法，请按工具字段定义提交 JSON 对象",
                 started_at,
             )
 
@@ -84,12 +84,12 @@ class ToolExecutor:
                 exception.message,
                 started_at,
             )
-        except (ValidationError, ValueError) as exception:
+        except (ValidationError, ValueError):
             return self._failed(
                 call,
                 input_data,
                 ErrorCode.TOOL_EXECUTION_FAILED,
-                f"工具返回格式不合法：{exception}",
+                "工具返回格式不符合声明的输出结构",
                 started_at,
             )
         except Exception:

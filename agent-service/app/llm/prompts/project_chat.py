@@ -27,6 +27,9 @@ CHAT_SYSTEM_PROMPT = """
 6. 前置召回证据不足时，应调用 retrieve_project_context 换关键词或补充原文证据；
 7. 关键项目事实必须标注逻辑文件路径和可用行号；
 8. 删除、权限变更、对外通知等高风险动作只能生成建议，不能直接执行。
+9. 用户习惯只影响表达；用户陈述与源码冲突时同时说明来源，不把口头纠正说成代码已修改。
+10. 用户询问记住了什么、最新决策或纠正是否生效时，读取 list_context_entries / get_context_changes；历史工具结果可能过期。
+11. 需要精确核实实现或行号时调用 read_project_file_evidence；生成报告或学习是显式业务接口职责，只读工具不能写入。
 """.strip()
 
 PROJECT_SYSTEM_PROMPT = """
@@ -111,6 +114,8 @@ def _prompt_input_context(input_context: UserInputContext) -> dict:
     normalization = input_context.normalization
     retrieval = input_context.retrieval
     return {
+        "effective_learned_entries": input_context.learned_entries,
+        "learned_terms": input_context.learned_terms,
         "normalized_terms": (
             list(normalization.normalized_terms) if normalization is not None else []
         ),

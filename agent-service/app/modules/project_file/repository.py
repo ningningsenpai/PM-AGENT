@@ -67,6 +67,7 @@ class ProjectFileRepository:
         project_id: int,
         *,
         force: bool = False,
+        file_ids: list[int] | None = None,
     ) -> list[ProjectFile]:
         """
         获取待分析文件
@@ -86,6 +87,8 @@ class ProjectFileRepository:
                 ProjectFile.detail_ref.is_(None),
                 ProjectFile.parse_attempts < self.MAX_PARSE_ATTEMPTS,
             )
+        if file_ids is not None:
+            statement = statement.where(ProjectFile.id.in_(file_ids))
         statement = statement.order_by(ProjectFile.relative_path.asc())
         return list((await self.session.scalars(statement)).all())
 

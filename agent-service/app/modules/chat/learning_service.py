@@ -80,7 +80,8 @@ class LearningService:
                     + json.dumps(
                         {
                             "version": LEARNING_PROMPT_VERSION,
-                            "now": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
+                            "now": datetime.now(UTC).replace(tzinfo=None).isoformat()
+                            + "Z",
                             "messages": messages,
                             "existing": existing,
                         },
@@ -103,7 +104,9 @@ class LearningService:
             }
             await self.runs.finish(run_id, user_id, events, result)
         except Exception as exc:
-            logging.getLogger(__name__).exception("上下文业务运行失败，保留当前调用记录")
+            logging.getLogger(__name__).exception(
+                "上下文业务运行失败，保留当前调用记录"
+            )
             await self.repo.session.rollback()
             return await self.runs.finish(
                 run_id,
@@ -166,6 +169,26 @@ class LearningService:
                 if candidate.confirmed and explicit
                 else "pending"
             )
+            if candidate.kind == "term" and status == "active":
+                aliases = {normalized_key(alias) for alias in candidate.aliases}
+                for existing_entry in by_key.values():
+                    if (
+                        existing_entry is row
+                        or existing_entry.kind != "term"
+                        or existing_entry.status != "active"
+                    ):
+                        continue
+                    existing_aliases = {
+                        normalized_key(alias)
+                        for alias in existing_entry.attributes.get("aliases", [])
+                    }
+                    if (
+                        aliases & existing_aliases
+                        and candidate.canonical
+                        != existing_entry.attributes.get("canonical")
+                    ):
+                        status = "pending"
+                        break
             before = entry_data(row) if row else {}
             if row is None:
                 row = await self.repo.add(
@@ -188,6 +211,8 @@ class LearningService:
                     row.content == candidate.content
                     and row.status == status
                     and not candidate.expires_at
+                    and row.attributes.get("canonical") == candidate.canonical
+                    and row.attributes.get("aliases", []) == candidate.aliases
                 ):
                     continue
                 row.version += 1
@@ -204,7 +229,9 @@ class LearningService:
             }
             row.expires_at = utc_naive(candidate.expires_at)
             if row.kind == "short_memory" and row.expires_at is None:
-                row.expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=7)
+                row.expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(
+                    days=7
+                )
             scopes[scope_key].version += 1
             await self.contexts.add_change(
                 row, before, candidate.source_quote, row.source_message_id

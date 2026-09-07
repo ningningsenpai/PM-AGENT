@@ -16,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.mysql import LONGTEXT
 
 from app.infrastructure.database import Base, TimestampMixin
 
@@ -46,7 +47,7 @@ class AgentMessage(TimestampMixin, Base):
         BigInteger, ForeignKey("agent_conversation.id", ondelete="CASCADE")
     )
     role: Mapped[str] = mapped_column(String(16))
-    content: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT, "mysql"))
     run_id: Mapped[int] = mapped_column(BigInteger)
     # 仅服务端生成的完整协议组可用于跨轮恢复，客户端不能提交工具角色。
     protocol: Mapped[list] = mapped_column(JSON, default=list)
@@ -132,22 +133,3 @@ class AgentContextChange(TimestampMixin, Base):
     after: Mapped[dict] = mapped_column(JSON)
     reason: Mapped[str] = mapped_column(Text)
     source_message_id: Mapped[int | None] = mapped_column(BigInteger)
-
-
-class ProjectReport(TimestampMixin, Base):
-    __tablename__ = "pm_report"
-    __table_args__ = (Index("ix_report_project_kind", "project_id", "kind", "id"),)
-    id: Mapped[int] = mapped_column(ID, primary_key=True, autoincrement=False)
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("pm_user.id", ondelete="CASCADE")
-    )
-    project_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("pm_project.id", ondelete="CASCADE")
-    )
-    run_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("agent_run.id", ondelete="CASCADE")
-    )
-    kind: Mapped[str] = mapped_column(String(16))
-    markdown: Mapped[str] = mapped_column(Text)
-    source_versions: Mapped[dict] = mapped_column(JSON)
-    evidence: Mapped[list] = mapped_column(JSON)

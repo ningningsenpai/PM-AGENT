@@ -26,6 +26,7 @@ class ProjectFileAnalysisFailure(AnalysisResponseSchema):
 
 
 class ProjectFileAnalysisBatchResult(AnalysisResponseSchema):
+    run_id: str | None = None
     status: Literal["success", "partial"]
     candidate_count: int
     success_count: int

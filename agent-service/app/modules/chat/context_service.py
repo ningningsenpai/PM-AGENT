@@ -7,6 +7,8 @@ import json
 import logging
 from datetime import UTC
 
+from sqlalchemy.exc import IntegrityError
+
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
 from app.infrastructure.storage import StorageLocation
@@ -47,17 +49,26 @@ class ContextService:
             key = self.key(user_id, pid)
             scope = await self.repo.scope(key, lock=lock)
             if scope is None:
-                scope = await self.repo.add(
-                    AgentContextScope(
-                        scope_key=key,
-                        user_id=user_id,
-                        project_id=pid,
-                        version=0,
-                        published_version=0,
-                    )
-                )
+                try:
+                    async with self.repo.session.begin_nested():
+                        scope = await self.repo.add(
+                            AgentContextScope(
+                                scope_key=key,
+                                user_id=user_id,
+                                project_id=pid,
+                                version=0,
+                                published_version=0,
+                            )
+                        )
+                except IntegrityError:
+                    scope = await self.repo.scope(key, lock=lock)
             result.append(scope)
         return result
+
+    async def release_reads(self):
+        """只读工具结束后释放共享请求中的读事务，再进入下一次模型调用。"""
+        if self.repo.session.in_transaction():
+            await self.repo.session.rollback()
 
     async def list_entries(
         self, user_id, project_id, *, effective=True, kind=None, query=None
@@ -96,6 +107,11 @@ class ContextService:
             )
         before = entry_data(row)
         if request.content is not None:
+            if row.kind == "term":
+                raise AppException(
+                    ErrorCode.PARAM_INVALID,
+                    "词条映射请通过对话纠正后显式 learn，避免描述与别名映射不一致",
+                )
             row.content = sanitize_sensitive_content(request.content).text
         if request.status is not None:
             row.status = request.status
@@ -165,9 +181,12 @@ class ContextService:
             "entries": [entry_data(row) for row in entries if row.scope_key == key],
         }
         # 快照文件按版本不可变；失败不会回滚已提交的学习结果。
-        location = StorageLocation(
-            self.bucket, f"PM-AGENT/context/{key.replace(':', '/')}/v{version}.json"
+        prefix = (
+            f"PM-AGENT/{scope.user_id}/{scope.project_id}/system/learned_context"
+            if scope.project_id
+            else f"PM-AGENT/user_context/{scope.user_id}"
         )
+        location = StorageLocation(self.bucket, f"{prefix}/v{version}.json")
         await self.repo.session.commit()
         error = None
         try:
@@ -178,7 +197,9 @@ class ContextService:
                 "application/json",
             )
         except Exception as exc:
-            logging.getLogger(__name__).exception("上下文业务运行失败，保留当前调用记录")
+            logging.getLogger(__name__).exception(
+                "上下文业务运行失败，保留当前调用记录"
+            )
             error = f"快照发布失败：{type(exc).__name__}"
         current = await self.repo.scope(key, lock=True)
         if error is None:

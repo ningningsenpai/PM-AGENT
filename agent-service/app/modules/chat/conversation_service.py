@@ -112,7 +112,7 @@ class ConversationService:
                 answer = await agent.chat(
                     internal, user_id, history=history, protocol_out=protocol
                 )
-            await self.repo.add(
+            assistant_message = await self.repo.add(
                 AgentMessage(
                     id=next_id(),
                     conversation_id=conversation_id,
@@ -127,8 +127,13 @@ class ConversationService:
                 user_id,
                 events,
                 {
-                    "messageId": str(message_id),
-                    **answer.model_dump(mode="json", by_alias=True),
+                    "messageId": str(assistant_message.id),
+                    "userMessageId": str(message_id),
+                    "conversationId": str(conversation_id),
+                    "answer": answer.answer,
+                    "model": answer.model,
+                    "toolCalls": [record.model_dump(mode="json") for record in answer.tool_calls],
+                    "usage": answer.usage.model_dump(mode="json") if answer.usage else None,
                 },
             )
         except Exception as exc:

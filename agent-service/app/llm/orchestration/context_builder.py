@@ -1,4 +1,5 @@
 """LLM 上下文构造器。"""
+
 from __future__ import annotations
 
 from app.llm.orchestration.compression import compress_old_messages
@@ -33,10 +34,12 @@ class LLMContextBuilder:
         return messages
 
     def _should_compress(self) -> bool:
-        """基于最近一次真实 usage 判断是否需要压缩。"""
-        status = self.request.check_context_length(
-            max_context_tokens=self.max_context_tokens,
-            reserved_output_tokens=self.reserved_output_tokens,
-            provider=self.request.llm_provider,
+        """仅估算本次消息，不用前端提交的累计 usage 作为输入长度。"""
+        from app.llm.telemetry import input_upper_bound
+
+        if self.max_context_tokens is None:
+            return False
+        actual = input_upper_bound(
+            {"messages": [message.model_dump(mode="json") for message in self.messages]}
         )
-        return bool(status.available and status.exceeded)
+        return actual + self.reserved_output_tokens > self.max_context_tokens

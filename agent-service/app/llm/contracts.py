@@ -1,9 +1,10 @@
 """LLM 原生工具调用的统一传输契约。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.streaming.metrics import LLMTokenUsage
 
@@ -33,6 +34,14 @@ class LLMAssistantTurn(BaseModel):
     finish_reason: str | None = None
     reasoning_content: str | None = None
     usage: LLMTokenUsage | None = None
+
+    @model_validator(mode="after")
+    def unique_call_ids(self):
+        """同一次模型决策中的调用 ID 必须唯一，避免结果关联歧义。"""
+        ids = [call.id for call in self.tool_calls]
+        if len(ids) != len(set(ids)):
+            raise ValueError("模型返回了重复的工具调用 ID")
+        return self
 
 
 class LLMToolCallDelta(BaseModel):

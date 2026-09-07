@@ -18,3 +18,5 @@ class UserInputContext(BaseModel):
     retrieval: RetrievalResult
     warnings: list[str] = Field(default_factory=list, max_length=30)
     degraded: bool = False
+    learned_entries: list[dict] = Field(default_factory=list, max_length=50)
+    learned_terms: list[str] = Field(default_factory=list, max_length=100)

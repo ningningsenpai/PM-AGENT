@@ -137,7 +137,9 @@ class ProjectService:
             owner_user_id,
             len(projects),
         )
-        return [to_response(project) for project in projects]
+        result = [to_response(project) for project in projects]
+        await self._repository.session.commit()
+        return result
 
     async def get_owned(
         self,
@@ -155,6 +157,7 @@ class ProjectService:
             owner_user_id,
             project_id,
         )
+        await self._repository.session.commit()
         return response
 
     async def require_owned(self, owner_user_id: int, project_id: int) -> Project:

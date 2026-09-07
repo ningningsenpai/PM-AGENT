@@ -79,14 +79,20 @@ class TestProjectReadTools(IsolatedAsyncioTestCase):
                 SimpleNamespace(),
                 SimpleNamespace(),
                 SimpleNamespace(),
+                SimpleNamespace(),
+                SimpleNamespace(),
             )
 
         names = [item["function"]["name"] for item in agent._registry.definitions()]
         self.assertEqual(
             [
+                "get_context_changes",
                 "get_current_project",
+                "get_project_report",
+                "list_context_entries",
                 "list_current_project_files",
                 "list_owned_projects",
+                "read_project_file_evidence",
                 "retrieve_project_context",
             ],
             names,

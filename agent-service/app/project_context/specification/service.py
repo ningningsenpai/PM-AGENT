@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 from collections import deque
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Iterable, Literal
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
@@ -142,7 +143,10 @@ class ProjectSpecificationService:
             logger.info(
                 "开始生成项目规范批次 action=project.specification.batch "
                 "projectId=%s batch=%s candidateCount=%s remainingBatches=%s",
-                project.id, completed + 1, candidate_count, len(pending),
+                project.id,
+                completed + 1,
+                candidate_count,
+                len(pending),
             )
             try:
                 result = await self._generator.generate(
@@ -160,7 +164,9 @@ class ProjectSpecificationService:
                     "项目规范批次输出被截断，拆分后重试 "
                     "action=project.specification.batch projectId=%s "
                     "candidateCount=%s splitCount=%s",
-                    project.id, candidate_count, len(smaller_batches),
+                    project.id,
+                    candidate_count,
+                    len(smaller_batches),
                 )
                 continue
             if result.project_id != project.id:
@@ -181,6 +187,14 @@ class ProjectSpecificationService:
         batch: list[dict[str, Any]] = []
         count = size = 0
         for source in sources:
+            if not source["rule_candidates"]:
+                size_of_source = len(json.dumps(source, ensure_ascii=False))
+                if batch and size + size_of_source > self._MAX_BATCH_SOURCE_CHARS:
+                    batches.append(batch)
+                    batch = []
+                    count = size = 0
+                batch.append({**source, "rule_candidates": []})
+                size += size_of_source
             for candidate in source["rule_candidates"]:
                 entry = {**source, "rule_candidates": [candidate]}
                 entry_size = len(json.dumps(entry, ensure_ascii=False))
@@ -281,12 +295,13 @@ class ProjectSpecificationService:
                     file.id,
                 )
                 continue
-            if not self._matches_file(detail, file) or not detail.rule_candidates:
+            if not self._matches_file(detail, file):
                 continue
             sources.append(
                 {
                     "source_ref": self._inventory_item(file),
                     "summary": detail.summary,
+                    "project_facts": detail.project_facts,
                     "rule_candidates": [
                         candidate.model_dump(mode="json")
                         for candidate in detail.rule_candidates
@@ -324,7 +339,7 @@ class ProjectSpecificationService:
             f"\n\nnew_content（结构化规则候选）：\n{source_json}"
             f"\n\nsource_meta：\n{source_meta}"
             "\n\n# 最终约束\n"
-            f"project_id 必须为十进制字符串 \"{project.id}\"。"
+            f'project_id 必须为十进制字符串 "{project.id}"。'
             "规则引用文件时必须原样复制候选中的 file_id、path、"
             "content_hash 和 detail_ref；"
             "不得仅因某个文件没有规则候选就删除旧规则；"
@@ -334,6 +349,7 @@ class ProjectSpecificationService:
             "只返回本批新增或需要修改的规则、变更和忽略项，不要重写整份旧规范。"
             "已存在的同一规则必须复用原 ID；更新条目须保留原有来源和历史。"
             "没有变化的规则数组返回 []，development_stage 没有新证据时省略。"
+            "project_facts 是阶段、能力和日期等事实，须保留已完成与计划中的区别，只用于 development_stage，不升级为项目规范规则。"
             "不得把当前批次没有提供某条候选视为规则被删除。"
             "每条规则和变更说明使用简洁中文，不复制候选全文或旧 changes。"
         )

@@ -18,12 +18,12 @@ from app.modules.project_file.analysis.schemas import (
 )
 from app.modules.project_file.models import ProjectFile
 from app.modules.project_file.repository import ProjectFileRepository
+from app.project_context.file_detail.extraction import (
+    FileContentExtractionService,
+)
 from app.project_context.file_detail.schemas import (
     FileSemanticAnalysisRequest,
     FileSemanticAnalysisResult,
-)
-from app.project_context.file_detail.extraction import (
-    FileContentExtractionService,
 )
 from app.project_context.file_detail.service import FileSemanticAnalysisService
 from app.project_context.index import ProjectIndexService
@@ -45,6 +45,7 @@ class ProjectFileAnalysisService:
         content_extractor: FileContentExtractionService,
         semantic_analyzer: FileSemanticAnalysisService,
         specification_service: ProjectSpecificationService,
+        runs=None,
     ) -> None:
         self._repository = repository
         self._projects = projects
@@ -54,6 +55,7 @@ class ProjectFileAnalysisService:
         self._content_extractor = content_extractor
         self._semantic_analyzer = semantic_analyzer
         self._specification = specification_service
+        self._runs = runs
 
     async def analyze_pending_files(
         self,
@@ -61,11 +63,64 @@ class ProjectFileAnalysisService:
         project_id: int,
         *,
         force: bool = False,
+        file_ids: list[int] | None = None,
     ) -> ProjectFileAnalysisBatchResult:
+        if self._runs is None:
+            return await self._analyze_pending_files(
+                user_id, project_id, force=force, file_ids=file_ids
+            )
+        from uuid import uuid4
+
+        from app.core.trace import get_trace_id
+        from app.llm.telemetry import capture_calls
+
+        run, _ = await self._runs.start(
+            user_id,
+            project_id,
+            "parse",
+            uuid4().hex,
+            {"force": force, "fileIds": file_ids},
+            get_trace_id(),
+        )
+        run_id, events = run.id, []
+        try:
+            with capture_calls(events):
+                result = await self._analyze_pending_files(
+                    user_id, project_id, force=force, file_ids=file_ids
+                )
+            result = result.model_copy(update={"run_id": str(run_id)})
+            await self._runs.finish(
+                run_id,
+                user_id,
+                events,
+                result.model_dump(mode="json", by_alias=True),
+                error="本批存在未成功解析或发布的项目，请查看结果明细"
+                if result.status != "success"
+                else None,
+            )
+            return result
+        except Exception as exc:
+            logger.exception("文件批次运行中断，保留模型轨迹")
+            await self._repository.session.rollback()
+            await self._runs.finish(
+                run_id, user_id, events, error=f"解析运行失败：{type(exc).__name__}"
+            )
+            raise
+
+    async def _analyze_pending_files(
+        self, user_id, project_id, *, force=False, file_ids=None
+    ):
         project = await self._projects.require_owned(user_id, project_id)
+        options = {"file_ids": file_ids} if file_ids is not None else {}
+        if file_ids is not None:
+            for file_id in file_ids:
+                selected = await self._repository.get(project_id, file_id)
+                if selected is None or selected.business_code == "system":
+                    raise AppException(ErrorCode.FILE_NOT_FOUND)
         candidates = await self._repository.list_analysis_candidates(
             project_id,
             force=force,
+            **options,
         )
         await self._repository.session.commit()
         logger.info(

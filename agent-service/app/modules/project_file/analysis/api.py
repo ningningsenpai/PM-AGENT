@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, Query
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.identifiers import SnowflakeId
 from app.core.response import ApiResponse, success
@@ -15,10 +18,16 @@ from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 router = APIRouter()
 
 
+class ParseSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fileIds: list[int] = Field(min_length=1, max_length=100)
+
+
 @router.post("/parse/init", response_model=ApiResponse)
 async def initialize_project_file_analysis(
     project_id: SnowflakeId,
     force: bool = Query(default=False),
+    selection: Annotated[ParseSelection | None, Body()] = None,
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectFileAnalysisService = Depends(get_project_file_analysis_service),
 ) -> ApiResponse:
@@ -27,5 +36,6 @@ async def initialize_project_file_analysis(
             principal.user_id,
             project_id,
             force=force,
+            **({"file_ids": selection.fileIds} if selection else {}),
         )
     )

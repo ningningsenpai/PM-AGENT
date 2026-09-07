@@ -14,11 +14,13 @@ from app.infrastructure.storage import (
     get_object_storage,
 )
 from app.llm.factory import get_llm_client
+from app.llm.structured import StructuredJsonGenerator
+from app.modules.chat.repository import ChatRepository
+from app.modules.chat.run_service import RunService
 from app.modules.project.api import get_project_service
 from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 from app.modules.project_file.repository import ProjectFileRepository
-from app.llm.structured import StructuredJsonGenerator
 from app.project_context.file_detail import FileDownloader
 from app.project_context.file_detail.extraction import (
     FileContentExtractionService,
@@ -64,4 +66,5 @@ def get_project_file_analysis_service(
             max_semantic_input_bytes=file_detail_config.max_semantic_input_bytes,
         ),
         ProjectSpecificationService(storage, locations, generator),
+        runs=RunService(ChatRepository(session), projects),
     )

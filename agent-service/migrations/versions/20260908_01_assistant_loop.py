@@ -5,6 +5,7 @@
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import mysql
 
 revision = "20260908_01"
 down_revision = "20260903_02"
@@ -112,7 +113,9 @@ def upgrade():
         ),
         sa.Column("conversation_id", sa.BigInteger(), nullable=False),
         sa.Column("role", sa.String(length=16), nullable=False),
-        sa.Column("content", sa.Text(), nullable=False),
+        sa.Column(
+            "content", sa.Text().with_variant(mysql.LONGTEXT(), "mysql"), nullable=False
+        ),
         sa.Column("run_id", sa.BigInteger(), nullable=False),
         sa.Column("protocol", sa.JSON(), nullable=False),
         sa.Column(
@@ -216,7 +219,11 @@ def upgrade():
         sa.Column("project_id", sa.BigInteger(), nullable=False),
         sa.Column("run_id", sa.BigInteger(), nullable=False),
         sa.Column("kind", sa.String(length=16), nullable=False),
-        sa.Column("markdown", sa.Text(), nullable=False),
+        sa.Column(
+            "markdown",
+            sa.Text().with_variant(mysql.LONGTEXT(), "mysql"),
+            nullable=False,
+        ),
         sa.Column("source_versions", sa.JSON(), nullable=False),
         sa.Column("evidence", sa.JSON(), nullable=False),
         sa.Column(

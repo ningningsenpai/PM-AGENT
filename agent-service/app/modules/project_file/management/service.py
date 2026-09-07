@@ -519,7 +519,84 @@ class ProjectFileService:
             project_id,
             len(files),
         )
-        return [to_file_response(file) for file in files]
+        result = [to_file_response(file) for file in files]
+        await self._repository.session.commit()
+        return result
+
+    async def read_evidence(
+        self,
+        user_id: int,
+        project_id: int,
+        file_id: int,
+        start_line: int = 1,
+        end_line: int = 200,
+    ) -> dict:
+        """读取当前项目源文件的脱敏证据；行号来自真实提取文本。"""
+        import hashlib
+
+        from app.project_context.file_detail import FileDownloader
+        from app.project_context.file_detail.extraction import (
+            FileContentExtractionService,
+            FileContentExtractorFactory,
+        )
+        from app.project_context.file_detail.sensitive_content import (
+            sanitize_sensitive_content,
+        )
+
+        if start_line < 1 or end_line < start_line or end_line - start_line >= 200:
+            raise AppException(
+                ErrorCode.PARAM_INVALID, "证据行范围必须连续且不超过 200 行"
+            )
+        await self._projects.require_owned(user_id, project_id)
+        file = await self._require_public_file(project_id, file_id)
+        if file.status != "active" or file.upload_status != "success":
+            raise file_status_invalid()
+        location = self._locations.existing_object(user_id, project_id, file.object_key)
+        filename, content_type, expected_hash, path = (
+            file.file_name,
+            file.content_type,
+            file.content_hash,
+            file.relative_path,
+        )
+        await self._repository.session.commit()
+        raw = await asyncio.to_thread(self._storage.read_bytes, location)
+        if hashlib.sha256(raw).hexdigest() != expected_hash:
+            raise AppException(
+                ErrorCode.RESOURCE_CONFLICT, "源文件哈希与当前记录不一致，请刷新后重试"
+            )
+        extraction = FileContentExtractionService(
+            FileDownloader(), FileContentExtractorFactory()
+        )
+        extracted = await extraction.extract_from_bytes(raw, content_type, filename)
+        sanitized = sanitize_sensitive_content(extracted.get("text", ""))
+        lines = sanitized.text.splitlines()
+        if start_line > max(1, len(lines)):
+            raise AppException(ErrorCode.PARAM_INVALID, "起始行超出实际文件范围")
+        actual_end, rendered, used, truncated = start_line - 1, [], 0, False
+        for line_no in range(start_line, min(end_line, len(lines)) + 1):
+            item = f"{line_no}: {lines[line_no - 1]}"
+            encoded = (item + "\n").encode("utf-8")
+            if used + len(encoded) > 32768:
+                if not rendered:
+                    rendered.append(encoded[:32767].decode("utf-8", errors="ignore"))
+                    actual_end = line_no
+                truncated = True
+                break
+            used += len(encoded)
+            rendered.append(item)
+            actual_end = line_no
+        return {
+            "fileId": file_id,
+            "logicalPath": path,
+            "contentHash": expected_hash,
+            "startLine": start_line,
+            "endLine": actual_end,
+            "totalLines": len(lines),
+            "text": "\n".join(rendered),
+            "truncated": truncated,
+            "hasMore": actual_end < len(lines),
+            "redacted": bool(sanitized.flags),
+        }
 
     async def create_read_url(
         self,

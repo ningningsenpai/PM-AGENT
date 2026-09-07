@@ -1,15 +1,15 @@
 """查询当前项目文件列表的只读 Agent 工具。"""
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from app.agents.tools.base import BaseAgentTool
 from app.agents.tools.schemas import ToolExecutionContext
 from app.core.errors import AppException, ErrorCode
 from app.modules.project_file.management.service import ProjectFileService
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ListCurrentProjectFilesInput(BaseModel):
@@ -18,6 +18,9 @@ class ListCurrentProjectFilesInput(BaseModel):
     business_code: Literal["project", "user"] | None = Field(
         default=None,
         description="可选文件业务类型；留空时查询项目和用户公开文件。",
+    )
+    analysis_status: Literal["success", "pending", "failed", "unavailable"] | None = (
+        None
     )
 
 
@@ -34,6 +37,9 @@ class CurrentProjectFileItem(BaseModel):
     status: str
     upload_status: str
     parse_attempts: int
+    analysis_status: str = "pending"
+    last_error_code: str | None = None
+    last_error_message: str | None = None
     updated_at: datetime
 
 
@@ -46,7 +52,9 @@ class ListCurrentProjectFilesTool(BaseAgentTool):
     """通过 ProjectFileService 查询当前对话项目的公开文件。"""
 
     name = "list_current_project_files"
-    description = "查询当前对话关联项目的公开文件列表和处理状态，不返回存储路径或下载地址。"
+    description = (
+        "查询当前对话关联项目的公开文件列表和处理状态，不返回存储路径或下载地址。"
+    )
     input_model = ListCurrentProjectFilesInput
     output_model = ListCurrentProjectFilesOutput
 
@@ -67,4 +75,10 @@ class ListCurrentProjectFilesTool(BaseAgentTool):
             parameters.business_code,
         )
         items = [CurrentProjectFileItem.model_validate(file) for file in files]
+        if parameters.analysis_status:
+            items = [
+                item
+                for item in items
+                if item.analysis_status == parameters.analysis_status
+            ]
         return ListCurrentProjectFilesOutput(files=items, total=len(items))

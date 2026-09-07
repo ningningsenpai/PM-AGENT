@@ -11,6 +11,7 @@ HTTP 协议，区别主要在于：
 ``provider`` 名即可被工厂识别。
 """
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -24,8 +25,8 @@ from app.llm.contracts import (
     LLMToolCallDelta,
     LLMTurnStreamEvent,
 )
-from app.streaming.metrics import LLMChatResult, LLMStreamChunk, LLMTokenUsage
 from app.llm.telemetry import ModelCall
+from app.streaming.metrics import LLMChatResult, LLMStreamChunk, LLMTokenUsage
 
 logger = logging.getLogger(__name__)
 
@@ -150,30 +151,46 @@ class OpenAICompatibleClient(BaseLLMClient):
     ) -> LLMAssistantTurn:
         """非流式返回文本、工具调用和需要回传的推理字段。"""
         max_tokens = max_tokens or self.config.max_output_tokens
-        body = self._build_body(messages, stream=False, tools=tools,
-                                tool_choice=tool_choice, response_format=response_format,
-                                max_tokens=max_tokens, temperature=temperature)
+        body = self._build_body(
+            messages,
+            stream=False,
+            tools=tools,
+            tool_choice=tool_choice,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
         headers = self._headers()
         record = ModelCall(body, self.config.context_window_tokens)
+        data = None
         try:
-            async with httpx.AsyncClient(timeout=self._timeout_seconds(timeout_seconds)) as client:
-                response = await client.post(self._endpoint(), headers=headers, json=body)
+            async with (
+                asyncio.timeout(self._timeout_seconds(timeout_seconds)),
+                httpx.AsyncClient(
+                    timeout=self._timeout_seconds(timeout_seconds)
+                ) as client,
+            ):
+                response = await client.post(
+                    self._endpoint(), headers=headers, json=body
+                )
             self._raise_for_status(response, max_tokens=max_tokens)
             data = response.json()
-        except Exception as exception:
-            record.finish(error=exception)
-            raise
-        else:
-            record.finish(response=data)
             choice = data["choices"][0]
             message = choice["message"]
-            return LLMAssistantTurn(
+            turn = LLMAssistantTurn(
                 content=message.get("content") or "",
                 tool_calls=self._parse_tool_calls(message.get("tool_calls")),
                 finish_reason=choice.get("finish_reason"),
                 reasoning_content=message.get("reasoning_content"),
                 usage=self._usage_from_response(data),
             )
+        except Exception as exception:
+            record.finish(
+                response=data if isinstance(data, dict) else None, error=exception
+            )
+            raise
+        record.finish(response=data)
+        return turn
 
     def _timeout_seconds(self, override: float | None = None) -> float:
         if override is not None:

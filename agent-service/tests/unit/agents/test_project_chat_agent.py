@@ -43,7 +43,7 @@ class FakeLLM:
     def __init__(self) -> None:
         self.config = SimpleNamespace(
             model="deepseek-test",
-            context_window_tokens=4096,
+            context_window_tokens=131072,
             reserved_output_tokens=512,
         )
         self.turns: list[LLMAssistantTurn] = []
@@ -109,6 +109,7 @@ class TestProjectChatAgent(IsolatedAsyncioTestCase):
         llm.turns = [LLMAssistantTurn(content="项目当前完成度约为 50%。")]
         agent, _projects = _agent(llm)
         gateway = SimpleNamespace(
+            release_reads=AsyncMock(),
             prepare=AsyncMock(
                 return_value=UserInputContext(
                     raw_query="当前项目是什么？",

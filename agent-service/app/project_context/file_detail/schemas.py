@@ -9,11 +9,11 @@ from pydantic.alias_generators import to_camel
 from app.core.identifiers import SnowflakeId
 
 __all__ = [
-    "FileSemanticAnalysisRequest",
-    "FileSemanticAnalysisResult",
     "FileDetail",
     "FileDetailSemanticOutput",
     "FileRuleCandidate",
+    "FileSemanticAnalysisRequest",
+    "FileSemanticAnalysisResult",
 ]
 
 Keyword = Annotated[str, Field(min_length=1, max_length=128)]
@@ -86,6 +86,7 @@ class FileDetailSemanticOutput(BaseModel):
     rule_candidates: list[FileRuleCandidate] = Field(
         default_factory=list, max_length=100
     )
+    project_facts: list[dict[str, Any]] = Field(default_factory=list, max_length=40)
 
     @field_validator("related_files", mode="before")
     @classmethod
@@ -139,6 +140,7 @@ class FileDetail(BaseModel):
     previous_versions: list[dict[str, Any]]
     parser: dict[str, Any]
     rule_candidates: list[FileRuleCandidate] = Field(default_factory=list)
+    project_facts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class FileSemanticAnalysisResult(BaseModel):

@@ -40,6 +40,10 @@ class ProjectChatAgent:
     MAX_STEPS = 5
     MAX_TOOL_CALLS = 8
 
+    def tool_catalog(self) -> list[dict]:
+        """目录由实际请求级注册表生成，保持定义与可执行实现一致。"""
+        return self._registry.definitions()
+
     def __init__(
         self,
         settings: Settings,
@@ -67,13 +71,26 @@ class ProjectChatAgent:
         input_context = await self._prepare_input_context(request, context)
         messages = self._build_messages(request, llm, input_context)
         if history is not None:
-            messages = [message for message in messages if message["role"] == "system"] + history + [{"role": "user", "content": request.messages[-1].content}]
+            messages = (
+                [message for message in messages if message["role"] == "system"]
+                + history
+                + [{"role": "user", "content": request.messages[-1].content}]
+            )
         protocol_start = len(messages) - 1
         records: list[ToolCallRecord] = []
         usage_summary = LLMTokenUsageSummary()
         total_tool_calls = 0
 
         for _step in range(1, self.MAX_STEPS + 1):
+            if self._input_context_gateway is not None:
+                await self._input_context_gateway.release_reads()
+            self._fit_history(messages, llm, tools)
+            if protocol_out is not None:
+                protocol_start = max(
+                    index
+                    for index, message in enumerate(messages)
+                    if message["role"] == "user"
+                )
             turn = await llm.complete_turn(
                 messages,
                 tools=tools or None,
@@ -81,14 +98,26 @@ class ProjectChatAgent:
                 max_tokens=getattr(self.settings, "chat_max_tokens", 16384),
             )
             usage_summary.add(turn.usage)
+            if turn.finish_reason == "length":
+                raise AppException(
+                    ErrorCode.SYSTEM_ERROR, "模型回答达到输出上限，未生成完整结果"
+                )
             if not turn.tool_calls:
-                if turn.finish_reason == "length":
-                    raise AppException(ErrorCode.SYSTEM_ERROR, "模型回答达到输出上限，未生成完整结果")
-                if not turn.content:
+                if not turn.content.strip():
                     raise AppException(ErrorCode.SYSTEM_ERROR, "模型未返回有效回答")
                 if protocol_out is not None:
                     protocol_out.extend(messages[protocol_start:])
-                    protocol_out.append({"role": "assistant", "content": turn.content})
+                    protocol_out.append(
+                        {
+                            "role": "assistant",
+                            "content": turn.content,
+                            **(
+                                {"reasoning_content": turn.reasoning_content}
+                                if turn.reasoning_content is not None
+                                else {}
+                            ),
+                        }
+                    )
                 return ChatResponse(
                     answer=turn.content,
                     model=llm.config.model,
@@ -103,11 +132,42 @@ class ProjectChatAgent:
             for call in turn.tool_calls:
                 result = await self._executor.execute(call, context)
                 from app.llm.telemetry import record_tool
+
                 record_tool(_step, result)
                 records.append(self._public_record(result))
                 messages.append(self._tool_message(call, result))
 
         raise AppException(ErrorCode.AGENT_TOOL_LOOP_LIMIT_EXCEEDED)
+
+    def _fit_history(self, messages, llm, tools):
+        """以本次实际消息重新计量，按完整用户轮次移除较早的协议组。"""
+        from app.llm.telemetry import input_upper_bound
+
+        limit = llm.config.context_window_tokens
+        maximum = getattr(self.settings, "chat_max_tokens", 16384)
+        if not limit:
+            return
+        while (
+            input_upper_bound(
+                {
+                    "model": llm.config.model,
+                    "messages": messages,
+                    "tools": tools,
+                    "max_tokens": maximum,
+                }
+            )
+            + maximum
+            > limit
+        ):
+            users = [
+                index for index, item in enumerate(messages) if item["role"] == "user"
+            ]
+            if len(users) < 2:
+                raise AppException(
+                    ErrorCode.PARAM_INVALID,
+                    "当前问题和工具结果超过上下文预算，请缩小问题范围",
+                )
+            del messages[users[0] : users[1]]
 
     async def stream_chat(
         self,
@@ -145,7 +205,7 @@ class ProjectChatAgent:
             turn = accumulator.build()
             usage_summary.add(turn.usage)
             if not turn.tool_calls:
-                if not turn.content:
+                if not turn.content.strip():
                     raise AppException(ErrorCode.SYSTEM_ERROR, "模型未返回有效回答")
                 yield {
                     "event": StreamEventType.DONE,

@@ -79,10 +79,17 @@ class FileSemanticAnalysisService:
             "content_hash": request.content_hash,
         }
         metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2)
+        numbered_source = "\n".join(
+            f"{index}: {line}"
+            for index, line in enumerate(sanitized_content.text.splitlines(), 1)
+        )
         prompt = (
             f"{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL.value}"
             f"\n\n# 文件元数据\n{metadata_json}"
-            f"\n\n# 待分析文件内容\n<source_file>\n{sanitized_content.text}\n</source_file>"
+            f"\n\n# 待分析文件内容（行号由服务端生成）\n<source_file>\n{numbered_source}\n</source_file>"
+            "\ncontent_slices 每项增加 source_quote，必须摘取一段连续原文（不含行号前缀），用于服务端定位；无法摘取则空字符串。"
+            "\n增加 project_facts 数组：保存明确的已完成能力、尚未实现能力、阶段、日期、自报进度，每项包含 kind、statement、source_quote。"
+            "这些项目事实不是规范规则，不放入 rule_candidates；例如只存在列表和新增接口不能推断为完整 CRUD。"
             f"\n\n{ProjectFileDetailPrompt.PROJECT_FILE_DETAIL_FINAL_CHECK.value}"
         )
         try:
@@ -122,6 +129,25 @@ class FileSemanticAnalysisService:
 
         now = datetime.now()
         semantic_fields = semantic_output.model_dump()
+        for field in ("content_slices", "project_facts"):
+            for item in semantic_fields[field]:
+                quote = item.get("source_quote", "")
+                index = (
+                    sanitized_content.text.find(quote)
+                    if isinstance(quote, str) and quote
+                    else -1
+                )
+                # 只接受能唯一定位的原文；未核实的模型行号不继续传播。
+                if index >= 0 and sanitized_content.text.find(quote, index + 1) < 0:
+                    start = sanitized_content.text[:index].count("\n") + 1
+                    item["source_range"] = {
+                        "start_line": start,
+                        "end_line": start + quote.count("\n"),
+                    }
+                    item["evidence_verified"] = True
+                else:
+                    item.pop("source_range", None)
+                    item["evidence_verified"] = False
         semantic_fields["sensitive_flags"] = [
             *sanitized_content.flags,
             *semantic_output.sensitive_flags,

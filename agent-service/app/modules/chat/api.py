@@ -14,8 +14,7 @@ from app.streaming.payloads import AgentChatRequest, ApiResponse
 router = APIRouter(prefix="/api/v1/agent", tags=["Agent"])
 logger = get_logger(__name__)
 
-# 用户习惯与长短期记忆的写入业务仍然冻结。Chat API 只读取 MinIO 预置上下文，
-# 不执行对话信息提取、记忆生成、晋升或更新。
+# 旧接口保留无状态问答兼容；持久化历史和显式学习使用 conversations 系列接口。
 
 
 @router.post("/chat")

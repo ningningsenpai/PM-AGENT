@@ -1,9 +1,10 @@
 """项目文件请求与响应模型。"""
+
 from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 from pydantic.alias_generators import to_camel
 
 from app.core.identifiers import SnowflakeId
@@ -40,9 +41,22 @@ class ProjectFileResponse(FileSchema):
     status: str
     upload_status: str
     parse_attempts: int
+    detail_ref: str | None = None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+    last_failed_at: datetime | None = None
     lock_version: int
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def analysis_status(self) -> str:
+        if self.upload_status != "success" or self.status != "active":
+            return "unavailable"
+        if self.last_error_code and self.last_error_code.startswith("FILE_DETAIL"):
+            return "failed"
+        return "success" if self.detail_ref else "pending"
 
 
 class ProjectFileUploadResponse(FileSchema):
