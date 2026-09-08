@@ -13,6 +13,7 @@ class RunRepository(ChatRepositoryBase):
         )
 
     async def duplicate(self, user_id, operation, key):
+        """按用户、操作类型和幂等键查找已有运行，供服务层复用结果或处理冲突。"""
         return await self.session.scalar(
             select(AgentRun).where(
                 AgentRun.user_id == user_id,

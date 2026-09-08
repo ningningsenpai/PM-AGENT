@@ -23,6 +23,9 @@ frontend-agent/.vite/
 frontend/.env
 deploy/.env
 
+# HTTP 调试的本地账号、令牌、项目 ID 与文件路径
+/agent-service/test_client/http-client.env.json
+
 # IDE 与系统文件
 .idea/
 .vscode/
@@ -61,3 +64,6 @@ agent-service/AGI-saber
 
 # 助手闭环测试：请求、快照、费用和模型输出只在本地归档
 agent-service/tests/project_assistant_flow/output/
+
+# 本地 MinIO 导出与模型解析评估产物，结论文档单独纳入版本管理
+/agent-service/Assessment/

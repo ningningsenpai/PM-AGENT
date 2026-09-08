@@ -9,6 +9,7 @@ from .models import AgentConversation, AgentMessage
 
 class ConversationRepository(ChatRepositoryBase):
     async def conversation(self, user_id, conversation_id, *, lock=False):
+        """按用户限定会话；lock=True 时加行锁并刷新 ORM 状态，供当前事务协调并发修改。"""
         query = select(AgentConversation).where(
             AgentConversation.id == conversation_id,
             AgentConversation.user_id == user_id,

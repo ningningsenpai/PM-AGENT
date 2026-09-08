@@ -78,6 +78,7 @@ class ConversationService:
         return result
 
     async def messages(self, user_id, conversation_id):
+        """校验会话归属后返回历史消息，并附带运行幂等键供客户端恢复请求结果。"""
         await self.owned(user_id, conversation_id)
         result = [
             MessageView.model_validate(row).model_copy(update={"request_key": key})
