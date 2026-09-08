@@ -12,7 +12,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "node scripts/check-contracts.mjs"
   },
   "dependencies": {
     "@vicons/ionicons5": "^0.13.0",

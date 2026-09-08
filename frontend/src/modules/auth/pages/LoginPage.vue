@@ -6,7 +6,7 @@
 
     <AuthBrandHero />
 
-    <AuthPanel title="登录工作台" description="使用项目账号进入 PM-Agent，继续推进项目、任务和风险线索。">
+    <AuthPanel title="登录工作台" description="使用邮箱登录 PM-Agent，继续项目问答、资料管理和报告工作。">
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="top" size="large">
         <n-form-item label="邮箱" path="email">
           <n-input v-model:value="form.email" placeholder="admin@pm-agent.local" clearable />
@@ -73,6 +73,7 @@ const rules: FormRules = {
 async function handleLogin() {
   if (loading.value) return
   try { await formRef.value?.validate() } catch { return }
+  if (loading.value) return
   loading.value = true
   try {
     await authStore.login({ email: form.email, password: form.password })

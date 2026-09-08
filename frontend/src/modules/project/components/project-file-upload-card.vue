@@ -2,7 +2,7 @@
   <n-card class="glass-card upload-card" :bordered="false">
     <div class="upload-head">
       <div>
-        <p class="upload-eyebrow">Project Files</p>
+        <p class="upload-eyebrow">项目资料</p>
         <div class="upload-title-row">
           <h2>项目文件同步</h2>
           <n-tag :type="uploadStatusType" round size="small">{{ uploadStatusLabel }}</n-tag>

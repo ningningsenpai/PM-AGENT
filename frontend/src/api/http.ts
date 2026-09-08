@@ -50,8 +50,9 @@ http.interceptors.response.use(
     if (axios.isCancel(error)) return Promise.reject(error)
     const body = error?.response?.data
     notifyUnauthorized(error?.response?.status === 401 ? 20001 : body?.code, error?.config?.headers?.get?.('Authorization'))
-    const message = body?.message || (error?.code === 'ECONNABORTED' ? '请求超时，请先确认处理结果' : '连接服务失败，请稍后重试')
-    return Promise.reject(new RequestError(message, body?.code, body?.traceId, !error?.response || error.response.status >= 500))
+    const status = error?.response?.status
+    const message = body?.message || (error?.code === 'ECONNABORTED' ? '请求超时，请先确认处理结果' : status ? '服务未能完成请求，请稍后重试' : '连接服务失败，请稍后重试')
+    return Promise.reject(new RequestError(message, body?.code || status, body?.traceId, !error?.response || status >= 500))
   },
 )
 

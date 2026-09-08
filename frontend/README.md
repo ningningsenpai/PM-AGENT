@@ -1,158 +1,74 @@
 # PM-Agent 前端工程
 
-本目录用于存放 PM-Agent 的 Vue 3 前端代码，是 PM-Agent 单仓库 Monorepo 的前端模块。
+Vue 3、TypeScript、Naive UI、Pinia、Vue Router、Axios 和 Vite 组成前端运行栈。页面沿用 Warm Linear 视觉，桌面优先，适配 1280px 及以上工作区。
 
-## 仓库与分支说明
+## 启动与验证
 
-项目采用 **单仓库 Monorepo + `main` 主干 + `feature/*` 任务分支**：
+使用 Node.js 20 和 pnpm 9：
 
-- `main` 分支：维护完整项目基线，包含文档、前端、后端、部署配置和后续 Agent 服务骨架；
-- `frontend/` 目录：维护前端工程代码，不再对应长期 `frontend` 模块分支；
-- 前端相关任务使用 `feature/*` 分支开发，例如 `feature/init-frontend`、`feature/auth-login`；
-- 前后端联调功能可以在同一个任务分支内同时修改 `frontend/`、`agent-service/` 和 `docs/`。
-
-详细规则见 `docs/12-Git管理策略.md`。
-
-## 技术基线
-
-前端开发应遵守：
-
-- Vue 3；
-- TypeScript；
-- Vite；
-- Node.js 20 LTS；
-- pnpm；
-- Naive UI；
-- Pinia；
-- Vue Router；
-- ECharts；
-- Axios；
-- UnoCSS 可选，不与 Tailwind 同时引入。
-
-## 本地启动
-
-当前环境要求：
-
-```bash
-node --version # 期望为 20.x
-pnpm --version # 期望为 9.x 或更高
-```
-
-初始化依赖并启动：
-
-```bash
+```powershell
 pnpm install
-cp .env.example .env
+Copy-Item .env.example .env
 pnpm dev
-```
-
-如本机尚未安装 pnpm，可先启用 Corepack：
-
-```bash
-corepack enable
-corepack prepare pnpm@9.15.4 --activate
-```
-
-## 页面结构
-
-当前前端按“公开入口 + 认证页 + 受保护工作台”组织：
-
-```text
-/
-├── 项目介绍页，公开访问
-├── /login        登录页，公开访问
-├── /register     注册页，公开访问
-└── /projects     项目工作台，需登录
-    ├── /projects/:id
-    └── /projects/:id/tasks
-```
-
-路由定义位于 `src/router/index.ts`。受保护页面会检查本地 `pm-agent-token`，必要时调用 `/api/v1/users/me` 恢复当前用户。
-
-## 目录约定
-
-前端代码按“业务模块 → 页面 / 组件 / API / 类型”组织：
-
-```text
-src
-├── api                 # Axios 实例与统一 request<T>()
-├── layouts             # 主应用布局
-├── modules
-│   ├── auth            # 登录、注册、认证接口与认证组件
-│   ├── landing         # 项目介绍等公开页面
-│   ├── project         # 项目页面、接口、状态
-│   └── task            # 任务页面、接口、状态
-├── router              # 路由与登录守卫
-├── shared              # 全局样式、工具、通用类型
-└── stores              # 全局 Pinia Store
-```
-
-业务请求不得在页面中直接调用 `axios.get/post`，应通过：
-
-1. `src/api/http.ts` 的 `request<T>()`；
-2. `src/modules/<module>/api.ts` 的模块 API 函数。
-
-## 认证接口契约
-
-后端统一返回结构：
-
-```json
-{
-  "code": 0,
-  "message": "成功",
-  "data": {},
-  "traceId": "abc123"
-}
-```
-
-认证相关接口：
-
-| 功能 | 方法 | 路径 | 说明 |
-|---|---|---|---|
-| 注册 | POST | `/api/v1/auth/register` | 返回 `tokenName/tokenValue/user` |
-| 登录 | POST | `/api/v1/auth/login` | 返回 `tokenName/tokenValue/user` |
-| 登出 | POST | `/api/v1/auth/logout` | 退出当前登录态 |
-| 当前用户 | GET | `/api/v1/users/me` | 返回当前用户资料 |
-
-所有请求会自动携带 `X-Trace-Id`。登录后，请求会自动携带：
-
-```http
-Authorization: Bearer <tokenValue>
-```
-
-## Mock 与真实接口切换
-
-`.env` 中通过以下变量控制：
-
-```env
-VITE_API_BASE_URL=http://localhost:8000
-VITE_USE_MOCK=true
-```
-
-- `VITE_USE_MOCK=true`：使用本地 Mock 数据，便于纯前端演示；
-- `VITE_USE_MOCK=false`：请求真实后端接口；
-- `VITE_API_BASE_URL`：真实后端地址，开发期默认可使用 `http://localhost:8000`。
-
-## 第 1 阶段开发约定
-
-- 前端代码统一放在 `frontend/` 目录；
-- 第 1 阶段前端提供项目介绍、登录、注册、项目列表、项目详情和任务看板基础闭环；
-- 任务看板第 1 阶段使用下拉框切换任务状态，拖拽能力后置到后续阶段；
-- 风险中心、Agent 对话、周报、Trace 详情等页面在用户完善需求文档后再继续设计与开发。
-
-详细规则见：
-
-- `CLAUDE.md`
-- `.claude/skills/pm-agent-frontend-builder/SKILL.md`
-- `docs/02-技术选型.md`
-- `docs/05-接口规范.md`
-- `docs/12-Git管理策略.md`
-
-## 验证命令
-
-```bash
 pnpm typecheck
+pnpm test
 pnpm build
 ```
 
-`pnpm build` 会先执行 `vue-tsc --noEmit`，再执行 Vite 构建。
+示例配置默认连接真实接口，开发服务器将 /api 代理到 http://localhost:8000。VITE_API_BASE_URL 留空，避免绕过代理产生跨域问题。独立验收后端可以通过启动进程的环境变量选择：
+
+```powershell
+$env:VITE_PROXY_TARGET = 'http://127.0.0.1:18080'
+$env:VITE_USE_MOCK = 'false'
+pnpm dev
+```
+
+生产部署需要由网关把 /api 转发到 FastAPI，并将前端页面路径回退到 index.html。不要把模型密钥、数据库或存储凭据写入 VITE_ 变量。
+
+## 页面与职责
+
+| 路径 | 功能 |
+|---|---|
+| / | 介绍及明确标记的设计预览 |
+| /login、/register | 邮箱登录、注册 |
+| /overview | 真实项目数量、当前项目文件与报告摘要 |
+| /projects | 创建、筛选与选择项目 |
+| /projects/:id | 文件同步、解析状态、定向重试、读取文件及删除项目 |
+| /projects/:id/assistant | 持久化问答、工具记录、显式学习及学习内容纠正 |
+| /projects/:id/reports | 开发／风险报告生成、历史详情、来源与运行 |
+| /projects/:id/knowledge | 项目文件及已学习内容 |
+| /projects/:id/risk | 风险报告入口和风险处置的未开放说明 |
+| /projects/:id/tasks | 真实模式仅提供禁用看板结构 |
+| /profile | 资料修改；tab=security 为密码修改 |
+| /settings | 尚未开放的配置能力说明 |
+
+业务代码位于 src/modules，所有业务请求经过 src/api/http.ts。新增页面使用独立业务模块、类型和 API 文件。
+
+## 接口与状态约定
+
+- 当前后端成功业务码为 **200**；HTTP 成功后仍需检查运行状态。旧设计文档中的 code=0 已纠正。
+- 邮箱必填，注册字段为 username、email、password；密码为 6～64 位。
+- 用户、项目、会话、消息、运行、报告、学习条目的雪花 ID 均为字符串，文件 ID 和版本号为数字。
+- 路由中的项目 ID 决定访问范围；切换项目销毁页面作用域，迟到结果不写回新页面。
+- 20001 与 HTTP 401 统一处理登录失效；错误展示中文提示、错误码和 traceId。
+- 同步与解析分开操作。文件解析不会创建任务，初始化状态不是业务进度。
+- 问答、学习和报告使用持久化普通 HTTP 接口。当前未接通 SSE。
+- 长操作具有独立超时，不展示模拟进度；文件上传进度只表示已处理的同步项。
+- 学习纠正传 version 和 reason；文件变更传 lockVersion。内容提交成功但快照失败时单独提示，可重发快照。
+- Markdown 禁用原始 HTML 和图片加载，链接使用独立标签页及 noopener/noreferrer。
+
+## 运行恢复
+
+会话和报告数据由后端持久化。前端把未确认操作的类型、内容、幂等键及已知 runId 暂存于 sessionStorage，以用户、项目和会话隔离；终态会清除暂存内容，退出登录清理本地恢复记录。
+
+请求中断时，优先通过已知 runId 查询；未知 runId 时点击“查询 / 恢复”会使用原内容、原幂等键恢复请求。服务端负责确保同一操作仅执行一次。明确失败后，用户重新执行才建立新键。关闭浏览器标签页会失去该页的 sessionStorage；历史消息及报告仍可从后端重新打开。
+
+文件同步沿用既有同步计划与防重逻辑。删除必须确认；非删除操作部分失败时跳过远端删除。版本冲突或结果不明时，刷新核对状态后再操作。
+
+## 测试边界
+
+pnpm test 使用 Node 内置测试运行器及现有 Vite 构建依赖，验证实际响应码、ID 精度、认证失效、幂等恢复、并发保护、项目隔离、版本参数及 Markdown 安全；不调用模型、不访问业务数据库。
+
+固定浏览器验收样本位于 tests/fixtures/project。真实接口、浏览器验收及限制记录在 [前端闭环实现与验收](../docs/25-前端闭环实现与验收.md)。
+
+VITE_USE_MOCK=true 仅用于标记明确的本地演示。助手、报告、学习纠正、密码修改等能力需要真实服务；演示模式不返回虚假的保存成功。

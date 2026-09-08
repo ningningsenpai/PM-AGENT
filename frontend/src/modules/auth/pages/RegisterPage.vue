@@ -6,7 +6,7 @@
 
     <AuthBrandHero
       title="创建账号，开始沉淀项目执行线索"
-      description="注册后即可进入项目工作台，先完成项目、任务和看板闭环，后续逐步接入 Agent 分析能力。"
+      description="注册后创建项目，同步源码和文档，与 PM 助手讨论并生成项目报告。"
     />
 
     <AuthPanel title="注册账号" description="填写基础账号信息，注册成功后会自动进入项目工作台。">
@@ -100,6 +100,7 @@ const rules: FormRules = {
 async function handleRegister() {
   if (loading.value) return
   try { await formRef.value?.validate() } catch { return }
+  if (loading.value) return
   loading.value = true
   try {
     await authStore.register({
