@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.errors import AppException
 from app.infrastructure.database import Base
-from app.modules.chat.context_service import ContextService
-from app.modules.chat.conversation_service import ConversationService
-from app.modules.chat.learning_service import LearningService
+from app.modules.chat.context.service import ContextService
+from app.modules.chat.conversation.service import ConversationService
+from app.modules.chat.learning.service import LearningService
 from app.modules.chat.repository import ChatRepository
-from app.modules.chat.run_service import RunService
+from app.modules.chat.runs.service import RunService
 from app.modules.chat.conversation.schemas import CreateConversation
 from app.modules.chat.learning.schemas import LearningOutput
 from app.modules.chat.context.schemas import UpdateEntry

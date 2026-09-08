@@ -16,7 +16,7 @@ from app.infrastructure.storage import (
 from app.llm.factory import get_llm_client
 from app.llm.structured import StructuredJsonGenerator
 from app.modules.chat.repository import ChatRepository
-from app.modules.chat.run_service import RunService
+from app.modules.chat.runs.service import RunService
 from app.modules.project.api import get_project_service
 from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService

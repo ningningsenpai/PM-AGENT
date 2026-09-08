@@ -9,11 +9,11 @@ from app.infrastructure.storage import get_object_storage
 from app.llm.dependencies import get_structured_generator
 from app.modules.project.dependencies import get_project_service
 
-from .context_service import ContextService
-from .conversation_service import ConversationService
-from .learning_service import LearningService
+from .context.service import ContextService
+from .conversation.service import ConversationService
+from .learning.service import LearningService
 from .repository import ChatRepository
-from .run_service import RunService
+from .runs.service import RunService
 
 
 def get_chat_repository(session: AsyncSession = Depends(get_db_session)):
@@ -41,8 +41,6 @@ def get_conversation_service(
     contexts=Depends(get_context_service),
 ):
     return ConversationService(repo, projects, runs, contexts)
-
-
 
 
 def get_learning_service(

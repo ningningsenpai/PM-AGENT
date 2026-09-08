@@ -10,9 +10,9 @@ from app.core.response import success
 from app.core.security import AuthPrincipal, require_principal
 from app.core.trace import get_trace_id
 
-from ..conversation_service import ConversationService
 from ..dependencies import get_conversation_service
 from .schemas import CreateConversation, RenameConversation, SendMessage
+from .service import ConversationService
 
 router = APIRouter(prefix="/api/v1/agent", tags=["项目助手闭环"])
 Principal = Annotated[AuthPrincipal, Depends(require_principal)]

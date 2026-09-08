@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 import json
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
 
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
-from app.modules.chat.long_term_memory import LongTermMemoryDocument
-from app.modules.chat.short_term_memory import ShortTermMemoryDocument
-from app.modules.chat.user_habits import UserHabitCategory, UserHabitsDocument
 
-# 当前仅保留项目初始化时的空白占位文件创建，不实现用户习惯、长短期记忆和
-# 更新日志的内容构建。Chat 只读召回复用 MinIO 中已有的上下文文件，不在此处
-# 扩展生成、合并、晋升或更新链路。
+from .documents.long_term_memory import LongTermMemoryDocument
+from .documents.short_term_memory import ShortTermMemoryDocument
+from .documents.user_habits import UserHabitCategory, UserHabitsDocument
+
+# 初始化仅创建缺失的空文件；显式学习的权威条目与版本快照由上下文服务管理。
 
 
 class ChatContextInitializationService:

@@ -7,13 +7,13 @@ import logging
 import re
 
 from app.core.errors import AppException, ErrorCode
+from app.core.identifiers import get_snowflake_id_generator
 from app.llm.telemetry import capture_calls
+from app.modules.chat.conversation.schemas import ConversationView, MessageView
 from app.project_context.file_detail.sensitive_content import sanitize_sensitive_content
 from app.streaming.payloads import AgentChatRequest
 
-from .models import AgentConversation, AgentMessage
-from .run_service import next_id
-from app.modules.chat.conversation.schemas import ConversationView, MessageView
+from ..models import AgentConversation, AgentMessage
 
 
 class ConversationService:
@@ -48,7 +48,7 @@ class ConversationService:
             title = f"项目对话-{number}"
         row = await self.repo.add(
             AgentConversation(
-                id=next_id(),
+                id=get_snowflake_id_generator().next_id(),
                 user_id=user_id,
                 project_id=request.project_id,
                 title=title,
@@ -113,7 +113,7 @@ class ConversationService:
             history = [item for group in history[-5:] for item in group]
             user_message = await self.repo.add(
                 AgentMessage(
-                    id=next_id(),
+                    id=get_snowflake_id_generator().next_id(),
                     conversation_id=conversation_id,
                     role="user",
                     content=content,
@@ -136,7 +136,7 @@ class ConversationService:
                 )
             assistant_message = await self.repo.add(
                 AgentMessage(
-                    id=next_id(),
+                    id=get_snowflake_id_generator().next_id(),
                     conversation_id=conversation_id,
                     role="assistant",
                     content=answer.answer,

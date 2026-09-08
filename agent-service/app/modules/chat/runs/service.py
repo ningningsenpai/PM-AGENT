@@ -12,11 +12,7 @@ from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
 from app.llm.telemetry import safe_payload
 
-from .models import AgentRun
-
-
-def next_id():
-    return get_snowflake_id_generator().next_id()
+from ..models import AgentRun
 
 
 class RunService:
@@ -81,7 +77,7 @@ class RunService:
             if previous and previous.status == "running":
                 previous.status, previous.error = "failed", "运行租约已过期"
         run = AgentRun(
-            id=next_id(),
+            id=get_snowflake_id_generator().next_id(),
             user_id=user_id,
             project_id=project_id,
             conversation_id=conversation_id,

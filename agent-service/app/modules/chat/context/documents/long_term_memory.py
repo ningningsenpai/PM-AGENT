@@ -9,8 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.identifiers import SnowflakeId
 
-# 当前仅保留空文件顶层结构；条目模型及内容生成、更新规则均处于冻结状态，
-# 后续测试使用的长期记忆文件由测试人员直接上传至 MinIO。
+# 保留初始化文件的既有格式；学习条目使用 context/schemas.py 中的独立契约。
 
 
 class LongTermMemoryDocument(BaseModel):

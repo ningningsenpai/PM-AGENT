@@ -31,7 +31,7 @@ from app.input_context import (
 )
 from app.input_context.dependencies import get_normalization_service
 from app.llm.orchestration.project_chat_agent import ProjectChatAgent
-from app.modules.chat.context_service import ContextService
+from app.modules.chat.context.service import ContextService
 from app.modules.chat.dependencies import get_context_service
 from app.modules.report.dependencies import get_report_service
 from app.modules.project.dependencies import get_project_service

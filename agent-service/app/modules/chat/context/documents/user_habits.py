@@ -17,8 +17,7 @@ UserHabitCategory = Literal[
     "life",
 ]
 
-# 当前仅保留分类空文件的顶层结构；习惯条目模型及内容生成、更新规则均处于
-# 冻结状态，后续测试使用的用户习惯文件由测试人员直接上传至 MinIO。
+# 保留初始化文件的既有格式；学习条目使用 context/schemas.py 中的独立契约。
 
 
 class UserHabitsDocument(BaseModel):

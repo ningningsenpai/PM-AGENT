@@ -10,6 +10,8 @@
 
 Chat 业务按职责逐步整理为会话、显式学习、学习上下文、运行记录和旧协议兼容子包。`chat/api.py` 仅聚合路由，`conversation/api.py`、`learning/api.py`、`context/api.py`、`runs/api.py` 分别承载对应接口；`legacy/api.py` 保留原无状态问答。报告的请求结构、模型输出约束和依赖装配归报告模块，结构化生成器装配复用 `app.llm.dependencies`。首批迁移已对比完整 OpenAPI，接口契约保持一致。
 
+各业务服务分别位于上述子包的 `service.py`。`learning/prompts.py` 保存原学习提示词及版本，`learning/rules.py` 校验原话来源、目标归属、版本与确认状态，不执行数据库或模型调用。`context/snapshot.py` 负责版本快照发布；发布前释放数据库事务，失败保留已提交条目并支持单独重发。初始化文件格式归入 `context/documents/`，`ChatContextInitializationService` 继续从 `app.modules.chat` 公开导出，项目创建流程保持兼容。此处文件格式与 MySQL 学习条目契约分别维护。
+
 Agent 与传统业务模块运行在同一个 FastAPI 进程中，但依赖边界保持隔离：
 
 ```mermaid

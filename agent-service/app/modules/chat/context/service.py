@@ -2,30 +2,15 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
-import logging
-from datetime import UTC
-
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
-from app.infrastructure.storage import StorageLocation
 from app.project_context.file_detail.sensitive_content import sanitize_sensitive_content
 
-from .models import AgentContextChange, AgentContextScope
-from app.modules.chat.context.schemas import EntryView
-
-
-def utc_naive(value):
-    return (
-        value.astimezone(UTC).replace(tzinfo=None) if value and value.tzinfo else value
-    )
-
-
-def entry_data(row):
-    return EntryView.model_validate(row).model_dump(mode="json", by_alias=True)
+from ..models import AgentContextChange, AgentContextScope
+from .serialization import entry_data, utc_naive
+from .snapshot import ContextSnapshotPublisher
 
 
 class ContextService:
@@ -170,43 +155,8 @@ class ContextService:
         return result
 
     async def publish_scope(self, key):
-        scope = await self.repo.scope(key)
-        version = scope.version
-        entries = await self.repo.entries(
-            scope.user_id, scope.project_id, effective=False
-        )
-        document = {
-            "scopeKey": key,
-            "version": version,
-            "entries": [entry_data(row) for row in entries if row.scope_key == key],
-        }
-        # 快照文件按版本不可变；失败不会回滚已提交的学习结果。
-        prefix = (
-            f"PM-AGENT/{scope.user_id}/{scope.project_id}/system/learned_context"
-            if scope.project_id
-            else f"PM-AGENT/user_context/{scope.user_id}"
-        )
-        location = StorageLocation(self.bucket, f"{prefix}/v{version}.json")
-        await self.repo.session.commit()
-        error = None
-        try:
-            await asyncio.to_thread(
-                self.storage.put_bytes,
-                location,
-                json.dumps(document, ensure_ascii=False).encode(),
-                "application/json",
-            )
-        except Exception as exc:
-            logging.getLogger(__name__).exception(
-                "上下文业务运行失败，保留当前调用记录"
-            )
-            error = f"快照发布失败：{type(exc).__name__}"
-        current = await self.repo.scope(key, lock=True)
-        if error is None:
-            current.published_version = max(current.published_version, version)
-        current.snapshot_error = error
-        await self.repo.session.commit()
-        return {"version": version, "published": error is None, "error": error}
+        publisher = ContextSnapshotPublisher(self.repo, self.storage, self.bucket)
+        return await publisher.publish_scope(key)
 
     async def publish(self, user_id, project_id):
         await self.authorize(user_id, project_id)
