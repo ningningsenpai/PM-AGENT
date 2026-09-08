@@ -38,7 +38,7 @@ class ContextService:
 
     async def scopes(self, user_id, project_id, *, lock=False):
         result = []
-        # 用户范围先于项目范围加锁，避免两个项目同时学习时锁顺序交错。
+        # 范围记录按用户、项目固定顺序加锁，协调会话自动编号。
         for pid in (None, project_id):
             key = self.key(user_id, pid)
             scope = await self.repo.scope(key, lock=lock)

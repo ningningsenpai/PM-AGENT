@@ -99,9 +99,11 @@ agent-service/app/
 
 ## Chat 子包边界
 
-Chat 按业务职责拆包，包内维护对应的 API、Schema、Service 和持久化实现。会话与消息归 `conversation/`，显式学习流程、Prompt 和候选规则归 `learning/`，上下文内容、初始化文件及快照发布归 `context/`，运行幂等与租约归 `runs/`；旧无状态问答归 `legacy/`。根 `api.py` 只聚合路由，`dependencies.py` 负责共享请求级 Session 的公开依赖装配，`_persistence.py` 仅保留 ID 字段类型及仓储基础操作。
+Chat 按业务职责拆包，包内维护对应的 API、Schema、Service 和持久化实现。会话与消息归 `conversation/`，显式学习流程、Prompt、草稿和反馈版本归 `learning/`，云端上下文分类、条件发布、缓存与旧内容迁移归 `context/`，运行幂等与租约归 `runs/`；旧无状态问答归 `legacy/`。根 `api.py` 只聚合路由，`dependencies.py` 负责共享请求级 Session 的公开依赖装配，`_persistence.py` 仅保留 ID 字段类型及仓储基础操作。
 
 Model 和 Repository 分属会话、上下文、运行子包；学习没有独立业务表，使用同一请求内的上下文与会话仓储。跨表提交由 Service 控制，Repository 不互调、不自行提交。报告的 Schema 与依赖装配归 `report/`，文件解析通过 Chat 公开依赖获取运行服务。详细目录、事务和验收范围见 [Chat 模块分层设计](./26-Chat模块分层设计.md)。
+
+有效上下文正文与学习草稿以 MinIO 清单为准。`context/store.py` 封装不可变版本、条件写入和哈希校验；`learning/store.py` 保存草稿版本；`context/migration.py` 导入并归档旧内容。上下文 Repository 的旧正文读取仅供一次性迁移，不再承担在线召回。MySQL 保存会话、运行、游标和协调记录，所有 MinIO／模型调用都在数据库事务结束后进行。当前实现与恢复协议见 [云端上下文与显式学习改造](./27-云端上下文与显式学习改造.md)。
 
 ## Project Context 上下文产物边界
 

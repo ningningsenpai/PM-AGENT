@@ -26,6 +26,8 @@ class LearnedCandidate(Schema):
     conditions: list[str] = Field(default_factory=list, max_length=20)
     related_entry_ids: list[str] = Field(default_factory=list, max_length=30)
     coexist_reason: str | None = Field(default=None, max_length=1000)
+    # 模型只提供本轮局部分组，真实条目编号由服务端分配和关联。
+    coexist_group: str | None = Field(default=None, min_length=1, max_length=64)
 
     @model_validator(mode="after")
     def validate_scope(self):

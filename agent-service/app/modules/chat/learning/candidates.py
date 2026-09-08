@@ -18,6 +18,11 @@ def build_entries(draft, selected):
     candidates = {c["id"]: c for c in draft["candidates"]}
     if len(set(selected)) != len(selected) or not set(selected) <= candidates.keys():
         raise AppException(ErrorCode.PARAM_INVALID, "所选候选不属于当前草稿或重复")
+    targets = {
+        key: candidate["proposal"].get("replacesEntryId") or key
+        for key, candidate in candidates.items()
+    }
+    published_ids = set(by_id) | {targets[key] for key in selected}
     sources = {m["id"]: m["content"] for m in draft["messages"]}
     sources.update({f["id"]: f["text"] for f in draft.get("feedback", [])})
     changed, used = [], set()
@@ -51,10 +56,16 @@ def build_entries(draft, selected):
         deadline = proposal.expires_at
         if deadline is None and proposal.kind == "short_memory":
             deadline = datetime.fromisoformat(draft["createdAt"]) + timedelta(days=7)
-        related = proposal.related_entry_ids
+        related = [targets.get(key, key) for key in proposal.related_entry_ids]
         allowed_relations = set(by_id) | set(candidates)
-        if not set(related) <= allowed_relations:
+        if not set(proposal.related_entry_ids) <= allowed_relations:
             raise AppException(ErrorCode.FORBIDDEN, "关联条目不属于当前草稿和上下文")
+        if not set(related) <= published_ids:
+            raise AppException(
+                ErrorCode.PARAM_INVALID,
+                "共存关系引用了未选中的新候选，请一并选择或先移除关联",
+            )
+        related = [key for key in dict.fromkeys(related) if key != target_id]
         original_message = any(
             m["id"] == proposal.source_message_id for m in draft["messages"]
         )

@@ -15,13 +15,12 @@ from app.modules.chat.conversation.repository import ConversationRepository
 from app.modules.chat.conversation.schemas import CreateConversation
 from app.modules.chat.conversation.service import ConversationService
 from app.modules.chat.learning.schemas import ConfirmDraft, LearningOutput
-from app.modules.chat.learning.service import new_id
-from tests.unit.chat.storage_stub import MemoryStorage
-from app.modules.chat.learning.service import LearningService
+from app.modules.chat.learning.service import LearningService, new_id
 from app.modules.chat.runs.repository import RunRepository
 from app.modules.chat.runs.service import RunService
 from app.modules.project.models import Project
 from app.modules.user.models import User
+from tests.unit.chat.storage_stub import MemoryStorage
 
 pytestmark = pytest.mark.anyio
 

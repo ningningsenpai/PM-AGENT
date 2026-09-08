@@ -8,11 +8,17 @@ PM-AGENT/{userId}/{projectId}/
 ├── user/{storageName}
 └── system/
     ├── index.json
-    ├── project_specification.json
-    └── file_details/{storageUuid}-{contentHash}-{pathHash}.json
+    ├── project_specification.json  # 初始化与旧版迁移来源
+    ├── file_details/{storageUuid}-{contentHash}-{pathHash}.json
+    └── context/
+        ├── manifest.json
+        ├── versions/{revision}/
+        ├── drafts/{draftId}/
+        ├── edits/
+        └── migration/
 ```
 
-对象键只由 Python `StorageLocationFactory` 生成。公开 API 不接受 `system` 对象键。
+文件对象键由 Python `StorageLocationFactory` 生成，上下文对象键由 `ContextStore` 按所属范围生成。公开 API 不接受任意 `system` 对象键。个人通用习惯和词条使用独立的 `PM-AGENT/user_context/{userId}/context/` 范围。
 
 ## 2. 权威数据
 
@@ -21,10 +27,13 @@ PM-AGENT/{userId}/{projectId}/
 - `system/index.json` 是可重建快照，不是业务事实源。
 - 重建索引时不下载旧文件做读改写，而是从数据库完整生成。
 - 创建项目时先写入合法空项目规范，再写入空索引；后续解析批次同样先刷新项目规范，最后发布索引。
+- 已学习的习惯、词条、短长期记忆及项目规则以 MinIO `context/manifest.json` 引用的分类文件为唯一有效内容源；草稿未确认前不参与召回。MySQL 旧正文表仅用于迁移和历史核对。
+- 文件解析生成的项目规范与人工确认内容共用项目清单；新规范原始聚合文档由清单的 `specification` 引用读取。旧固定 `project_specification.json` 不再代表迁移后的当前版本。
+- 发布先写不可变版本，再以 ETag 条件更新清单；缓存仅保存后端有限内存中的不可变正文，清单每次重新读取。详见 [云端上下文与显式学习改造](./27-云端上下文与显式学习改造.md)。
 
 ## 3. 索引模块边界
 
-`index.json` 的代码归属于 `app/project/context/index/`：
+`index.json` 的代码归属于 `app/project_context/index/`：
 
 ```text
 index/

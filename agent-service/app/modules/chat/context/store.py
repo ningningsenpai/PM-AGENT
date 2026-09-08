@@ -166,6 +166,10 @@ class ContextStore:
             return ContextSnapshot(None, None, [])
         manifest = ContextManifest.model_validate_json(current[0])
         self.validate_manifest(manifest, user_id, project_id)
+        if manifest.schema_version != "2.0.0" or set(manifest.files) != set(KINDS):
+            raise AppException(
+                ErrorCode.FILE_STORAGE_ERROR, "云端上下文版本或分类清单不完整"
+            )
         entries = []
         for kind, ref in manifest.files.items():
             document = Document.model_validate(await self.blob(prefix, ref))
@@ -183,6 +187,12 @@ class ContextStore:
                 ):
                     raise AppException(ErrorCode.FORBIDDEN, "上下文条目所属范围不一致")
                 entries.append(entry.model_dump(mode="json", by_alias=True))
+        if len({entry["id"] for entry in entries}) != len(entries):
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR, "云端上下文条目 ID 重复")
+        if project_id is None and any(
+            entry["kind"] not in {"habit", "term"} for entry in entries
+        ):
+            raise AppException(ErrorCode.FORBIDDEN, "个人通用范围包含项目专属内容")
         return ContextSnapshot(manifest, current[1], entries)
 
     async def find_operation(self, user_id, project_id, manifest, operation_id):

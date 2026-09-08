@@ -97,7 +97,9 @@ class LearningService:
                     )
                 )
                 with capture_calls(events):
-                    output = await self.generator.generate(prompt, LearningOutput)
+                    output = await self.generator.generate(
+                        sanitize_sensitive_content(prompt).text, LearningOutput
+                    )
             draft = await self.create_draft(
                 user_id,
                 project_id,
@@ -174,10 +176,7 @@ class LearningService:
             "base": {key: s.revision for key, s in snapshots.items()},
             "existing": [e for s in snapshots.values() for e in s.entries],
             "messages": messages,
-            "candidates": [
-                {"id": new_id(), "proposal": c.model_dump(mode="json", by_alias=True)}
-                for c in output.candidates
-            ],
+            "candidates": self.materialize_candidates(output),
             "feedback": [],
             "history": [],
             "plan": None,
@@ -186,6 +185,56 @@ class LearningService:
         build_entries(draft, [c["id"] for c in draft["candidates"]])
         await self.drafts.save(draft, None)
         return draft
+
+    @staticmethod
+    def materialize_candidates(output):
+        candidates, groups = [], {}
+        for proposal in output.candidates:
+            item = {
+                "id": new_id(),
+                "proposal": proposal.model_dump(
+                    mode="json", by_alias=True, exclude={"coexist_group"}
+                ),
+            }
+            candidates.append(item)
+            if proposal.coexist_group:
+                groups.setdefault(proposal.coexist_group, []).append(item)
+        for group in groups.values():
+            themes = {
+                (
+                    c["proposal"]["kind"],
+                    c["proposal"]["scope"],
+                    normalized(c["proposal"]["key"]),
+                )
+                for c in group
+            }
+            if (
+                len(group) < 2
+                or len(themes) != 1
+                or any(
+                    not c["proposal"]["conditions"]
+                    or not (c["proposal"]["coexistReason"] or "").strip()
+                    for c in group
+                )
+            ):
+                raise AppException(
+                    ErrorCode.PARAM_INVALID,
+                    "拆分共存组须包含同主题的至少两条内容，并分别说明适用条件和共存理由",
+                )
+            for item in group:
+                item["proposal"]["relatedEntryIds"] = list(
+                    dict.fromkeys(
+                        [
+                            *item["proposal"]["relatedEntryIds"],
+                            *(
+                                other["proposal"]["replacesEntryId"] or other["id"]
+                                for other in group
+                                if other is not item
+                            ),
+                        ]
+                    )
+                )
+        return candidates
 
     async def get(self, user_id, project_id, draft_id):
         await self.contexts.authorize(user_id, project_id)
@@ -289,7 +338,9 @@ class LearningService:
                 )
             )
             with capture_calls(events):
-                output = await self.generator.generate(prompt, LearningOutput)
+                output = await self.generator.generate(
+                    sanitize_sensitive_content(prompt).text, LearningOutput
+                )
             # 替换范围由用户选择决定，模型不能删除其他候选。
             updated = self.drafts.next_version(prepared, "模型根据定向反馈重新整理")
             retained = [
@@ -297,10 +348,7 @@ class LearningService:
                 for c in prepared["candidates"]
                 if c["id"] not in request.candidate_ids
             ]
-            replacements = [
-                {"id": new_id(), "proposal": c.model_dump(mode="json", by_alias=True)}
-                for c in output.candidates
-            ]
+            replacements = self.materialize_candidates(output)
             if len(retained) + len(replacements) > 30:
                 raise AppException(
                     ErrorCode.PARAM_INVALID, "整理后的候选超过三十条，请缩小范围"
