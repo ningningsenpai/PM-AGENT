@@ -9,10 +9,10 @@ from fastapi import FastAPI
 
 from app.core.errors import AppException, install_exception_handlers
 from app.core.security import AuthPrincipal, require_principal
-from app.modules.chat.assistant_api import router
+from app.modules.chat.api import router
 from app.modules.chat.dependencies import get_conversation_service
 from app.modules.chat.models import AgentConversation
-from app.modules.chat.schemas import CreateConversation, RenameConversation, SendMessage
+from app.modules.chat.conversation.schemas import CreateConversation, RenameConversation, SendMessage
 from tests.unit.chat.test_persistence import (
     services as services,  # noqa: PLC0414 -- 显式导出共享 pytest 夹具。
 )

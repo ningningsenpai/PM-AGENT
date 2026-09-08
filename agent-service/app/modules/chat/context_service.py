@@ -15,7 +15,7 @@ from app.infrastructure.storage import StorageLocation
 from app.project_context.file_detail.sensitive_content import sanitize_sensitive_content
 
 from .models import AgentContextChange, AgentContextScope
-from .schemas import EntryView
+from app.modules.chat.context.schemas import EntryView
 
 
 def utc_naive(value):

@@ -13,7 +13,7 @@ from app.streaming.payloads import AgentChatRequest
 
 from .models import AgentConversation, AgentMessage
 from .run_service import next_id
-from .schemas import ConversationView, MessageView
+from app.modules.chat.conversation.schemas import ConversationView, MessageView
 
 
 class ConversationService:

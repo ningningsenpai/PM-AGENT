@@ -1,4 +1,4 @@
-"""会话、显式学习、上下文管理与运行轨迹接口。"""
+"""会话管理、持久化消息与当前会话工具目录接口。"""
 
 from typing import Annotated
 
@@ -10,14 +10,9 @@ from app.core.response import success
 from app.core.security import AuthPrincipal, require_principal
 from app.core.trace import get_trace_id
 
-from .conversation_service import ConversationService
-from .dependencies import (
-    get_context_service,
-    get_conversation_service,
-    get_learning_service,
-    get_run_service,
-)
-from .schemas import CreateConversation, RenameConversation, SendMessage, UpdateEntry
+from ..conversation_service import ConversationService
+from ..dependencies import get_conversation_service
+from .schemas import CreateConversation, RenameConversation, SendMessage
 
 router = APIRouter(prefix="/api/v1/agent", tags=["项目助手闭环"])
 Principal = Annotated[AuthPrincipal, Depends(require_principal)]
@@ -82,51 +77,6 @@ async def send_message(
     )
 
 
-@router.post("/conversations/{conversation_id}/learn")
-async def learn(
-    conversation_id: SnowflakeId,
-    principal: Principal,
-    idempotency_key: RequestKey = None,
-    service=Depends(get_learning_service),
-):
-    return success(
-        await service.learn(
-            principal.user_id, conversation_id, idempotency_key, get_trace_id()
-        )
-    )
-
-
-@router.get("/context-entries")
-async def list_entries(
-    principal: Principal,
-    project_id: Annotated[SnowflakeId, Query(alias="projectId")],
-    effective: bool = True,
-    service=Depends(get_context_service),
-):
-    return success(
-        await service.list_entries(principal.user_id, project_id, effective=effective)
-    )
-
-
-@router.patch("/context-entries/{entry_id}")
-async def update_entry(
-    entry_id: SnowflakeId,
-    request: UpdateEntry,
-    principal: Principal,
-    service=Depends(get_context_service),
-):
-    return success(await service.update_entry(principal.user_id, entry_id, request))
-
-
-@router.post("/context-entries/publish")
-async def publish_context(
-    principal: Principal,
-    project_id: Annotated[SnowflakeId, Query(alias="projectId")],
-    service=Depends(get_context_service),
-):
-    return success(await service.publish(principal.user_id, project_id))
-
-
 @router.get("/tools")
 async def list_tools(
     principal: Principal,
@@ -136,10 +86,3 @@ async def list_tools(
 ):
     await conversations.owned(principal.user_id, conversation_id)
     return success({"tools": agent.tool_catalog()})
-
-
-@router.get("/runs/{run_id}")
-async def get_run(
-    run_id: SnowflakeId, principal: Principal, service=Depends(get_run_service)
-):
-    return success(await service.get(principal.user_id, run_id))

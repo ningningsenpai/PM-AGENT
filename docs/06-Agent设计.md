@@ -8,6 +8,8 @@
 
 ## 2. 运行边界
 
+Chat 业务按职责逐步整理为会话、显式学习、学习上下文、运行记录和旧协议兼容子包。`chat/api.py` 仅聚合路由，`conversation/api.py`、`learning/api.py`、`context/api.py`、`runs/api.py` 分别承载对应接口；`legacy/api.py` 保留原无状态问答。报告的请求结构、模型输出约束和依赖装配归报告模块，结构化生成器装配复用 `app.llm.dependencies`。首批迁移已对比完整 OpenAPI，接口契约保持一致。
+
 Agent 与传统业务模块运行在同一个 FastAPI 进程中，但依赖边界保持隔离：
 
 ```mermaid

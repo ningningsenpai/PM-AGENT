@@ -7,13 +7,9 @@ from unittest.mock import AsyncMock
 import pytest
 from app.modules.chat.models import AgentMessage
 from app.core.errors import AppException
-from app.modules.chat.schemas import (
-    CreateConversation,
-    GenerateReport,
-    LearningOutput,
-    ReportDraft,
-    SendMessage,
-)
+from app.modules.chat.conversation.schemas import CreateConversation, SendMessage
+from app.modules.report.schemas import GenerateReport, ReportDraft
+from app.modules.chat.learning.schemas import LearningOutput
 from app.modules.report.repository import ReportRepository
 from app.modules.report.service import ReportService
 from tests.unit.chat.test_persistence import services  # noqa: F401

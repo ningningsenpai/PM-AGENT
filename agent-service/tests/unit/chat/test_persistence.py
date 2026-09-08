@@ -14,7 +14,9 @@ from app.modules.chat.conversation_service import ConversationService
 from app.modules.chat.learning_service import LearningService
 from app.modules.chat.repository import ChatRepository
 from app.modules.chat.run_service import RunService
-from app.modules.chat.schemas import CreateConversation, LearningOutput, UpdateEntry
+from app.modules.chat.conversation.schemas import CreateConversation
+from app.modules.chat.learning.schemas import LearningOutput
+from app.modules.chat.context.schemas import UpdateEntry
 from app.modules.project.models import Project
 from app.modules.user.models import User
 

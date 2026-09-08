@@ -9,7 +9,7 @@ import logging
 from app.core.errors import AppException, ErrorCode
 from app.llm.telemetry import capture_calls
 from app.modules.chat.run_service import next_id
-from app.modules.chat.schemas import ReportDraft
+from app.modules.report.schemas import ReportDraft
 
 from .models import ProjectReport
 

@@ -16,7 +16,7 @@ from app.llm.telemetry import capture_calls
 from .context_service import entry_data, utc_naive
 from .models import AgentContextEntry
 from .run_service import next_id
-from .schemas import LearningOutput
+from app.modules.chat.learning.schemas import LearningOutput
 
 LEARNING_PROMPT_VERSION = "learn-v1"
 LEARNING_RULES = """你负责从用户新消息中增量提取可复用上下文，只返回 JSON。
