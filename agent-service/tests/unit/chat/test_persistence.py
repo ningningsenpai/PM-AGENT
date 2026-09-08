@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -15,7 +14,9 @@ from app.modules.chat.context.service import ContextService
 from app.modules.chat.conversation.repository import ConversationRepository
 from app.modules.chat.conversation.schemas import CreateConversation
 from app.modules.chat.conversation.service import ConversationService
-from app.modules.chat.learning.schemas import LearningOutput
+from app.modules.chat.learning.schemas import ConfirmDraft, LearningOutput
+from app.modules.chat.learning.service import new_id
+from tests.unit.chat.storage_stub import MemoryStorage
 from app.modules.chat.learning.service import LearningService
 from app.modules.chat.runs.repository import RunRepository
 from app.modules.chat.runs.service import RunService
@@ -66,7 +67,7 @@ async def services():
         conversation_repo = ConversationRepository(session)
         run_repo = RunRepository(session)
         projects = Projects()
-        contexts = ContextService(context_repo, projects, Mock(), "test")
+        contexts = ContextService(context_repo, projects, MemoryStorage(), "test")
         runs = RunService(run_repo, projects, conversation_repo)
         conversations = ConversationService(conversation_repo, projects, runs, contexts)
         learning = LearningService(
@@ -99,10 +100,29 @@ def candidate(content="请记住，项目上线日期是 10 月 1 日", **change
     return LearningOutput.model_validate({"candidates": [item]})
 
 
+async def confirmed(services, user, project, output, messages, _versions):
+    draft = await services.learning.create_draft(
+        user, project, 99, new_id(), output, messages
+    )
+    result = await services.learning.confirm(
+        user,
+        project,
+        draft["id"],
+        ConfirmDraft(version=1, candidateIds=[c["id"] for c in draft["candidates"]]),
+    )
+    assert result["state"] == "published"
+    return [c["after"] for c in result["plan"]["changes"]]
+
+
 async def test_correction_and_cross_project_isolation(services):
     first = candidate()
-    changed = await services.learning.apply(
-        1, 11, first, [{"id": "100", "content": first.candidates[0].content}], {}
+    changed = await confirmed(
+        services,
+        1,
+        11,
+        first,
+        [{"id": "100", "content": first.candidates[0].content}],
+        {},
     )
     await services.session.commit()
     entry = changed[0]
@@ -110,8 +130,8 @@ async def test_correction_and_cross_project_isolation(services):
     assert await services.contexts.list_entries(2, 21) == []
     new = "更正，上线日期改为 10 月 8 日"
     output = candidate(new, replacesEntryId=entry["id"])
-    await services.learning.apply(
-        1, 11, output, [{"id": "100", "content": new}], {int(entry["id"]): 1}
+    await confirmed(
+        services, 1, 11, output, [{"id": "100", "content": new}], {int(entry["id"]): 1}
     )
     await services.session.commit()
     active = await services.contexts.list_entries(1, 11)
@@ -128,8 +148,13 @@ async def test_user_habits_shared_only_with_owner_and_expiry(services):
     habit = candidate(
         "请记住，我偏好简洁中文", kind="habit", scope="user", key="回答风格"
     )
-    await services.learning.apply(
-        1, 11, habit, [{"id": "100", "content": habit.candidates[0].content}], {}
+    await confirmed(
+        services,
+        1,
+        11,
+        habit,
+        [{"id": "100", "content": habit.candidates[0].content}],
+        {},
     )
     await services.session.commit()
     assert len(await services.contexts.list_entries(1, 12)) == 1
@@ -142,8 +167,13 @@ async def test_user_habits_shared_only_with_owner_and_expiry(services):
             datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
         ).isoformat(),
     )
-    await services.learning.apply(
-        1, 11, short, [{"id": "100", "content": short.candidates[0].content}], {}
+    await confirmed(
+        services,
+        1,
+        11,
+        short,
+        [{"id": "100", "content": short.candidates[0].content}],
+        {},
     )
     await services.session.commit()
     assert len(await services.contexts.list_entries(1, 11)) == 1
@@ -152,14 +182,24 @@ async def test_user_habits_shared_only_with_owner_and_expiry(services):
 
 async def test_quote_and_version_guard(services):
     with pytest.raises(AppException, match="原文"):
-        await services.learning.apply(
-            1, 11, candidate(), [{"id": "100", "content": "什么时候上线？"}], {}
+        await confirmed(
+            services,
+            1,
+            11,
+            candidate(),
+            [{"id": "100", "content": "什么时候上线？"}],
+            {},
         )
     await services.session.rollback()
     first = candidate()
     entry = (
-        await services.learning.apply(
-            1, 11, first, [{"id": "100", "content": first.candidates[0].content}], {}
+        await confirmed(
+            services,
+            1,
+            11,
+            first,
+            [{"id": "100", "content": first.candidates[0].content}],
+            {},
         )
     )[0]
     await services.session.commit()
@@ -167,7 +207,8 @@ async def test_quote_and_version_guard(services):
         await services.contexts.update_entry(
             1,
             int(entry["id"]),
-            UpdateEntry(version=9, status="invalid", reason="用户取消"),
+            UpdateEntry(projectId="11", version=9, status="invalid", reason="用户取消"),
+            "version-check",
         )
 
 

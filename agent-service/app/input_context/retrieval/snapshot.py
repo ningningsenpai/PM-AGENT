@@ -106,6 +106,16 @@ class ProjectSnapshotReader:
         warnings: list[str],
     ) -> Any | None:
         try:
+            if relative_path == snapshot.index.system.project_specification:
+                from app.modules.chat.context.store import ContextStore
+                store = ContextStore(self._storage, snapshot.index.storage.bucket)
+                user_id, project_id = snapshot.index.owner_user_id, snapshot.index.project_id
+                prefix = store.prefix(user_id, project_id)
+                if await asyncio.to_thread(self._storage.exists, store.location(prefix, "manifest.json")):
+                    current = await store.load(user_id, project_id)
+                    if current.manifest and current.manifest.specification:
+                        return await store.blob(prefix, current.manifest.specification)
+                    return {}
             return await self.read_json(self.system_location(snapshot, relative_path))
         except (AppException, json.JSONDecodeError, UnicodeDecodeError, ValueError):
             warnings.append(f"{label}无法读取或结构不合法")

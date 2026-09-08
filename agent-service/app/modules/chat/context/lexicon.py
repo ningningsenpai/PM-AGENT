@@ -65,7 +65,8 @@ def compile_entries(user_id, project_id, payload):
 
 
 def learned_terms(user_id, project_id, query, entries):
-    values = [entry for entry in entries if entry["kind"] == "term"]
+    # 条件词条不参与无条件改写；条件判断留给携带完整条目的问答与澄清流程。
+    values = [entry for entry in entries if entry["kind"] == "term" and not entry.get("conditions")]
     compiled = compile_entries(
         user_id, project_id, json.dumps(values, ensure_ascii=False, sort_keys=True)
     )

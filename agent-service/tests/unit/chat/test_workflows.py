@@ -6,15 +6,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.core.errors import AppException
 from app.modules.chat.conversation.models import AgentMessage
 from app.modules.chat.conversation.schemas import CreateConversation, SendMessage
-from app.modules.chat.learning.schemas import LearningOutput
+from app.modules.chat.learning.schemas import ConfirmDraft
+from app.modules.chat.learning.service import new_id
 from app.modules.report.repository import ReportRepository
 from app.modules.report.schemas import GenerateReport, ReportDraft
 from app.modules.report.service import ReportService
 from tests.unit.chat.test_persistence import (
     candidate,
+    confirmed,
     services,  # noqa: F401
 )
 
@@ -26,7 +27,7 @@ def anyio_backend():
     return "asyncio"
 
 
-async def test_learn_commits_once_and_snapshot_failure_can_retry(services):
+async def test_learn_creates_durable_preview_and_confirms_without_model(services):
     conversation = await services.conversations.create(
         1, CreateConversation(projectId="11")
     )
@@ -41,97 +42,59 @@ async def test_learn_commits_once_and_snapshot_failure_can_retry(services):
         )
     )
     await services.session.commit()
-    output = LearningOutput.model_validate(
-        {
-            "candidates": [
-                {
-                    "kind": "habit",
-                    "scope": "user",
-                    "key": "表达偏好",
-                    "content": "偏好简洁中文",
-                    "sourceMessageId": "100",
-                    "sourceQuote": "请记住，我偏好简洁中文",
-                    "confirmed": True,
-                }
-            ]
-        }
+    output = candidate(
+        "请记住，我偏好简洁中文", kind="habit", scope="user", key="回答风格"
     )
     services.learning.generator = SimpleNamespace(
         generate=AsyncMock(return_value=output)
     )
-    services.contexts.storage.put_bytes.side_effect = OSError("模拟发布失败")
     first = await services.learning.learn(1, conversation.id, "learn-one", "trace")
-    assert first["status"] == "success"
-    assert first["result"]["processedMessages"] == 1
-    assert any(
-        not result["published"] for result in first["result"]["snapshots"].values()
-    )
+    assert first["status"] == "success" and first["result"]["processedMessages"] == 1
+    assert first["result"]["candidateCount"] == 1
+    assert await services.contexts.list_entries(1, 11) == []
+    drafts = await services.learning.list(1, 11, conversation.id)
+    assert len(drafts) == 1 and drafts[0]["state"] == "pending"
     same = await services.learning.learn(1, conversation.id, "learn-one", "trace")
     assert same["runId"] == first["runId"]
-    services.contexts.storage.put_bytes.side_effect = None
-    assert all(
-        result["published"]
-        for result in (await services.contexts.publish(1, 11)).values()
-    )
+    draft = drafts[0]
+    request = ConfirmDraft(version=1, candidateIds=[draft["candidates"][0]["id"]])
+    result = await services.learning.confirm(1, 11, draft["id"], request)
+    assert result["state"] == "published"
+    assert (await services.learning.confirm(1, 11, draft["id"], request))[
+        "publications"
+    ] == result["publications"]
+    assert len(await services.contexts.list_entries(1, 11)) == 1
+    assert await services.context_repo.entries(1, 11) == []
     second = await services.learning.learn(1, conversation.id, "learn-two", "trace")
     assert second["status"] == "success" and second["result"]["processedMessages"] == 0
     services.learning.generator.generate.assert_awaited_once()
-    assert len(await services.contexts.list_entries(1, 11)) == 1
 
 
-async def test_inferred_memory_remains_pending(services):
-    output = LearningOutput.model_validate(
-        {
-            "candidates": [
-                {
-                    "kind": "long_memory",
-                    "scope": "project",
-                    "key": "上线日期",
-                    "content": "可能下月上线",
-                    "sourceMessageId": "100",
-                    "sourceQuote": "可能下月上线",
-                    "confirmed": True,
-                }
-            ]
-        }
-    )
-    await services.learning.apply(
-        1, 11, output, [{"id": "100", "content": "可能下月上线"}], {}
-    )
-    await services.session.commit()
-    assert await services.contexts.list_entries(1, 11) == []
-    assert (await services.contexts.list_entries(1, 11, effective=False))[0][
-        "status"
-    ] == "pending"
-
-
-async def test_unconfirmed_correction_preserves_active_memory(services):
-    confirmed = candidate()
+async def test_unconfirmed_draft_preserves_active_memory(services):
     original = (
-        await services.learning.apply(
+        await confirmed(
+            services,
             1,
             11,
-            confirmed,
-            [{"id": "100", "content": confirmed.candidates[0].content}],
+            candidate(),
+            [{"id": "100", "content": candidate().candidates[0].content}],
             {},
         )
     )[0]
-    await services.session.commit()
-    uncertain = "可能要推迟到 10 月 8 日"
-    proposed = candidate(uncertain, replacesEntryId=original["id"], confirmed=False)
-    with pytest.raises(AppException, match="未经确认"):
-        await services.learning.apply(
-            1,
-            11,
-            proposed,
-            [{"id": "100", "content": uncertain}],
-            {int(original["id"]): 1},
-        )
-    await services.session.rollback()
+    proposed = candidate(
+        "可能要推迟到 10 月 8 日", replacesEntryId=original["id"], confirmed=False
+    )
+    draft = await services.learning.create_draft(
+        1,
+        11,
+        99,
+        new_id(),
+        proposed,
+        [{"id": "100", "content": proposed.candidates[0].content}],
+    )
     current = await services.contexts.list_entries(1, 11)
-    assert len(current) == 1
-    assert current[0]["content"] == original["content"]
-    assert current[0]["version"] == 1
+    assert current[0]["content"] == original["content"] and current[0]["version"] == 1
+    assert (await services.learning.get(1, 11, draft["id"]))["state"] == "pending"
 
 
 async def test_cancelled_chat_retains_run_and_releases_conversation(services):

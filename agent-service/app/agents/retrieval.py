@@ -104,23 +104,25 @@ class AgentInputContextGateway:
             "habit": "user_habit",
             "short_memory": "short_term_memory",
             "long_memory": "long_term_memory",
+            "project_rule": "project_specification",
         }
-        # 已迁移内容以 MySQL 为准，旧 MinIO 记忆不能绕过失效和版本过滤。
+        # 统一使用云端当前清单；旧固定路径内容不能绕过失效、期限和版本过滤。
         hits = [
-            hit for hit in result.hits if hit.source_type not in set(types.values())
+            hit for hit in result.hits if hit.source_type not in set(types.values()) or hit.source_id == "development-stage"
         ]
         learned = []
         for entry in entries:
             kind = entry["kind"]
             if kind not in types or request.focus in (
                 "files",
-                "specification",
                 "changes",
             ):
                 continue
+            if request.focus == "specification" and kind != "project_rule":
+                continue
             if (
                 request.focus == "memory"
-                and kind == "habit"
+                and kind not in ("short_memory", "long_memory")
                 or request.focus == "habits"
                 and kind != "habit"
             ):
@@ -130,13 +132,13 @@ class AgentInputContextGateway:
                     source_type=types[kind],
                     source_id=f"entry:{entry['id']}:v{entry['version']}",
                     title=entry["attributes"].get("key", kind),
-                    summary=entry["content"],
+                    summary=entry["content"] + ("；适用条件：" + "、".join(entry.get("conditions", [])) if entry.get("conditions") else ""),
                     score=1,
                     evidence=[
                         RetrievalEvidence(
                             text=entry["content"],
-                            kind="user_statement",
-                            logical_path=f"conversation/message/{entry['sourceMessageId']}",
+                            kind="summary" if entry["attributes"].get("sourceType") == "file_specification" else "user_statement",
+                            logical_path=f"context/entry/{entry['id']}/v{entry['version']}",
                         )
                     ],
                 )

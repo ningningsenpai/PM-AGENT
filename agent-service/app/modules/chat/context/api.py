@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 
 from app.core.identifiers import SnowflakeId
 from app.core.response import success
@@ -32,9 +32,24 @@ async def update_entry(
     entry_id: SnowflakeId,
     request: UpdateEntry,
     principal: Principal,
+    idempotency_key: Annotated[str | None, Header(alias="X-Idempotency-Key")] = None,
     service=Depends(get_context_service),
 ):
-    return success(await service.update_entry(principal.user_id, entry_id, request))
+    return success(
+        await service.update_entry(
+            principal.user_id, entry_id, request, idempotency_key
+        )
+    )
+
+
+@router.get("/context-entries/changes")
+async def context_changes(
+    principal: Principal,
+    project_id: Annotated[SnowflakeId, Query(alias="projectId")],
+    entry_id: Annotated[SnowflakeId | None, Query(alias="entryId")] = None,
+    service=Depends(get_context_service),
+):
+    return success(await service.changes(principal.user_id, project_id, entry_id))
 
 
 @router.post("/context-entries/publish")

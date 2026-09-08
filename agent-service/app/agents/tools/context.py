@@ -14,7 +14,7 @@ class Input(BaseModel):
 
 
 class EntriesInput(Input):
-    kind: Literal["term", "habit", "short_memory", "long_memory"] | None = None
+    kind: Literal["term", "habit", "short_memory", "long_memory", "project_rule"] | None = None
     query: str | None = Field(default=None, max_length=200)
 
 

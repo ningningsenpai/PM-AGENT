@@ -52,10 +52,13 @@ class ProjectSpecificationService:
         storage: ObjectStorage,
         locations: StorageLocationFactory,
         generator: StructuredJsonGenerator | None = None,
+        *,
+        contexts=None,
     ) -> None:
         self._storage = storage
         self._locations = locations
         self._generator = generator
+        self._contexts = contexts
 
     async def initialize(self, project) -> SpecificationRefreshStatus:
         """不调用模型，为新项目写入合法空规范。"""
@@ -73,15 +76,18 @@ class ProjectSpecificationService:
     ) -> SpecificationRefreshStatus:
         current_files = list(files)
         location = self._location(project)
-        existing = await self._load_existing(location, project.id)
+        cloud_snapshot = None
+        if self._contexts is not None:
+            cloud_snapshot, stored = await self._contexts.specification_snapshot(project.owner_user_id, project.id)
+            existing = ProjectSpecificationDocument.model_validate(stored) if stored else None
+        else:
+            existing = await self._load_existing(location, project.id)
         inventory = self._build_inventory(current_files)
         sources = await self._load_rule_sources(project, current_files)
         stale_rule_keys = self._stale_rule_keys(existing, inventory)
         if not sources and not stale_rule_keys:
             if existing is None:
-                await self._write(
-                    location, ProjectSpecificationDocument.empty(project.id)
-                )
+                await self._publish(project, location, ProjectSpecificationDocument.empty(project.id), cloud_snapshot)
                 return "updated"
             return "kept"
         if self._generator is None:
@@ -100,7 +106,7 @@ class ProjectSpecificationService:
                 inventory,
             )
             document = self._enrich_source_refs(document, inventory)
-            await self._write(location, document)
+            await self._publish(project, location, document, cloud_snapshot)
             return "updated"
         except (ValidationError, ValueError) as exception:
             logger.warning(
@@ -110,6 +116,7 @@ class ProjectSpecificationService:
             raise AppException(
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
             ) from exception
+
         except AppException:
             raise
         except Exception as exception:
@@ -120,6 +127,12 @@ class ProjectSpecificationService:
             raise AppException(
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
             ) from exception
+
+    async def _publish(self, project, location, document, cloud_snapshot):
+        if self._contexts is not None:
+            await self._contexts.publish_specification(project.owner_user_id, project.id, cloud_snapshot, document.model_dump(mode="json"))
+        else:
+            await self._write(location, document)
 
     async def _generate_batches(
         self,

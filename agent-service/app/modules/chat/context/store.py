@@ -48,6 +48,7 @@ class ContextManifest(Schema):
     files: dict[str, BlobRef]
     changes: BlobRef
     previous: BlobRef | None = None
+    specification: BlobRef | None = None
 
 
 class Document(Schema):
@@ -204,14 +205,26 @@ class ContextStore:
         return None
 
     async def publish(
-        self, user_id, project_id, base_revision, entries, operation_id, changes
+        self,
+        user_id,
+        project_id,
+        base_revision,
+        entries,
+        operation_id,
+        changes,
+        *,
+        specification=None,
     ):
         prefix = self.prefix(user_id, project_id)
         entries = [
             EntryView.model_validate(entry).model_dump(mode="json", by_alias=True)
             for entry in entries
         ]
-        request_hash = digest(json_bytes({"entries": entries, "changes": changes}))
+        request_hash = digest(
+            json_bytes(
+                {"entries": entries, "changes": changes, "specification": specification}
+            )
+        )
         current = await self.load(user_id, project_id)
         applied = await self.find_operation(
             user_id, project_id, current.manifest, operation_id
@@ -253,6 +266,11 @@ class ContextStore:
         change_ref = await self.immutable(
             prefix, folder + "changes.json", json_bytes(changes)
         )
+        specification_ref = current.manifest.specification if current.manifest else None
+        if specification is not None:
+            specification_ref = await self.immutable(
+                prefix, folder + "specification.json", json_bytes(specification)
+            )
         previous = None
         if current.manifest:
             previous = BlobRef(
@@ -272,6 +290,7 @@ class ContextStore:
             files=files,
             changes=change_ref,
             previous=previous,
+            specification=specification_ref,
         )
         prepared = await self._read(self.location(prefix, folder + "manifest.json"))
         if prepared:

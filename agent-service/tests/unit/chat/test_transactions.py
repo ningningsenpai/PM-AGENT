@@ -138,7 +138,7 @@ async def test_learning_failure_rolls_back_entries_cursor_and_scope_version(serv
     assert row.active_run_id is None and row.busy_until is None
     scope = await services.context_repo.scope("1:11")
     assert scope.version == 0
-    services.contexts.storage.put_bytes.assert_not_called()
+    assert not any("/drafts/" in key for _, key in services.contexts.storage.data)
 
 
 async def test_chat_releases_transaction_before_agent_and_retains_message_link(

@@ -50,14 +50,14 @@ class ContextRepository(ChatRepositoryBase):
             query = query.with_for_update().execution_options(populate_existing=True)
         return await self.session.scalar(query)
 
-    async def changes(self, entry_ids):
+    async def changes(self, entry_ids, *, limit=200):
         return list(
             (
                 await self.session.scalars(
                     select(AgentContextChange)
                     .where(AgentContextChange.entry_id.in_(entry_ids))
                     .order_by(AgentContextChange.id.desc())
-                    .limit(200)
+                    .limit(limit)
                 )
             ).all()
         )

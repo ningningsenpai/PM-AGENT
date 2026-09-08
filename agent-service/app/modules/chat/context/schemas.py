@@ -27,9 +27,13 @@ class EntryView(Schema):
 
 
 class UpdateEntry(Schema):
+    project_id: SnowflakeId
     version: int = Field(ge=1)
     content: str | None = Field(default=None, min_length=1, max_length=4000)
     status: EntryStatus | None = None
     kind: EntryKind | None = None
     reason: str = Field(min_length=1, max_length=1000)
     expires_at: datetime | None = None
+    conditions: list[str] | None = Field(default=None, max_length=20)
+    aliases: list[str] | None = Field(default=None, max_length=20)
+    canonical: str | None = Field(default=None, min_length=1, max_length=200)
