@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme-overrides="themeOverrides">
+  <n-config-provider :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <n-dialog-provider>
         <router-view />
@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { NConfigProvider, NDialogProvider, NMessageProvider } from 'naive-ui'
+import { NConfigProvider, NDialogProvider, NMessageProvider, zhCN, dateZhCN } from 'naive-ui'
 import type { GlobalThemeOverrides } from 'naive-ui'
 
 const productFont = 'MiSans, "HarmonyOS Sans SC", "Microsoft YaHei", Inter, sans-serif'

@@ -119,3 +119,5 @@ textarea {
 .workspace .glass-card { background:white;box-shadow:none;backdrop-filter:none;border:1px solid var(--pm-border);border-radius:18px; }
 .workspace .page-title { font-size:28px;font-weight:700;letter-spacing:-.5px; } a { color:var(--pm-blue-dark); } button:focus-visible,a:focus-visible { outline:2px solid var(--pm-blue);outline-offset:3px; }
 @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } * { transition:none!important;animation:none!important; } }
+.workspace-sidebar { position:sticky;top:0;inset-inline:auto;flex:0 0 248px;height:100vh;align-self:flex-start; }
+.workspace-body { margin-left:0; }

@@ -59,6 +59,7 @@ function parse(targeted:boolean) {
   if(targeted && selected.value.length>100) { message.warning('一次最多重试 100 个文件'); return }
   const ids = targeted ? [...selected.value] : undefined
   dialog.info({title:targeted?'重新解析所选文件':'解析项目文件',content:targeted?'将重新解析所选文件，可能产生模型调用费用。':'将解析待处理文件并更新项目上下文，可能产生模型调用费用。',positiveText:'开始解析',negativeText:'取消',onPositiveClick:async()=>{
+    if(busy.value) return false
     busy.value=true; error.value=''; result.value=null
     try { const data=await requestProjectFileParsing(props.projectId,ids); if(active) result.value=data }
     catch(e) { if(active) error.value=errorMessage(e)+'；请刷新文件状态核对结果后再决定是否重试。' }

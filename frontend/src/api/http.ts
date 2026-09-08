@@ -7,7 +7,7 @@ export type RequestConfig = AxiosRequestConfig
 
 export class RequestError extends Error {
   constructor(message: string, public code?: number, public traceId?: string, public uncertain = false) {
-    super(traceId ? `${message}（追踪编号：${traceId}）` : message)
+    super(`${message}${code ? `（错误码：${code}）` : ''}${traceId ? `（追踪编号：${traceId}）` : ''}`)
     this.name = 'RequestError'
   }
 }
@@ -39,9 +39,9 @@ http.interceptors.response.use(
   (response) => {
     const body = response.data as ApiResponse<unknown>
 
-    if (body.code !== 0) {
+    if (body.code !== 200) {
       notifyUnauthorized(body.code, response.config.headers.get('Authorization'))
-      return Promise.reject(new RequestError(body.message || '请求失败', body.code, body.traceId))
+      return Promise.reject(new RequestError(body.message || '请求失败', body.code, body.traceId, body.code >= 50000))
     }
 
     return response

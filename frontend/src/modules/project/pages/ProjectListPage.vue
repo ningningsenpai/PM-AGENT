@@ -19,7 +19,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '../store'
 import CreateProjectDialog from '../components/create-project-dialog.vue'
@@ -31,6 +31,7 @@ const store = useProjectStore(); const route = useRoute(); const router = useRou
 const query = ref(''); const status = ref('all'); const showCreate = ref(route.query.create === '1')
 const statuses = [{ label: '全部状态', value: 'all' }, { label: '已初始化', value: 'active' }, { label: '初始化中', value: 'initializing' }, { label: '初始化失败', value: 'init_failed' }]
 const filtered = computed(() => store.projects.filter(p => p.projectName.toLowerCase().includes(query.value.trim().toLowerCase()) && (status.value === 'all' || status.value === p.status)))
+watch(()=>route.query.create,value=>{ if(value==='1') showCreate.value=true })
 onMounted(() => { void store.loadProjects() })
 async function created(id: string) { await store.loadProjects(); store.currentProjectId = id; await router.push(`/projects/${id}`) }
 </script>
