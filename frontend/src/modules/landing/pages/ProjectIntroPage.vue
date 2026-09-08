@@ -14,7 +14,7 @@
           <strong>PM</strong>
         </span>
         <span>
-          <strong>PM-Agent</strong>
+          <strong>PM-AGENT</strong>
           <small>智能项目管理 Agent 平台</small>
         </span>
       </RouterLink>
@@ -60,7 +60,7 @@
         <div class="preview-content">
           <div class="project-card">
             <span class="project-strip"></span>
-            <h3>PM-Agent 平台 MVP</h3>
+            <h3>PM-AGENT 平台 MVP</h3>
             <p>文件、问答、学习与报告形成业务闭环。</p>
             <div class="progress-track"><span></span></div>
             <b>72%</b>

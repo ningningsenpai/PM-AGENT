@@ -20,7 +20,7 @@
         ><n-input
           v-model:value="form.projectName"
           :maxlength="128"
-          placeholder="例如：PM-Agent 平台 MVP"
+          placeholder="例如：PM-AGENT 平台 MVP"
           autofocus
       /></n-form-item>
       <RequestError :message="error" />

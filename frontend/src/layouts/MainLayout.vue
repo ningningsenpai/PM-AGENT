@@ -3,7 +3,7 @@
     <aside class="workspace-sidebar">
       <RouterLink class="workspace-brand" to="/overview"
         ><BrandMark /><span
-          ><strong>PM-Agent</strong><small>项目工作台</small></span
+          ><strong>PM-AGENT</strong><small>项目工作台</small></span
         ></RouterLink
       >
       <nav aria-label="主导航">

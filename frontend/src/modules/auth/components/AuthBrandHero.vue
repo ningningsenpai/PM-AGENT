@@ -9,7 +9,7 @@
         <strong>PM</strong>
       </span>
       <span>
-        <strong>PM-Agent</strong>
+        <strong>PM-AGENT</strong>
         <small>项目执行工作台</small>
       </span>
     </RouterLink>
@@ -18,7 +18,7 @@
     <h1>{{ title }}</h1>
     <p class="hero-copy">{{ description }}</p>
 
-    <div class="execution-path" aria-label="PM-Agent 执行线索路径">
+    <div class="execution-path" aria-label="PM-AGENT 执行线索路径">
       <span v-for="item in pathItems" :key="item" class="path-item">
         <i></i>
         {{ item }}
@@ -46,7 +46,7 @@ withDefaults(
     pathItems?: string[]
   }>(),
   {
-    eyebrow: 'PM-Agent',
+    eyebrow: 'PM-AGENT',
     title: '把项目状态变成可追踪的执行线索',
     description: '从文件同步与解析，到项目问答、显式学习和报告，建立有来源可核对的工作闭环。',
     pathItems: () => ['项目', '文件', '问答', '学习', '报告'],

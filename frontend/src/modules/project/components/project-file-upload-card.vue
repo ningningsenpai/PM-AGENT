@@ -107,23 +107,6 @@
         {{ completionSummary }} 共 {{ finalFailures.length }} 个文件失败或未通过校验，可重新选择目录继续同步。
       </n-alert>
 
-      <div v-if="finalFailures.length" class="failure-list">
-        <div class="failure-list-head">
-          <strong>待更新文件</strong>
-          <span>{{ finalFailures.length }} 个</span>
-        </div>
-        <div
-          v-for="(failure, index) in finalFailures.slice(0, 20)"
-          :key="`${failure.relativePath}-${index}`"
-          class="failure-item"
-        >
-          <span>{{ failure.relativePath }}</span>
-          <small>{{ failure.errorMessage }}</small>
-        </div>
-        <p v-if="finalFailures.length > 20" class="failure-more">
-          另有 {{ finalFailures.length - 20 }} 个失败文件未展开。
-        </p>
-      </div>
     </template>
   </n-card>
 </template>
@@ -585,8 +568,7 @@ function getDirectoryName(file: File) {
 .upload-title-row,
 .upload-actions,
 .filter-summary,
-.progress-copy,
-.failure-list-head {
+.progress-copy {
   display: flex;
   align-items: center;
 }
@@ -664,8 +646,7 @@ function getDirectoryName(file: File) {
 }
 
 .upload-metrics span,
-.progress-copy span,
-.failure-list-head span {
+.progress-copy span {
   color: var(--pm-text-secondary);
   font-size: 13px;
 }
@@ -699,41 +680,4 @@ function getDirectoryName(file: File) {
   font-size: 13px;
 }
 
-.failure-list {
-  margin-top: 16px;
-  padding: 16px;
-  border: 1px solid #f0d39b;
-  border-radius: 14px;
-  background: #fffaf0;
-}
-
-.failure-list-head {
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.failure-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.5fr);
-  gap: 16px;
-  padding: 9px 0;
-  border-top: 1px solid rgba(216, 145, 30, 0.16);
-}
-
-.failure-item span {
-  overflow: hidden;
-  color: var(--pm-text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.failure-item small,
-.failure-more {
-  color: #9a650d;
-}
-
-.failure-more {
-  margin: 10px 0 0;
-  font-size: 12px;
-}
 </style>
