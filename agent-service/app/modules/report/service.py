@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 import logging
 
 from app.core.errors import AppException, ErrorCode
+from app.core.identifiers import get_snowflake_id_generator
 from app.llm.telemetry import capture_calls
-from app.modules.chat.run_service import next_id
-from app.modules.chat.schemas import ReportDraft
+from app.modules.report.schemas import ReportDraft
 
 from .models import ProjectReport
 
@@ -231,7 +231,7 @@ class ReportService:
                 )
             row = await self.repo.add(
                 ProjectReport(
-                    id=next_id(),
+                    id=get_snowflake_id_generator().next_id(),
                     user_id=user_id,
                     project_id=project_id,
                     run_id=run_id,

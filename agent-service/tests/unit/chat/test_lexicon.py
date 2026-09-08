@@ -1,6 +1,6 @@
 """用户词库版本切换、最长匹配和隔离缓存验证。"""
 
-from app.modules.chat.lexicon import learned_terms
+from app.modules.chat.context.lexicon import learned_terms
 
 
 def term(alias, canonical, version=1):

@@ -85,7 +85,7 @@ class AgentInputContextGateway:
     async def _learned(self, context, query):
         if self._contexts is None:
             return [], []
-        from app.modules.chat.lexicon import learned_terms
+        from app.modules.chat.context.lexicon import learned_terms
 
         entries = await self._contexts.list_entries(
             context.user_id, context.project_id, query=query

@@ -4,7 +4,8 @@
 
 ```text
 test_client/
-├── http-client.env.json
+├── http-client.env.example.json  # 仓库中的安全模板
+├── http-client.env.json          # 本地配置，已加入 Git 忽略
 └── modules/
     ├── auth/auth.http
     ├── user/user.http
@@ -20,7 +21,7 @@ test_client/
 1. 启动 MySQL、Redis 和 MinIO。
 2. 在 `agent-service/` 中执行 `python -m alembic upgrade head`。
 3. 启动服务：`python -m uvicorn app.main:app --reload --reload-dir app --port 8000`；在 PyCharm 中设置断点时使用 `agent-service 调试` 配置。
-4. 认证和用户请求使用 `dev` 环境，项目请求可使用 `project` 环境，项目文件目录下的请求统一使用 `project_file` 环境。
+4. 首次使用时，将 `http-client.env.example.json` 复制为同目录的 `http-client.env.json`，只在本地配置中填写账号、密码、登录令牌、项目 ID 和文件路径；已有本地配置时保留原文件。认证和用户请求使用 `dev` 环境，项目请求可使用 `project` 环境，项目文件目录下的请求统一使用 `project_file` 环境。
 5. 每轮项目文件测试前修改 `http-client.env.json` 中的 `project_file.runId`，避免文件路径和幂等键与上一次调用冲突；同轮重复上传验证时保持不变。
 
 ## 项目文件环境
@@ -31,7 +32,7 @@ test_client/
 |---|---|
 | `baseUrl` | FastAPI 服务地址，默认 `http://localhost:8000` |
 | `accessToken` | 初始为空，填写登录响应中的 `data.accessToken` |
-| `projectId` | 默认沿用 `project` 环境的示例项目 ID，执行前改为当前登录用户拥有的项目 ID |
+| `projectId` | 初始为空，执行前填写当前登录用户拥有的项目 ID |
 | `runId` | 本轮测试标识，用于生成文件名、相对路径及上传、覆盖幂等键 |
 | `fileId` | 初始为空，填写上传响应中的 `data.fileId`，也可从文件列表的 `id` 获取 |
 | `fileLockVersion` | 填写目标文件的最新 `lockVersion`；初始值 `0` 仅为占位，不能直接用于覆盖、改名或删除 |
@@ -44,6 +45,8 @@ test_client/
 | `syncContentHash`、`syncContentType` | 同步清单中文件的完整 SHA-256 和 MIME 类型；环境中的值是示例，按本地文件实际内容填写 |
 
 项目 ID 和文件 ID 使用字符串保存；锁版本、字节数、时间戳使用数值，分析开关和完整快照标志使用布尔值。
+
+模板中的账号名称和邮箱仅作示例，密码与令牌留空。真实配置只保存在被忽略的 `http-client.env.json`，不要回填到示例文件；创建项目请求通过 `projectName` 变量取值，不在 `.http` 文件中写死本地项目名称。
 
 ## 推荐执行顺序
 

@@ -8,6 +8,8 @@
 
 复用 `agent-service/test_client/http-client.env.json` 中的 `project_file` 环境。脚本默认根据自身位置找到该文件，与启动时的工作目录无关。
 
+首次使用时，将同目录的 `http-client.env.example.json` 复制为 `http-client.env.json` 并填写本地配置；已有配置无需覆盖。真实账号、令牌和路径保存在被 Git 忽略的环境文件中，仓库只维护安全示例。
+
 | 配置项 | 用途 |
 |---|---|
 | `baseUrl` | 已启动的 FastAPI 服务地址，例如 `http://localhost:8000` |

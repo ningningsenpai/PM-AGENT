@@ -26,50 +26,16 @@ import type {
   UploadProjectFilePayload,
 } from '@/modules/project/types'
 
-interface ProjectApiResponse {
-  id: string
-  projectName: string
-  status: 'initializing' | 'active' | 'init_failed'
-  createdAt: string
-  updatedAt: string
-}
-
-function toProjectSummary(project: ProjectApiResponse): ProjectSummary {
-  const statusMap = {
-    initializing: 'not_started',
-    active: 'running',
-    init_failed: 'paused',
-  } as const
-  return {
-    id: project.id,
-    name: project.projectName,
-    ownerName: '当前用户',
-    status: statusMap[project.status],
-    startDate: project.createdAt,
-    endDate: project.updatedAt,
-    taskTotal: 0,
-    doneTaskTotal: 0,
-  }
-}
-
-function toProjectDetail(project: ProjectApiResponse): ProjectDetail {
-  return {
-    ...toProjectSummary(project),
-    memberTotal: 1,
-    riskTotal: 0,
-  }
-}
-
 export async function listProjects() {
   if (useMock) {
     return mockListProjects()
   }
 
-  const projects = await request<ProjectApiResponse[]>({
+  const projects = await request<ProjectSummary[]>({
     url: '/api/v1/projects',
     method: 'get',
   })
-  return projects.map(toProjectSummary)
+  return projects
 }
 
 export async function getProjectDetail(id: string) {
@@ -77,11 +43,11 @@ export async function getProjectDetail(id: string) {
     return mockGetProjectDetail(id)
   }
 
-  const project = await request<ProjectApiResponse>({
+  const project = await request<ProjectDetail>({
     url: `/api/v1/projects/${id}`,
     method: 'get',
   })
-  return toProjectDetail(project)
+  return project
 }
 
 export async function createProject(payload: CreateProjectRequest) {
@@ -89,12 +55,12 @@ export async function createProject(payload: CreateProjectRequest) {
     return mockCreateProject(payload)
   }
 
-  const project = await request<ProjectApiResponse>({
+  const project = await request<ProjectDetail>({
     url: '/api/v1/projects',
     method: 'post',
-    data: { projectName: payload.name },
+    data: payload,
   })
-  return toProjectDetail(project)
+  return project
 }
 
 export async function uploadProjectFile(projectId: string, payload: UploadProjectFilePayload) {
@@ -118,7 +84,7 @@ export async function uploadProjectFile(projectId: string, payload: UploadProjec
   })
 }
 
-export async function listProjectFiles(projectId: string) {
+export async function listProjectFiles(projectId: string, signal?: AbortSignal) {
   if (useMock) {
     return mockListProjectFiles(projectId)
   }
@@ -127,6 +93,7 @@ export async function listProjectFiles(projectId: string) {
     url: `/api/v1/projects/${projectId}/files`,
     method: 'get',
     params: { businessCode: 'project' },
+    signal,
   })
 }
 
@@ -204,7 +171,7 @@ export async function planProjectFileSync(
   })
 }
 
-export async function requestProjectFileParsing(projectId: string) {
+export async function requestProjectFileParsing(projectId: string, fileIds?: number[]) {
   if (useMock) {
     return mockRequestProjectFileParsing(projectId)
   }
@@ -212,7 +179,21 @@ export async function requestProjectFileParsing(projectId: string) {
   return request<ProjectFileParseResult>({
     url: `/api/v1/projects/${projectId}/files/parse/init`,
     method: 'post',
+    params: { force: Boolean(fileIds?.length) },
+    data: fileIds?.length ? { fileIds } : undefined,
     // 文件解析包含串行模型调用，单次模型超时由服务端配置控制。
     timeout: 0,
+  })
+}
+
+export async function deleteProject(projectId: string) {
+  if (useMock) throw new Error('演示模式不支持删除项目')
+  return request<void>({ url: `/api/v1/projects/${projectId}`, method: 'delete' })
+}
+
+export async function getFileReadUrl(projectId: string, fileId: number) {
+  if (useMock) throw new Error('演示文件没有可读取的原文')
+  return request<{ fileId: number; fileName: string; url: string; expiresAt: string }>({
+    url: `/api/v1/projects/${projectId}/files/${fileId}/read-url`, method: 'get',
   })
 }

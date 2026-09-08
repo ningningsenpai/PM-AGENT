@@ -9,12 +9,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.errors import AppException
 from app.infrastructure.database import Base
-from app.modules.chat.context_service import ContextService
-from app.modules.chat.conversation_service import ConversationService
-from app.modules.chat.learning_service import LearningService
-from app.modules.chat.repository import ChatRepository
-from app.modules.chat.run_service import RunService
-from app.modules.chat.schemas import CreateConversation, LearningOutput, UpdateEntry
+from app.modules.chat.context.repository import ContextRepository
+from app.modules.chat.context.schemas import UpdateEntry
+from app.modules.chat.context.service import ContextService
+from app.modules.chat.conversation.repository import ConversationRepository
+from app.modules.chat.conversation.schemas import CreateConversation
+from app.modules.chat.conversation.service import ConversationService
+from app.modules.chat.learning.schemas import LearningOutput
+from app.modules.chat.learning.service import LearningService
+from app.modules.chat.runs.repository import RunRepository
+from app.modules.chat.runs.service import RunService
 from app.modules.project.models import Project
 from app.modules.user.models import User
 
@@ -58,14 +62,21 @@ async def services():
                     raise AppException(ErrorCode.FORBIDDEN)
                 return row
 
-        repo = ChatRepository(session)
+        context_repo = ContextRepository(session)
+        conversation_repo = ConversationRepository(session)
+        run_repo = RunRepository(session)
         projects = Projects()
-        contexts = ContextService(repo, projects, Mock(), "test")
-        runs = RunService(repo, projects)
-        conversations = ConversationService(repo, projects, runs, contexts)
-        learning = LearningService(repo, conversations, contexts, runs, None)
+        contexts = ContextService(context_repo, projects, Mock(), "test")
+        runs = RunService(run_repo, projects, conversation_repo)
+        conversations = ConversationService(conversation_repo, projects, runs, contexts)
+        learning = LearningService(
+            context_repo, conversation_repo, conversations, contexts, runs, None
+        )
         yield SimpleNamespace(
-            repo=repo,
+            session=session,
+            context_repo=context_repo,
+            conversation_repo=conversation_repo,
+            run_repo=run_repo,
             contexts=contexts,
             runs=runs,
             conversations=conversations,
@@ -93,7 +104,7 @@ async def test_correction_and_cross_project_isolation(services):
     changed = await services.learning.apply(
         1, 11, first, [{"id": "100", "content": first.candidates[0].content}], {}
     )
-    await services.repo.session.commit()
+    await services.session.commit()
     entry = changed[0]
     assert await services.contexts.list_entries(1, 12) == []
     assert await services.contexts.list_entries(2, 21) == []
@@ -102,7 +113,7 @@ async def test_correction_and_cross_project_isolation(services):
     await services.learning.apply(
         1, 11, output, [{"id": "100", "content": new}], {int(entry["id"]): 1}
     )
-    await services.repo.session.commit()
+    await services.session.commit()
     active = await services.contexts.list_entries(1, 11)
     assert (
         len(active) == 1 and active[0]["version"] == 2 and active[0]["content"] == new
@@ -120,19 +131,21 @@ async def test_user_habits_shared_only_with_owner_and_expiry(services):
     await services.learning.apply(
         1, 11, habit, [{"id": "100", "content": habit.candidates[0].content}], {}
     )
-    await services.repo.session.commit()
+    await services.session.commit()
     assert len(await services.contexts.list_entries(1, 12)) == 1
     assert await services.contexts.list_entries(2, 21) == []
     short = candidate(
         "确认本周先完成测试",
         kind="short_memory",
         key="本周任务",
-        expiresAt=(datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)).isoformat(),
+        expiresAt=(
+            datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+        ).isoformat(),
     )
     await services.learning.apply(
         1, 11, short, [{"id": "100", "content": short.candidates[0].content}], {}
     )
-    await services.repo.session.commit()
+    await services.session.commit()
     assert len(await services.contexts.list_entries(1, 11)) == 1
     assert len(await services.contexts.list_entries(1, 11, effective=False)) == 2
 
@@ -142,14 +155,14 @@ async def test_quote_and_version_guard(services):
         await services.learning.apply(
             1, 11, candidate(), [{"id": "100", "content": "什么时候上线？"}], {}
         )
-    await services.repo.session.rollback()
+    await services.session.rollback()
     first = candidate()
     entry = (
         await services.learning.apply(
             1, 11, first, [{"id": "100", "content": first.candidates[0].content}], {}
         )
     )[0]
-    await services.repo.session.commit()
+    await services.session.commit()
     with pytest.raises(AppException, match="版本"):
         await services.contexts.update_entry(
             1,
@@ -179,7 +192,7 @@ async def test_idempotency_and_busy_conversation(services):
         await services.runs.start(
             1, 11, "chat", "request-2", {}, "trace", conversation.id
         )
-    await services.repo.session.rollback()
+    await services.session.rollback()
     await services.runs.finish(run_id, 1, [], {"answer": "完成"})
     _again, fresh = await services.runs.start(
         1, 11, "chat", "request-2", {}, "trace", conversation.id

@@ -11,7 +11,7 @@ from environment import REPO, ROOT, SERVICE
 
 def capture_version(flow):
     from app.core.config import get_settings
-    from app.modules.chat.learning_service import LEARNING_PROMPT_VERSION
+    from app.modules.chat.learning.prompts import LEARNING_PROMPT_VERSION
     from app.modules.report.service import REPORT_PROMPT_VERSION
 
     settings = get_settings().llm

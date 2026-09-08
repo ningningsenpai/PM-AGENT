@@ -9,7 +9,7 @@
         <strong>PM</strong>
       </span>
       <span>
-        <strong>PM-Agent</strong>
+        <strong>PM-AGENT</strong>
         <small>项目执行工作台</small>
       </span>
     </RouterLink>
@@ -18,7 +18,7 @@
     <h1>{{ title }}</h1>
     <p class="hero-copy">{{ description }}</p>
 
-    <div class="execution-path" aria-label="PM-Agent 执行线索路径">
+    <div class="execution-path" aria-label="PM-AGENT 执行线索路径">
       <span v-for="item in pathItems" :key="item" class="path-item">
         <i></i>
         {{ item }}
@@ -28,8 +28,8 @@
     <div class="insight-card glass-card">
       <span class="insight-dot"></span>
       <div>
-        <strong>Agent 洞察预留</strong>
-        <p>后续可基于项目、任务、风险与 Trace 数据生成分析建议。</p>
+        <strong>有来源的项目问答</strong>
+        <p>依据项目资料回答问题，保留工具记录和报告证据。</p>
       </div>
     </div>
   </section>
@@ -46,10 +46,10 @@ withDefaults(
     pathItems?: string[]
   }>(),
   {
-    eyebrow: 'PM-Agent',
+    eyebrow: 'PM-AGENT',
     title: '把项目状态变成可追踪的执行线索',
-    description: '围绕项目、需求、任务、风险和报告形成可落地的管理闭环，让 Agent 后续分析有真实业务数据可依赖。',
-    pathItems: () => ['项目', '任务', '状态', 'Trace', 'Agent'],
+    description: '从文件同步与解析，到项目问答、显式学习和报告，建立有来源可核对的工作闭环。',
+    pathItems: () => ['项目', '文件', '问答', '学习', '报告'],
   },
 )
 </script>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from pydantic import BaseModel
 
@@ -21,6 +21,36 @@ class _Payload(BaseModel):
 
 
 class StructuredJsonGeneratorTest(IsolatedAsyncioTestCase):
+    async def test_optional_normalization_does_not_bypass_model_validation(self) -> None:
+        client = SimpleNamespace(complete_turn=AsyncMock(return_value=LLMAssistantTurn(
+            content='{"other":"项目文件"}', finish_reason="stop",
+        )))
+        generator = StructuredJsonGenerator(client, max_tokens=2048, timeout_seconds=45)
+        with self.assertRaises(StructuredOutputError):
+            await generator.generate("请返回 JSON", _Payload)
+        result = await generator.generate(
+            "请返回 JSON", _Payload, normalize_json=lambda _: '{"name":"项目文件"}',
+        )
+        self.assertEqual("项目文件", result.name)
+        with self.assertRaises(StructuredOutputError):
+            await generator.generate(
+                "请返回 JSON", _Payload, normalize_json=lambda _: '{"name":[]}',
+            )
+        self.assertEqual(3, client.complete_turn.await_count)
+
+    async def test_truncated_or_empty_output_is_not_normalized(self) -> None:
+        for turn in (
+            LLMAssistantTurn(content='{"name":"截断内容"}', finish_reason="length"),
+            LLMAssistantTurn(content="", finish_reason="stop"),
+        ):
+            with self.subTest(turn=turn):
+                client = SimpleNamespace(complete_turn=AsyncMock(return_value=turn))
+                generator = StructuredJsonGenerator(client, max_tokens=2048, timeout_seconds=45)
+                normalize = Mock(return_value='{"name":"不应修复"}')
+                with self.assertRaises(StructuredOutputError):
+                    await generator.generate("请返回 JSON", _Payload, normalize_json=normalize)
+                normalize.assert_not_called()
+
     async def test_generate_requests_deepseek_json_mode(self) -> None:
         client = SimpleNamespace(
             complete_turn=AsyncMock(

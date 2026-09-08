@@ -21,6 +21,7 @@ from app.project_context.file_detail.sensitive_content import (
     SensitiveContentBlockedError,
     sanitize_sensitive_content,
 )
+from app.project_context.specification.model_output import normalize_specification_json
 from app.project_context.specification.schemas import (
     ProjectSpecificationDocument,
     SpecificationSourceRef,
@@ -152,6 +153,7 @@ class ProjectSpecificationService:
                 result = await self._generator.generate(
                     self._build_prompt(project, current, batch, inventory),
                     ProjectSpecificationDocument,
+                    normalize_json=normalize_specification_json,
                 )
             except StructuredOutputTruncatedError:
                 if candidate_count <= 1:

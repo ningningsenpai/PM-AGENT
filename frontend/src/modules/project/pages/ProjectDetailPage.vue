@@ -1,112 +1,143 @@
 <template>
   <div class="page-shell">
-    <div class="page-title-row">
-      <div>
-        <p class="page-eyebrow">Project Detail</p>
-        <h1 class="page-title">{{ project?.name || '项目详情' }}</h1>
-        <p class="page-description">{{ project?.description || '查看项目基础信息和第 1 阶段任务推进情况。' }}</p>
-      </div>
-      <n-space>
-        <n-button @click="router.push('/projects')">返回项目列表</n-button>
-        <n-button type="primary" @click="router.push(`/projects/${projectId}/tasks`)">进入任务看板</n-button>
-      </n-space>
-    </div>
-
-    <div class="detail-grid" v-if="project">
-      <n-card class="glass-card hero-card" :bordered="false">
-        <p>项目状态</p>
-        <h2>{{ statusLabel(project.status) }}</h2>
-        <n-progress type="line" :percentage="progress" color="#2563eb" />
-      </n-card>
-      <n-card class="glass-card metric-card" :bordered="false">
-        <span>任务总数</span>
-        <strong>{{ project.taskTotal }}</strong>
-      </n-card>
-      <n-card class="glass-card metric-card" :bordered="false">
-        <span>已完成</span>
-        <strong>{{ project.doneTaskTotal }}</strong>
-      </n-card>
-      <n-card class="glass-card metric-card" :bordered="false">
-        <span>成员</span>
-        <strong>{{ project.memberTotal }}</strong>
-      </n-card>
-    </div>
-
-    <n-card class="glass-card" :bordered="false" v-if="project">
-      <n-descriptions label-placement="left" :column="2" bordered>
-        <n-descriptions-item label="项目编码">{{ project.code || '未设置' }}</n-descriptions-item>
-        <n-descriptions-item label="负责人">{{ project.ownerName }}</n-descriptions-item>
-        <n-descriptions-item label="计划开始">{{ project.startDate }}</n-descriptions-item>
-        <n-descriptions-item label="计划结束">{{ project.endDate }}</n-descriptions-item>
-      </n-descriptions>
-    </n-card>
-
-    <project-file-upload-card v-if="project" :project-id="projectId" />
+    <RequestError :message="error" retry @retry="load" />
+    <n-spin :show="loading">
+      <template v-if="project">
+        <div class="page-title-row">
+          <div>
+            <p class="eyebrow">项目管理 / 项目详情</p>
+            <h1 class="page-title">{{ project.projectName }}</h1>
+            <p class="page-description">
+              创建于 {{ formatDate(project.createdAt) }} ·
+              <ProjectStatus :status="project.status" />
+            </p>
+          </div>
+          <n-space
+            ><n-button @click="$router.push('/projects')">全部项目</n-button
+            ><n-button
+              type="error"
+              secondary
+              :disabled="filesBusy"
+              @click="remove"
+              >删除项目</n-button
+            ></n-space
+          >
+        </div>
+        <div class="project-links surface">
+          <RouterLink :to="`/projects/${id}/assistant`"
+            >打开 PM 助手 <span>基于资料提问 →</span></RouterLink
+          ><RouterLink :to="`/projects/${id}/reports`"
+            >报告中心 <span>开发与风险报告 →</span></RouterLink
+          ><RouterLink :to="`/projects/${id}/knowledge`"
+            >知识库 <span>项目资料与学习内容 →</span></RouterLink
+          >
+        </div>
+        <n-alert
+          v-if="project.status !== 'active'"
+          type="warning"
+          title="项目尚未完成初始化"
+          >暂不能使用文件与助手功能。初始化失败时可返回项目列表，使用同名项目重新创建以重试初始化。</n-alert
+        >
+        <template v-else>
+          <ProjectFileUploadCard
+            :project-id="id"
+            :disabled="filesBusy"
+            @busy="syncBusy = $event"
+            @changed="fileRevision++"
+          />
+          <ProjectFileList
+            :project-id="id"
+            :revision="fileRevision"
+            :disabled="syncBusy"
+            @busy="filesBusy = $event"
+          />
+        </template>
+      </template>
+    </n-spin>
   </div>
 </template>
-
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getProjectDetail } from '@/modules/project/api'
-import ProjectFileUploadCard from '@/modules/project/components/project-file-upload-card.vue'
-import type { ProjectDetail, ProjectStatus } from '@/modules/project/types'
-
-const route = useRoute()
+import { useDialog, useMessage } from 'naive-ui'
+import { deleteProject, getProjectDetail } from '../api'
+import type { ProjectDetail } from '../types'
+import { useProjectStore } from '../store'
+import ProjectFileUploadCard from '../components/project-file-upload-card.vue'
+import ProjectFileList from '../components/project-file-list.vue'
+import ProjectStatus from '@/shared/components/project-status.vue'
+import RequestError from '@/shared/components/request-error.vue'
+import { errorMessage, formatDate } from '@/shared/utils/format'
+const id = String(useRoute().params.id)
 const router = useRouter()
-const projectId = String(route.params.id)
+const store = useProjectStore()
+const dialog = useDialog()
+const message = useMessage()
 const project = ref<ProjectDetail | null>(null)
-
-const progress = computed(() => {
-  if (!project.value?.taskTotal) return 0
-  return Math.round((project.value.doneTaskTotal / project.value.taskTotal) * 100)
-})
-
-onMounted(async () => {
-  project.value = await getProjectDetail(projectId)
-})
-
-function statusLabel(status: ProjectStatus) {
-  const map: Record<ProjectStatus, string> = {
-    not_started: '未开始',
-    running: '进行中',
-    paused: '已暂停',
-    delayed: '已延期',
-    done: '已完成',
-    archived: '已归档',
+const error = ref('')
+const loading = ref(false)
+const fileRevision = ref(0)
+const syncBusy = ref(false)
+const filesBusy = ref(false)
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    project.value = await getProjectDetail(id)
+    store.currentProjectId = id
+  } catch (e) {
+    error.value = errorMessage(e)
+  } finally {
+    loading.value = false
   }
-  return map[status]
+}
+onMounted(load)
+function remove() {
+  if (syncBusy.value || filesBusy.value) {
+    message.warning('请等待当前文件操作完成')
+    return
+  }
+  dialog.warning({
+    title: '删除项目',
+    content:
+      '项目将从工作台移除，文件及历史内容将在保留期后清理。确认删除此项目？',
+    positiveText: '删除项目',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await deleteProject(id)
+        await store.loadProjects(true)
+        await router.push('/projects')
+      } catch (e) {
+        error.value = errorMessage(e)
+        return false
+      }
+    },
+  })
 }
 </script>
-
 <style scoped>
-.detail-grid {
+.project-links {
   display: grid;
-  grid-template-columns: 2fr repeat(3, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 28px 0;
+  padding: 24px;
+  gap: 24px;
 }
-
-.hero-card p,
-.metric-card span {
-  margin: 0;
-  color: #64748b;
+.project-links a {
+  display: grid;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--pm-text);
+  font-size: 17px;
+  font-weight: 600;
 }
-
-.hero-card h2 {
-  margin: 10px 0 18px;
-  font-size: 32px;
-  letter-spacing: -0.05em;
+.project-links span {
+  font-size: 13px;
+  color: var(--pm-blue-dark);
+  font-weight: 400;
 }
-
-.metric-card {
-  min-height: 150px;
-}
-
-.metric-card strong {
-  display: block;
-  margin-top: 18px;
-  color: #0f172a;
-  font-size: 42px;
-  letter-spacing: -0.06em;
+:deep(.upload-card) {
+  margin-bottom: 24px;
 }
 </style>

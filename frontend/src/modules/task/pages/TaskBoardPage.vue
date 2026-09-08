@@ -4,17 +4,17 @@
       <div>
         <p class="page-eyebrow">Task Board</p>
         <h1 class="page-title">任务看板</h1>
-        <p class="page-description">第 1 阶段使用状态分组和下拉框完成任务流转，拖拽能力后置。</p>
+        <p class="page-description">任务管理暂未开放，文件解析结果不会自动生成任务。</p>
       </div>
-      <n-button type="primary" @click="showCreate = true">新建任务</n-button>
+      <n-button type="primary" :disabled="!useMock" @click="showCreate = true">新建任务</n-button>
     </div>
 
-    <div class="board-grid">
+    <n-alert v-if="!useMock" type="info">任务创建、状态流转和历史记录暂未开放。以下仅展示看板结构。</n-alert><div class="board-grid">
       <section v-for="status in taskStatusOptions" :key="status.value" class="board-column">
         <div class="column-head">
           <span class="status-dot" :style="{ background: status.tone }" />
           <strong>{{ status.label }}</strong>
-          <em>{{ groupedTasks[status.value]?.length || 0 }}</em>
+          <em>{{ useMock ? groupedTasks[status.value]?.length || 0 : '—' }}</em>
         </div>
 
         <article v-for="task in groupedTasks[status.value]" :key="task.id" class="task-card glass-card">
@@ -61,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import { useMock } from '@/mock'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
@@ -91,7 +92,7 @@ const priorityOptions = [
 const groupedTasks = computed<Record<TaskStatus, typeof taskStore.tasks>>(() => {
   return taskStatusOptions.reduce(
     (result, status) => {
-      result[status.value] = taskStore.tasks.filter((task) => task.status === status.value)
+      result[status.value] = (useMock ? taskStore.tasks : []).filter((task) => task.status === status.value)
       return result
     },
     {} as Record<TaskStatus, typeof taskStore.tasks>,
@@ -99,7 +100,7 @@ const groupedTasks = computed<Record<TaskStatus, typeof taskStore.tasks>>(() => 
 })
 
 onMounted(() => {
-  taskStore.loadTasks(projectId)
+  if (useMock) void taskStore.loadTasks(projectId)
 })
 
 function priorityType(priority: TaskPriority) {

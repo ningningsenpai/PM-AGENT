@@ -111,6 +111,57 @@ def _batch_candidates(call):
 
 
 class SpecificationBatchTest(IsolatedAsyncioTestCase):
+    async def test_mixed_rule_field_names_are_corrected_before_strict_validation(self):
+        payload = _document("coding-1").model_dump(mode="json")
+        body = payload["project_specification"]
+        coding = body["coding_rules"][0]
+        coding["constraint"] = coding.pop("rule")
+        body["risk_rules"] = [
+            {**coding, "id": f"risk-{index}", "constraint": f"风险规则 {index}"}
+            for index in range(4)
+        ]
+        service, storage, client, file = _service(
+            1,
+            [LLMAssistantTurn(content=json.dumps(payload), finish_reason="stop")],
+            existing=_document("old"),
+        )
+
+        self.assertEqual("updated", await service.refresh(project(), [file]))
+
+        client.complete_turn.assert_awaited_once()
+        saved = ProjectSpecificationDocument.model_validate_json(
+            storage.put_bytes.call_args.args[1]
+        )
+        self.assertEqual(["old", "coding-1"], [rule.id for rule in saved.project_specification.coding_rules])
+        self.assertEqual(
+            [f"风险规则 {index}" for index in range(4)],
+            [rule.rule for rule in saved.project_specification.risk_rules],
+        )
+        self.assertNotIn('"constraint"', json.dumps(
+            json.loads(storage.put_bytes.call_args.args[1])["project_specification"]["risk_rules"]
+        ))
+
+    async def test_conflicting_or_invalid_rule_fields_keep_old_specification(self):
+        for changes in (
+            {"constraint": "不同的正文"},
+            {"rule": None, "constraint": "不能替代显式空值"},
+            {"rule": "规则", "unknown_field": "不能忽略"},
+            {"rule": ["错误类型"]},
+            {"status": "invalid"},
+        ):
+            with self.subTest(changes=changes):
+                payload = _document("invalid").model_dump(mode="json")
+                payload["project_specification"]["coding_rules"][0].update(changes)
+                service, storage, client, file = _service(
+                    13,
+                    [_turn("first"), LLMAssistantTurn(content=json.dumps(payload), finish_reason="stop")],
+                    existing=_document("old"),
+                )
+                with self.assertRaises(AppException):
+                    await service.refresh(project(), [file])
+                self.assertEqual(2, client.complete_turn.await_count)
+                storage.put_bytes.assert_not_called()
+
     async def test_large_single_source_is_split_without_losing_candidates(self):
         service, storage, client, file = _service(
             25, [_turn("one"), _turn("two"), _turn("three")],

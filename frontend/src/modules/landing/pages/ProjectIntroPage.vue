@@ -14,7 +14,7 @@
           <strong>PM</strong>
         </span>
         <span>
-          <strong>PM-Agent</strong>
+          <strong>PM-AGENT</strong>
           <small>智能项目管理 Agent 平台</small>
         </span>
       </RouterLink>
@@ -33,10 +33,10 @@
 
     <section class="hero-section">
       <div class="hero-copy">
-        <span class="stage-pill">第 1 阶段 · 项目基础骨架</span>
+        <span class="stage-pill">项目助手 · 真实业务闭环</span>
         <h1>把项目状态变成可追踪的执行线索</h1>
         <p>
-          PM-Agent 先围绕项目、任务、风险和报告建立真实业务闭环，再让 Agent 基于 Trace 数据进行分析、拆解和总结。
+          从项目文件出发，完成资料同步、项目问答、显式学习与报告生成，让结论保留可核对的来源。
         </p>
         <div class="hero-actions">
           <RouterLink class="primary-cta" :to="primaryEntry">进入工作台</RouterLink>
@@ -48,7 +48,7 @@
         <div class="preview-topbar">
           <span class="mini-brand">PM</span>
           <strong>项目工作台</strong>
-          <span class="health-pill">执行温度 正常</span>
+          <span class="health-pill">设计预览 · 示例数据</span>
         </div>
         <div class="metric-grid">
           <div v-for="metric in metrics" :key="metric.name" class="metric-card">
@@ -60,15 +60,15 @@
         <div class="preview-content">
           <div class="project-card">
             <span class="project-strip"></span>
-            <h3>PM-Agent 平台 MVP</h3>
-            <p>认证、项目与任务看板形成第一条闭环。</p>
+            <h3>PM-AGENT 平台 MVP</h3>
+            <p>文件、问答、学习与报告形成业务闭环。</p>
             <div class="progress-track"><span></span></div>
             <b>72%</b>
           </div>
           <div id="agent" class="insight-card">
             <span></span>
             <h3>Agent 洞察</h3>
-            <p>建议优先补齐项目与任务接口联调。</p>
+            <p>基于文件证据回答问题，保留每次运行记录。</p>
           </div>
         </div>
       </section>
@@ -76,9 +76,9 @@
 
     <section id="capability" class="capability-section">
       <div class="section-heading">
-        <p class="page-eyebrow">CAPABILITY</p>
-        <h2>从业务闭环开始，而不是只做一个聊天窗口</h2>
-        <p>第一版先让项目、需求、任务、风险和报告有结构化数据，后续 Agent 才能给出可信建议。</p>
+        <p class="page-eyebrow">项目能力</p>
+        <h2>让项目资料连接到日常工作</h2>
+        <p>先把资料、讨论和结论关联起来，再逐步扩展任务、需求与风险处理。</p>
       </div>
 
       <div class="value-grid">
@@ -107,10 +107,10 @@ const metrics = [
 ]
 
 const values = [
-  { title: '项目全局视图', description: '聚合项目状态、进度、成员和近期动态，减少信息分散。', color: 'blue' },
-  { title: '任务状态流转', description: '以看板方式展示待处理、进行中、阻塞和已完成任务。', color: 'green' },
-  { title: '风险线索提示', description: '将延期、阻塞和不确定因素沉淀为可处理的风险线索。', color: 'yellow' },
-  { title: 'Agent 洞察', description: '后续基于业务数据生成风险分析、需求拆解和周报草稿。', color: 'yellow' },
+  { title: '项目全局视图', description: '查看真实项目初始化状态，集中管理文件与报告。', color: 'blue' },
+  { title: '文件同步与解析', description: '按同步计划处理新增、修改与删除，查看解析结果和失败原因。', color: 'green' },
+  { title: '风险报告', description: '依据项目资料生成风险分析，保留来源；风险处置流程暂未开放。', color: 'yellow' },
+  { title: 'Agent 洞察', description: '基于资料问答，通过显式学习沉淀你确认的项目内容。', color: 'yellow' },
   { title: 'Trace 可追溯', description: '记录 Agent 分析输入、工具调用和输出结论，便于复盘。', color: 'blue' },
 ]
 </script>

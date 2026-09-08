@@ -59,6 +59,12 @@ class ProjectSpecificationPrompt(str, Enum):
 # 输出要求
 只输出合法 JSON，不要输出 Markdown、解释文本或代码块。字段名必须使用英文，字段值中的自然语言内容使用中文。
 
+规则正文的字段名由所属数组决定，必须逐项检查：
+- `development_approach`、`coding_rules`、`document_rules`、`risk_rules` 中的正文只能使用 `rule`，不得使用 `constraint`。
+- 只有 `technical_constraints` 中的正文使用 `constraint`，不得使用 `rule`。
+- 每条规则只能包含所属类型声明的字段，不得同时输出 `rule` 和 `constraint`，不得改用 `text`、`description` 等别名。
+- 即使代码规则或风险规则的语义是“约束”，其字段名仍然必须为 `rule`；不得照搬技术约束对象的字段名。
+
 # JSON 格式
 {
   "project_id": "项目 ID",

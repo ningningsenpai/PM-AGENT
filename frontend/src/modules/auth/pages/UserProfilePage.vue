@@ -2,14 +2,14 @@
   <div class="page-shell">
     <div class="page-title-row">
       <div>
-        <p class="page-eyebrow">Profile</p>
+        <p class="page-eyebrow">账号管理</p>
         <h1 class="page-title">个人资料</h1>
         <p class="page-description">查看当前登录用户信息，并修改用户名和登录邮箱。</p>
       </div>
       <n-button :loading="refreshing" @click="handleRefresh">刷新资料</n-button>
     </div>
 
-    <div class="profile-grid">
+    <n-tabs :value="tab" @update:value="(value: string) => router.replace({query:{tab:value}})"><n-tab name="profile">基础资料</n-tab><n-tab name="security">账号安全</n-tab></n-tabs><AccountSecurity v-if="tab === 'security'" /><div v-else class="profile-grid">
       <n-card class="glass-card profile-summary" :bordered="false">
         <div class="avatar">{{ avatarText }}</div>
         <h2>{{ authStore.user?.username || '未命名用户' }}</h2>
@@ -20,8 +20,8 @@
 
         <n-descriptions class="profile-details" label-placement="left" :column="1">
           <n-descriptions-item label="用户 ID">{{ authStore.user?.id ?? '-' }}</n-descriptions-item>
-          <n-descriptions-item label="最近登录">
-            {{ formatDate(authStore.user?.lastLoginAt) }}
+          <n-descriptions-item label="最近登录（服务端时间）">
+            {{ formatLoginTime(authStore.user?.lastLoginAt) }}
           </n-descriptions-item>
         </n-descriptions>
       </n-card>
@@ -42,10 +42,14 @@
 </template>
 
 <script setup lang="ts">
+import { formatLoginTime } from '@/shared/utils/format'
+import AccountSecurity from './account-security.vue'
+import { useRoute, useRouter } from 'vue-router'
 import { computed, reactive, ref, watch } from 'vue'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 
+const route=useRoute(); const router=useRouter(); const tab=computed(()=>route.query.tab === 'security' ? 'security' : 'profile')
 const authStore = useAuthStore()
 const message = useMessage()
 const formRef = ref<FormInst | null>(null)
@@ -98,6 +102,7 @@ async function handleRefresh() {
 async function handleSave() {
   if (saving.value) return
   try { await formRef.value?.validate() } catch { return }
+  if (saving.value) return
   saving.value = true
   try {
     await authStore.updateCurrentUser({
@@ -112,10 +117,7 @@ async function handleSave() {
   }
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return '暂无记录'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
-}
+
 </script>
 
 <style scoped>

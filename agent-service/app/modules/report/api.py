@@ -8,8 +8,8 @@ from app.core.identifiers import SnowflakeId
 from app.core.response import success
 from app.core.security import AuthPrincipal, require_principal
 from app.core.trace import get_trace_id
-from app.modules.chat.dependencies import get_report_service
-from app.modules.chat.schemas import GenerateReport
+from app.modules.report.dependencies import get_report_service
+from app.modules.report.schemas import GenerateReport
 
 router = APIRouter(prefix="/api/v1/projects/{project_id}/reports", tags=["项目报告"])
 
