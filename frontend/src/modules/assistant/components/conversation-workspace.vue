@@ -60,6 +60,7 @@
         <n-alert v-if="operation.run.value?.operation === 'chat' && operation.run.value.status === 'failed'" type="warning">
           本轮回答生成失败：{{ operation.run.value.error || '请查看运行记录' }}
         </n-alert>
+        <LearningResults :project-id="projectId" :conversation-id="conversation.id" :operation="operation" :disabled="disabled" @busy="reviewBusy = $event" @changed="emit('changed')" />
       </div>
       <div class="composer">
         <RequestError :message="operation.error.value" />
@@ -132,6 +133,7 @@ import type { Conversation } from '../types'
 import SafeMarkdown from '@/shared/components/safe-markdown.vue'
 import RequestError from '@/shared/components/request-error.vue'
 import RunDetail from './run-detail.vue'
+import LearningResults from './learning-results.vue'
 import assistantImage from '@/assets/figma/assistant.png'
 import { errorMessage, formatDate } from '@/shared/utils/format'
 const props = defineProps<{
@@ -150,12 +152,14 @@ const showRename = ref(false)
 const renameTitle = ref('')
 const renameError = ref('')
 const renaming = ref(false)
+const reviewBusy = ref(false)
 const prompts = ['概括当前项目的主要模块', '项目目前有哪些值得关注的风险？']
 const locked = computed(
   () =>
     operation.busy.value ||
     operation.unresolved.value ||
     loading.value ||
+    reviewBusy.value ||
     Boolean(props.disabled),
 )
 const pendingStatus = computed(() => {
@@ -170,7 +174,7 @@ onScopeDispose(() => {
   active = false
 })
 watch(
-  () => operation.busy.value,
+  () => operation.busy.value || reviewBusy.value,
   (value) => emit('busy', value),
   { flush: 'sync' },
 )
@@ -232,8 +236,8 @@ function learn() {
   dialog.info({
     title: '学习本会话',
     content:
-      '从尚未学习的用户消息中提取词条、偏好和项目记忆，供后续问答使用。此操作会调用模型。',
-    positiveText: '确认学习',
+      '从新消息中提取习惯、项目规则、词条和记忆，先展示待确认结果。此操作会调用模型；查看并确认发布后才用于后续问答。',
+    positiveText: '提取待确认内容',
     negativeText: '取消',
     onPositiveClick: () => operation.start('learn'),
   })

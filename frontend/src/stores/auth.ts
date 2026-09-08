@@ -42,7 +42,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = ''
       this.user = null
       localStorage.removeItem(tokenStorageKey)
-      Object.keys(sessionStorage).filter((key) => key.startsWith('pm-operation:')).forEach((key) => sessionStorage.removeItem(key))
+      Object.keys(sessionStorage).filter((key) => key.startsWith('pm-operation:') || key.startsWith('pm-context-edit:')).forEach((key) => sessionStorage.removeItem(key))
     },
     async logout() {
       try {

@@ -215,24 +215,16 @@ test('定向重试传递数字文件 ID、force 参数及独立解析超时', as
     'partial',
   )
 })
-test('学习纠正携带读取版本，保留快照发布失败', async () => {
-  http.defaults.adapter = async (config) => {
+test('学习纠正携带项目、读取版本及稳定幂等键，成功返回正式发布结果', async () => {
+  http.defaults.adapter = async config => {
     assert.equal(config.method, 'patch')
+    assert.equal(JSON.parse(config.data).projectId, id)
     assert.equal(JSON.parse(config.data).version, 3)
-    return response(config, {
-      snapshot: { version: 4, published: false, error: '发布失败' },
-    })
+    assert.equal(config.headers.get('X-Idempotency-Key'), 'edit-once')
+    return response(config, { publication: { version: 4, published: true, error: null } })
   }
-  assert.equal(
-    (
-      await updateEntry(id, {
-        version: 3,
-        reason: '核对后纠正',
-        content: '新内容',
-      })
-    ).snapshot.published,
-    false,
-  )
+  const result = await updateEntry(id, { projectId: id, version: 3, reason: '核对后纠正', content: '新内容' }, 'edit-once')
+  assert.equal(result.publication.published, true)
 })
 test('UTC 时间和登录返回地址符合实际契约', () => {
   assert.equal(
@@ -562,4 +554,46 @@ test('相同正文的两次提问不会误去重，恢复中的请求与服务�
   assert.deepEqual(chat.visibleMessages.value.map(item => item.id), ['1', '2'])
   assert.equal(chat.operation.unresolved.value, true)
   scope.stop()
+})
+
+
+test('草稿确认绑定精确版本和所选字符串 ID，部分发布不会变成成功', async () => {
+  const { confirmDraft } = await import('@/modules/assistant/api')
+  http.defaults.adapter = async config => {
+    assert.equal(config.url, `/api/v1/agent/learning-drafts/${id}/confirm`)
+    assert.equal(config.params.projectId, id)
+    assert.deepEqual(JSON.parse(config.data), { version: 4, candidateIds: [conversation] })
+    return response(config, { id, state: 'partial', publications: { project: { published: false, error: '存储不可用' } } })
+  }
+  assert.equal((await confirmDraft(id, id, 4, [conversation])).state, 'partial')
+})
+
+test('定向反馈使用独立接口，断网恢复保持候选范围、版本和幂等键', async () => {
+  let firstKey: unknown
+  let calls = 0
+  const scope = effectScope()
+  const operation = scope.run(() => useOperation(id, conversation))!
+  const payload = { draftId: id, version: 2, candidateIds: [conversation], feedback: '请区分适用场景' }
+  http.defaults.adapter = async config => {
+    assert.equal(config.url, `/api/v1/agent/learning-drafts/${id}/refine`)
+    const { draftId: _id, ...expected } = payload
+    assert.deepEqual(JSON.parse(config.data), expected)
+    assert.equal(config.params.projectId, id)
+    if (++calls === 1) { firstKey = config.headers.get('X-Idempotency-Key'); throw new Error('模拟断网') }
+    assert.equal(config.headers.get('X-Idempotency-Key'), firstKey)
+    return response(config, { ...run(), operation: 'learn_refine', result: { draftId: id, draftVersion: 4 } })
+  }
+  await operation.start('learn_refine', payload)
+  assert.equal(operation.unresolved.value, true)
+  await operation.recover()
+  assert.equal(operation.unresolved.value, false)
+  assert.equal(operation.run.value?.result.draftVersion, 4)
+  scope.stop()
+})
+
+
+test('定向反馈后保留未选中条目，仅勾选新整理的候选', async () => {
+  const { reconcileSelection } = await import('@/modules/assistant/learning')
+  assert.deepEqual(reconcileSelection(['habit', 'rule'], ['rule', 'habit-a', 'habit-b'], ['habit']), ['habit-a', 'habit-b'])
+  assert.deepEqual(reconcileSelection(['rule'], ['rule'], []), [])
 })

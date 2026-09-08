@@ -25,7 +25,7 @@ export interface Run {
   error: string | null
   events: Record<string, unknown>[]
 }
-export type EntryKind = 'term' | 'habit' | 'short_memory' | 'long_memory'
+export type EntryKind = 'term' | 'habit' | 'short_memory' | 'long_memory' | 'project_rule'
 export type EntryStatus = 'active' | 'pending' | 'invalid'
 export interface Snapshot {
   version: number
@@ -42,16 +42,22 @@ export interface ContextEntry {
   version: number
   sourceMessageId: string | null
   expiresAt: string | null
+  conditions: string[]
+  relatedEntryIds: string[]
 }
 export interface UpdateEntry {
+  projectId: string
   version: number
   reason: string
   content?: string
   status?: EntryStatus
   expiresAt?: string | null
   kind?: EntryKind
+  conditions?: string[]
+  aliases?: string[]
+  canonical?: string
 }
-export type OperationKind = 'chat' | 'learn' | 'development' | 'risk'
+export type OperationKind = 'chat' | 'learn' | 'learn_refine' | 'development' | 'risk'
 export interface PendingOperation {
   key: string
   kind: OperationKind
@@ -59,4 +65,49 @@ export interface PendingOperation {
   runId?: string
   terminal: boolean
   startedAt?: string
+}
+
+export interface LearningProposal {
+  kind: EntryKind
+  scope: 'user' | 'project'
+  key: string
+  content: string
+  sourceMessageId: string
+  sourceQuote: string
+  confirmed: boolean
+  replacesEntryId: string | null
+  invalidate: boolean
+  aliases: string[]
+  canonical: string | null
+  expiresAt: string | null
+  conditions: string[]
+  relatedEntryIds: string[]
+  coexistReason: string | null
+}
+export interface DraftCandidate { id: string; proposal: LearningProposal }
+export interface LearningDraft {
+  id: string
+  projectId: string
+  conversationId: string
+  version: number
+  state: 'pending' | 'publishing' | 'partial' | 'published' | 'discarded'
+  createdAt: string
+  candidates: DraftCandidate[]
+  existing: ContextEntry[]
+  messages: { id: string; content: string }[]
+  feedback: { id: string; text: string; candidateIds: string[] }[]
+  history: { version: number; candidates: DraftCandidate[]; reason: string }[]
+  conflicts: { leftId: string; rightId: string; left: string; right: string }[]
+  plan: { version: number; candidateIds: string[] } | null
+  publications: Record<string, { published: boolean; version?: number; error?: string | null }>
+  replacementDraftId?: string
+}
+export interface ContextChange {
+  entryId?: string
+  version?: number
+  reason: string
+  before?: Partial<ContextEntry>
+  after?: Partial<ContextEntry>
+  proposal?: Partial<ContextEntry>
+  sourceMessageId?: string | null
 }

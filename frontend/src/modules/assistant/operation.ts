@@ -25,7 +25,7 @@ export function useOperation(projectId: string, conversationId?: string) {
       const item = JSON.parse(raw)
       if (
         typeof item.key === 'string' &&
-        ['chat', 'learn', 'development', 'risk'].includes(item.kind)
+        ['chat', 'learn', 'learn_refine', 'development', 'risk'].includes(item.kind)
       )
         pending.value = item
     }
