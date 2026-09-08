@@ -9,11 +9,10 @@ import re
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
 from app.llm.telemetry import capture_calls
+from app.modules.chat.conversation.models import AgentConversation, AgentMessage
 from app.modules.chat.conversation.schemas import ConversationView, MessageView
 from app.project_context.file_detail.sensitive_content import sanitize_sensitive_content
 from app.streaming.payloads import AgentChatRequest
-
-from ..models import AgentConversation, AgentMessage
 
 
 class ConversationService:

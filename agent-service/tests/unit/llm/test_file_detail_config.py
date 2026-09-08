@@ -34,7 +34,10 @@ def test_analysis_and_specification_use_dedicated_output_budget(monkeypatch):
     monkeypatch.setattr(dependencies, "get_settings", lambda: settings)
 
     service = dependencies.get_project_file_analysis_service(
-        session=SimpleNamespace(), projects=SimpleNamespace(), storage=SimpleNamespace()
+        session=SimpleNamespace(),
+        projects=SimpleNamespace(),
+        storage=SimpleNamespace(),
+        runs=SimpleNamespace(),
     )
 
     generator = service._semantic_analyzer.generator

@@ -1,56 +1,78 @@
-"""Chat 业务依赖装配，不在 API 中直接访问基础设施。"""
+"""Chat 公开依赖装配；各仓储共享缓存的请求级数据库 Session。"""
+
+from typing import Annotated
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.infrastructure.database import get_db_session
-from app.infrastructure.storage import get_object_storage
+from app.infrastructure.storage import ObjectStorage, get_object_storage
 from app.llm.dependencies import get_structured_generator
 from app.modules.project.dependencies import get_project_service
+from app.modules.project.service import ProjectService
 
+from .context.repository import ContextRepository
 from .context.service import ContextService
+from .conversation.repository import ConversationRepository
 from .conversation.service import ConversationService
 from .learning.service import LearningService
-from .repository import ChatRepository
+from .runs.repository import RunRepository
 from .runs.service import RunService
 
+Session = Annotated[AsyncSession, Depends(get_db_session)]
+Projects = Annotated[ProjectService, Depends(get_project_service)]
 
-def get_chat_repository(session: AsyncSession = Depends(get_db_session)):
-    return ChatRepository(session)
+
+def get_conversation_repository(session: Session) -> ConversationRepository:
+    return ConversationRepository(session)
+
+
+def get_context_repository(session: Session) -> ContextRepository:
+    return ContextRepository(session)
+
+
+def get_run_repository(session: Session) -> RunRepository:
+    return RunRepository(session)
 
 
 def get_run_service(
-    repo=Depends(get_chat_repository), projects=Depends(get_project_service)
-):
-    return RunService(repo, projects)
+    repo: Annotated[RunRepository, Depends(get_run_repository)],
+    projects: Projects,
+    conversations: Annotated[
+        ConversationRepository, Depends(get_conversation_repository)
+    ],
+) -> RunService:
+    return RunService(repo, projects, conversations)
 
 
 def get_context_service(
-    repo=Depends(get_chat_repository),
-    projects=Depends(get_project_service),
-    storage=Depends(get_object_storage),
-):
+    repo: Annotated[ContextRepository, Depends(get_context_repository)],
+    projects: Projects,
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+) -> ContextService:
     return ContextService(repo, projects, storage, get_settings().storage.bucket)
 
 
 def get_conversation_service(
-    repo=Depends(get_chat_repository),
-    projects=Depends(get_project_service),
-    runs=Depends(get_run_service),
-    contexts=Depends(get_context_service),
-):
+    repo: Annotated[ConversationRepository, Depends(get_conversation_repository)],
+    projects: Projects,
+    runs: Annotated[RunService, Depends(get_run_service)],
+    contexts: Annotated[ContextService, Depends(get_context_service)],
+) -> ConversationService:
     return ConversationService(repo, projects, runs, contexts)
 
 
 def get_learning_service(
-    repo=Depends(get_chat_repository),
-    conversations=Depends(get_conversation_service),
-    contexts=Depends(get_context_service),
-    runs=Depends(get_run_service),
-):
+    repo: Annotated[ContextRepository, Depends(get_context_repository)],
+    messages: Annotated[ConversationRepository, Depends(get_conversation_repository)],
+    conversations: Annotated[ConversationService, Depends(get_conversation_service)],
+    contexts: Annotated[ContextService, Depends(get_context_service)],
+    runs: Annotated[RunService, Depends(get_run_service)],
+) -> LearningService:
     return LearningService(
         repo,
+        messages,
         conversations,
         contexts,
         runs,

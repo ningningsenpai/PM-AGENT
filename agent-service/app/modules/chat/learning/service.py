@@ -10,16 +10,19 @@ from datetime import UTC, datetime, timedelta
 from app.core.errors import AppException
 from app.core.identifiers import get_snowflake_id_generator
 from app.llm.telemetry import capture_calls
+from app.modules.chat.context.models import AgentContextEntry
 
 from ..context.serialization import entry_data, utc_naive
-from ..models import AgentContextEntry
 from .prompts import LEARNING_PROMPT_VERSION, LEARNING_RULES
 from .rules import candidate_status, normalized_key, resolve_entry, validate_source
 from .schemas import LearningOutput
 
 
 class LearningService:
-    def __init__(self, repository, conversations, contexts, runs, generator):
+    def __init__(
+        self, repository, message_repository, conversations, contexts, runs, generator
+    ):
+        self.message_repo = message_repository
         self.repo, self.conversations, self.contexts, self.runs, self.generator = (
             repository,
             conversations,
@@ -38,7 +41,7 @@ class LearningService:
             return self.runs.view(run)
         run_id, events = run.id, []
         try:
-            pending = await self.repo.messages(
+            pending = await self.message_repo.messages(
                 conversation_id, after=conversation.learned_message_id
             )
             messages = [
@@ -71,7 +74,7 @@ class LearningService:
                 with capture_calls(events):
                     output = await self.generator.generate(prompt, LearningOutput)
             changed = await self.apply(user_id, project_id, output, messages, versions)
-            conversation = await self.repo.conversation(
+            conversation = await self.message_repo.conversation(
                 user_id, conversation_id, lock=True
             )
             if pending:

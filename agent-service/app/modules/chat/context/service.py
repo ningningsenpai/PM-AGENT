@@ -6,9 +6,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
+from app.modules.chat.context.models import AgentContextChange, AgentContextScope
 from app.project_context.file_detail.sensitive_content import sanitize_sensitive_content
 
-from ..models import AgentContextChange, AgentContextScope
 from .serialization import entry_data, utc_naive
 from .snapshot import ContextSnapshotPublisher
 

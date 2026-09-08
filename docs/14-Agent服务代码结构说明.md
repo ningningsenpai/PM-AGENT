@@ -40,6 +40,14 @@ agent-service/app/
 │   ├── user/
 │   ├── project/
 │   ├── chat/
+│   │   ├── api.py
+│   │   ├── dependencies.py
+│   │   ├── conversation/
+│   │   ├── learning/
+│   │   ├── context/
+│   │   ├── runs/
+│   │   └── legacy/
+│   ├── report/
 │   └── project_file/
 │       ├── __init__.py
 │       ├── api.py
@@ -88,6 +96,12 @@ agent-service/app/
 - 具体工具按业务模块放在 `agents/tools/<module>/`，只依赖对应模块公开 Service，不接收 Session 或 Repository。
 - `llm/contracts.py` 是 Provider 无关的文本、工具调用和流式增量契约；`llm/clients/` 只负责协议适配；`llm/orchestration/` 负责有限模型—工具循环。
 - 新增工具时先补齐 Pydantic 输入/输出模型和 Service 权限校验，再在请求依赖中显式注册；不得通过目录扫描自动暴露工具。
+
+## Chat 子包边界
+
+Chat 按业务职责拆包，包内维护对应的 API、Schema、Service 和持久化实现。会话与消息归 `conversation/`，显式学习流程、Prompt 和候选规则归 `learning/`，上下文内容、初始化文件及快照发布归 `context/`，运行幂等与租约归 `runs/`；旧无状态问答归 `legacy/`。根 `api.py` 只聚合路由，`dependencies.py` 负责共享请求级 Session 的公开依赖装配，`_persistence.py` 仅保留 ID 字段类型及仓储基础操作。
+
+Model 和 Repository 分属会话、上下文、运行子包；学习没有独立业务表，使用同一请求内的上下文与会话仓储。跨表提交由 Service 控制，Repository 不互调、不自行提交。报告的 Schema 与依赖装配归 `report/`，文件解析通过 Chat 公开依赖获取运行服务。详细目录、事务和验收范围见 [Chat 模块分层设计](./26-Chat模块分层设计.md)。
 
 ## Project Context 上下文产物边界
 

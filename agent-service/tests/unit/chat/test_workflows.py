@@ -1,19 +1,22 @@
 """学习游标、快照重试和报告引用边界的业务测试。"""
 
-from types import SimpleNamespace
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from app.modules.chat.models import AgentMessage
+
 from app.core.errors import AppException
+from app.modules.chat.conversation.models import AgentMessage
 from app.modules.chat.conversation.schemas import CreateConversation, SendMessage
-from app.modules.report.schemas import GenerateReport, ReportDraft
 from app.modules.chat.learning.schemas import LearningOutput
 from app.modules.report.repository import ReportRepository
+from app.modules.report.schemas import GenerateReport, ReportDraft
 from app.modules.report.service import ReportService
-from tests.unit.chat.test_persistence import services  # noqa: F401
-from tests.unit.chat.test_persistence import candidate
+from tests.unit.chat.test_persistence import (
+    candidate,
+    services,  # noqa: F401
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -27,7 +30,7 @@ async def test_learn_commits_once_and_snapshot_failure_can_retry(services):
     conversation = await services.conversations.create(
         1, CreateConversation(projectId="11")
     )
-    await services.repo.add(
+    await services.conversation_repo.add(
         AgentMessage(
             id=100,
             conversation_id=conversation.id,
@@ -37,7 +40,7 @@ async def test_learn_commits_once_and_snapshot_failure_can_retry(services):
             protocol=[],
         )
     )
-    await services.repo.session.commit()
+    await services.session.commit()
     output = LearningOutput.model_validate(
         {
             "candidates": [
@@ -95,7 +98,7 @@ async def test_inferred_memory_remains_pending(services):
     await services.learning.apply(
         1, 11, output, [{"id": "100", "content": "可能下月上线"}], {}
     )
-    await services.repo.session.commit()
+    await services.session.commit()
     assert await services.contexts.list_entries(1, 11) == []
     assert (await services.contexts.list_entries(1, 11, effective=False))[0][
         "status"
@@ -113,7 +116,7 @@ async def test_unconfirmed_correction_preserves_active_memory(services):
             {},
         )
     )[0]
-    await services.repo.session.commit()
+    await services.session.commit()
     uncertain = "可能要推迟到 10 月 8 日"
     proposed = candidate(uncertain, replacesEntryId=original["id"], confirmed=False)
     with pytest.raises(AppException, match="未经确认"):
@@ -124,7 +127,7 @@ async def test_unconfirmed_correction_preserves_active_memory(services):
             [{"id": "100", "content": uncertain}],
             {int(original["id"]): 1},
         )
-    await services.repo.session.rollback()
+    await services.session.rollback()
     current = await services.contexts.list_entries(1, 11)
     assert len(current) == 1
     assert current[0]["content"] == original["content"]
@@ -146,9 +149,9 @@ async def test_cancelled_chat_retains_run_and_releases_conversation(services):
             "trace",
             agent,
         )
-    run = await services.repo.duplicate(1, "chat", "cancel-one")
+    run = await services.run_repo.duplicate(1, "chat", "cancel-one")
     assert run.status == "failed" and "取消" in run.error
-    row = await services.repo.conversation(1, conversation_id)
+    row = await services.conversation_repo.conversation(1, conversation_id)
     assert row.active_run_id is None and row.busy_until is None
     _, fresh = await services.runs.start(
         1, 11, "chat", "after-cancel", {}, "trace", conversation_id
@@ -202,7 +205,7 @@ def report_service(services, evidence_id):
         )
     )
     return ReportService(
-        ReportRepository(services.repo.session),
+        ReportRepository(services.session),
         services.contexts.projects,
         files,
         services.contexts,

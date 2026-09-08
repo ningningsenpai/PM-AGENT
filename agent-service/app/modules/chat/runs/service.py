@@ -11,14 +11,14 @@ from sqlalchemy.exc import IntegrityError
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
 from app.llm.telemetry import safe_payload
-
-from ..models import AgentRun
+from app.modules.chat.runs.models import AgentRun
 
 
 class RunService:
-    def __init__(self, repository, projects):
+    def __init__(self, repository, projects, conversation_repository):
         self.repo = repository
         self.projects = projects
+        self.conversation_repo = conversation_repository
 
     async def start(
         self,
@@ -46,7 +46,7 @@ class RunService:
         ).hexdigest()
         conversation = None
         if conversation_id is not None:
-            conversation = await self.repo.conversation(
+            conversation = await self.conversation_repo.conversation(
                 user_id, conversation_id, lock=True
             )
             if conversation is None or conversation.project_id != project_id:
@@ -119,7 +119,7 @@ class RunService:
         run.status = "failed" if error else "success"
         run.error = error
         if run.conversation_id:
-            conversation = await self.repo.conversation(
+            conversation = await self.conversation_repo.conversation(
                 user_id, run.conversation_id, lock=True
             )
             if conversation and conversation.active_run_id == run.id:

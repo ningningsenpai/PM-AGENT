@@ -10,9 +10,13 @@ from fastapi import FastAPI
 from app.core.errors import AppException, install_exception_handlers
 from app.core.security import AuthPrincipal, require_principal
 from app.modules.chat.api import router
+from app.modules.chat.conversation.models import AgentConversation
+from app.modules.chat.conversation.schemas import (
+    CreateConversation,
+    RenameConversation,
+    SendMessage,
+)
 from app.modules.chat.dependencies import get_conversation_service
-from app.modules.chat.models import AgentConversation
-from app.modules.chat.conversation.schemas import CreateConversation, RenameConversation, SendMessage
 from tests.unit.chat.test_persistence import (
     services as services,  # noqa: PLC0414 -- 显式导出共享 pytest 夹具。
 )
@@ -50,7 +54,7 @@ async def test_numbering_survives_rename_and_is_scoped_to_project(services):
 
 
 async def test_more_than_one_hundred_conversations_are_visible_and_numbered(services):
-    services.repo.session.add_all(
+    services.session.add_all(
         [
             AgentConversation(
                 id=1000 + index, user_id=1, project_id=11, title=f"项目对话-{index + 1}"
@@ -58,7 +62,7 @@ async def test_more_than_one_hundred_conversations_are_visible_and_numbered(serv
             for index in range(105)
         ]
     )
-    await services.repo.session.commit()
+    await services.session.commit()
     created = await services.conversations.create(1, CreateConversation(projectId="11"))
     assert created.title == "项目对话-106"
     assert len(await services.conversations.list(1, 11)) == 106
