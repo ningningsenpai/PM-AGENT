@@ -155,7 +155,7 @@ interface UploadFailure {
 }
 
 const props = defineProps<{
-  projectId: number
+  projectId: string
 }>()
 
 const dialog = useDialog()

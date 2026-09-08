@@ -3,7 +3,7 @@ import { useMock } from '@/mock'
 import { mockCreateTask, mockListTasks, mockUpdateTaskStatus } from '@/modules/task/mock'
 import type { CreateTaskRequest, TaskItem, UpdateTaskStatusRequest } from '@/modules/task/types'
 
-export async function listTasks(projectId: number) {
+export async function listTasks(projectId: string) {
   if (useMock) {
     return mockListTasks(projectId)
   }

@@ -27,7 +27,7 @@ import type {
 } from '@/modules/project/types'
 
 interface ProjectApiResponse {
-  id: number
+  id: string
   projectName: string
   status: 'initializing' | 'active' | 'init_failed'
   createdAt: string
@@ -72,7 +72,7 @@ export async function listProjects() {
   return projects.map(toProjectSummary)
 }
 
-export async function getProjectDetail(id: number) {
+export async function getProjectDetail(id: string) {
   if (useMock) {
     return mockGetProjectDetail(id)
   }
@@ -97,7 +97,7 @@ export async function createProject(payload: CreateProjectRequest) {
   return toProjectDetail(project)
 }
 
-export async function uploadProjectFile(projectId: number, payload: UploadProjectFilePayload) {
+export async function uploadProjectFile(projectId: string, payload: UploadProjectFilePayload) {
   if (useMock) {
     return mockUploadProjectFile(projectId, payload)
   }
@@ -118,7 +118,7 @@ export async function uploadProjectFile(projectId: number, payload: UploadProjec
   })
 }
 
-export async function listProjectFiles(projectId: number) {
+export async function listProjectFiles(projectId: string) {
   if (useMock) {
     return mockListProjectFiles(projectId)
   }
@@ -131,7 +131,7 @@ export async function listProjectFiles(projectId: number) {
 }
 
 export async function overwriteProjectFile(
-  projectId: number,
+  projectId: string,
   payload: OverwriteProjectFilePayload,
 ) {
   if (useMock) {
@@ -155,7 +155,7 @@ export async function overwriteProjectFile(
 }
 
 export async function updateProjectFilePath(
-  projectId: number,
+  projectId: string,
   payload: UpdateProjectFilePathPayload,
 ) {
   if (useMock) {
@@ -174,7 +174,7 @@ export async function updateProjectFilePath(
 }
 
 export async function deleteProjectFile(
-  projectId: number,
+  projectId: string,
   fileId: number,
   lockVersion: number,
 ) {
@@ -190,7 +190,7 @@ export async function deleteProjectFile(
 }
 
 export async function planProjectFileSync(
-  projectId: number,
+  projectId: string,
   payload: ProjectFileSyncPlanRequest,
 ) {
   if (useMock) {
@@ -204,7 +204,7 @@ export async function planProjectFileSync(
   })
 }
 
-export async function requestProjectFileParsing(projectId: number) {
+export async function requestProjectFileParsing(projectId: string) {
   if (useMock) {
     return mockRequestProjectFileParsing(projectId)
   }

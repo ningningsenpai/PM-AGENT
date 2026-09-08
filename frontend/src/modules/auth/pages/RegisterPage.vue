@@ -98,7 +98,8 @@ const rules: FormRules = {
 }
 
 async function handleRegister() {
-  await formRef.value?.validate()
+  if (loading.value) return
+  try { await formRef.value?.validate() } catch { return }
   loading.value = true
   try {
     await authStore.register({

@@ -18,7 +18,7 @@ import { hashProjectFile } from '@/modules/project/project-update'
 
 const projects: ProjectDetail[] = [
   {
-    id: 1,
+    id: '1',
     name: 'PM-Agent 平台 MVP',
     code: 'PM-MVP',
     description: '完成登录、项目、任务和看板最小闭环，为后续 Agent 能力提供真实业务数据。',
@@ -37,7 +37,7 @@ export async function mockListProjects(): Promise<ProjectSummary[]> {
   return projects
 }
 
-export async function mockGetProjectDetail(id: number): Promise<ProjectDetail> {
+export async function mockGetProjectDetail(id: string): Promise<ProjectDetail> {
   const project = projects.find((item) => item.id === id)
 
   if (!project) {
@@ -49,7 +49,7 @@ export async function mockGetProjectDetail(id: number): Promise<ProjectDetail> {
 
 export async function mockCreateProject(payload: CreateProjectRequest): Promise<ProjectDetail> {
   const project: ProjectDetail = {
-    id: projects.length + 1,
+    id: String(projects.length + 1),
     name: payload.name,
     code: payload.code,
     description: payload.description,
@@ -68,10 +68,10 @@ export async function mockCreateProject(payload: CreateProjectRequest): Promise<
 }
 
 let mockFileId = 1
-const projectFiles = new Map<number, ProjectFileResponse[]>()
+const projectFiles = new Map<string, ProjectFileResponse[]>()
 
 export async function mockUploadProjectFile(
-  projectId: number,
+  projectId: string,
   payload: UploadProjectFilePayload,
 ): Promise<ProjectFileUploadResponse> {
   const now = new Date().toISOString()
@@ -113,12 +113,12 @@ export async function mockUploadProjectFile(
   }
 }
 
-export async function mockListProjectFiles(projectId: number): Promise<ProjectFileResponse[]> {
+export async function mockListProjectFiles(projectId: string): Promise<ProjectFileResponse[]> {
   return [...(projectFiles.get(projectId) ?? [])]
 }
 
 export async function mockOverwriteProjectFile(
-  projectId: number,
+  projectId: string,
   payload: OverwriteProjectFilePayload,
 ): Promise<ProjectFileResponse> {
   const file = requireMockFile(projectId, payload.fileId)
@@ -135,7 +135,7 @@ export async function mockOverwriteProjectFile(
 }
 
 export async function mockUpdateProjectFilePath(
-  projectId: number,
+  projectId: string,
   payload: UpdateProjectFilePathPayload,
 ): Promise<ProjectFileResponse> {
   const file = requireMockFile(projectId, payload.fileId)
@@ -148,7 +148,7 @@ export async function mockUpdateProjectFilePath(
 }
 
 export async function mockDeleteProjectFile(
-  projectId: number,
+  projectId: string,
   fileId: number,
   _lockVersion: number,
 ): Promise<void> {
@@ -160,7 +160,7 @@ export async function mockDeleteProjectFile(
 }
 
 export async function mockPlanProjectFileSync(
-  projectId: number,
+  projectId: string,
   request: ProjectFileSyncPlanRequest,
 ): Promise<ProjectFileSyncPlan> {
   const remoteFiles = projectFiles.get(projectId) ?? []
@@ -255,7 +255,7 @@ export async function mockPlanProjectFileSync(
 }
 
 export async function mockRequestProjectFileParsing(
-  projectId: number,
+  projectId: string,
 ): Promise<ProjectFileParseResult> {
   const candidateCount = (projectFiles.get(projectId) ?? []).filter(
     (file) => file.status === 'active' && file.uploadStatus === 'success',
@@ -306,7 +306,7 @@ function groupBy<T>(items: T[], keyOf: (item: T) => string) {
   return groups
 }
 
-function requireMockFile(projectId: number, fileId: number) {
+function requireMockFile(projectId: string, fileId: number) {
   const file = (projectFiles.get(projectId) ?? []).find((item) => item.id === fileId)
   if (!file) throw new Error('项目文件不存在')
   return file

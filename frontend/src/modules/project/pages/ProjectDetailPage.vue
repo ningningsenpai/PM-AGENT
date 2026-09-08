@@ -54,7 +54,7 @@ import type { ProjectDetail, ProjectStatus } from '@/modules/project/types'
 
 const route = useRoute()
 const router = useRouter()
-const projectId = Number(route.params.id)
+const projectId = String(route.params.id)
 const project = ref<ProjectDetail | null>(null)
 
 const progress = computed(() => {

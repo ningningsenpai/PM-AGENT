@@ -71,7 +71,7 @@ import { taskStatusOptions, type TaskPriority, type TaskStatus } from '@/modules
 const route = useRoute()
 const message = useMessage()
 const taskStore = useTaskStore()
-const projectId = Number(route.params.id)
+const projectId = String(route.params.id)
 const showCreate = ref(false)
 const creating = ref(false)
 const createForm = reactive({

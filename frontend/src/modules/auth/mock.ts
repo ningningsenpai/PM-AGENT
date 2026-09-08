@@ -1,7 +1,7 @@
 import type { AuthTokenResponse, LoginRequest, RegisterRequest, UserProfile } from '@/modules/auth/types'
 
 const user: UserProfile = {
-  id: 1,
+  id: '1',
   username: 'admin',
   email: 'admin@pm-agent.local',
   status: 'enabled',
@@ -31,7 +31,7 @@ export async function mockRegister(payload: RegisterRequest): Promise<AuthTokenR
 
   return createAuthResponse({
     ...user,
-    id: 2,
+    id: '2',
     username: payload.username,
     email: payload.email,
     lastLoginAt: null,

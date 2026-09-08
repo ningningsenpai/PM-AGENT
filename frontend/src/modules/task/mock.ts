@@ -3,7 +3,7 @@ import type { CreateTaskRequest, TaskItem, UpdateTaskStatusRequest } from '@/mod
 const tasks: TaskItem[] = [
   {
     id: 1,
-    projectId: 1,
+    projectId: '1',
     title: '初始化前端工程骨架',
     description: '创建 Vite、Vue Router、Pinia、Axios 与 Naive UI 基础结构。',
     assigneeName: '宁宁',
@@ -14,7 +14,7 @@ const tasks: TaskItem[] = [
   },
   {
     id: 2,
-    projectId: 1,
+    projectId: '1',
     title: '准备 MySQL Docker 容器',
     description: '创建 deploy 目录、Docker Compose 与环境变量示例。',
     assigneeName: '宁宁',
@@ -25,7 +25,7 @@ const tasks: TaskItem[] = [
   },
   {
     id: 3,
-    projectId: 1,
+    projectId: '1',
     title: '设计任务状态流转接口',
     description: '实现状态校验并写入任务状态日志。',
     assigneeName: '宁宁',
@@ -36,7 +36,7 @@ const tasks: TaskItem[] = [
   },
   {
     id: 4,
-    projectId: 1,
+    projectId: '1',
     title: '联调项目列表页面',
     description: '从 Mock 数据切换到真实接口后验证项目列表。',
     assigneeName: '宁宁',
@@ -47,7 +47,7 @@ const tasks: TaskItem[] = [
   },
 ]
 
-export async function mockListTasks(projectId: number): Promise<TaskItem[]> {
+export async function mockListTasks(projectId: string): Promise<TaskItem[]> {
   return tasks.filter((item) => item.projectId === projectId)
 }
 

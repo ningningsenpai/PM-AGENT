@@ -8,8 +8,11 @@ import MainLayout from '@/layouts/MainLayout.vue'
 import ProjectListPage from '@/modules/project/pages/ProjectListPage.vue'
 import ProjectDetailPage from '@/modules/project/pages/ProjectDetailPage.vue'
 import TaskBoardPage from '@/modules/task/pages/TaskBoardPage.vue'
+import UserProfilePage from '@/modules/auth/pages/UserProfilePage.vue'
 
 const routes: RouteRecordRaw[] = [
+  { path: '/overview', redirect: '/projects' },
+  { path: '/profile', component: MainLayout, children: [{ path: '', name: 'profile', component: UserProfilePage }] },
   {
     path: '/',
     name: 'intro',

@@ -13,7 +13,7 @@ export const useTaskStore = defineStore('task', {
     loading: false,
   }),
   actions: {
-    async loadTasks(projectId: number) {
+    async loadTasks(projectId: string) {
       this.loading = true
       try {
         this.tasks = await listTasks(projectId)

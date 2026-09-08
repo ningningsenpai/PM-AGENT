@@ -96,7 +96,8 @@ async function handleRefresh() {
 }
 
 async function handleSave() {
-  await formRef.value?.validate()
+  if (saving.value) return
+  try { await formRef.value?.validate() } catch { return }
   saving.value = true
   try {
     await authStore.updateCurrentUser({

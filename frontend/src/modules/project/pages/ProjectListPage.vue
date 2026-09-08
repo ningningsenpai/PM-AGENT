@@ -133,7 +133,7 @@ async function handleCreate() {
   }
 }
 
-function goDetail(id: number) {
+function goDetail(id: string) {
   router.push(`/projects/${id}`)
 }
 </script>

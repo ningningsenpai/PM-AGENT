@@ -1,7 +1,7 @@
 export type ProjectStatus = 'not_started' | 'running' | 'paused' | 'delayed' | 'done' | 'archived'
 
 export interface ProjectSummary {
-  id: number
+  id: string
   name: string
   code?: string
   description?: string
@@ -46,7 +46,7 @@ export interface ProjectFileUploadResponse {
 
 export interface ProjectFileResponse {
   id: number
-  projectId: number
+  projectId: string
   businessCode: string
   relativePath: string
   fileName: string

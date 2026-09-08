@@ -10,7 +10,7 @@ export interface RegisterRequest {
 }
 
 export interface UserProfile {
-  id: number
+  id: string
   username: string
   email: string
   status: string
@@ -24,3 +24,6 @@ export interface AuthTokenResponse {
 }
 
 export type LoginResponse = AuthTokenResponse
+
+export interface UpdateUserProfileRequest { username: string; email: string }
+export interface ChangePasswordRequest { oldPassword: string; newPassword: string; confirmPassword: string }

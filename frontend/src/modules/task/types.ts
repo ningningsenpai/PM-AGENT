@@ -3,7 +3,7 @@ export type TaskPriority = 'p0' | 'p1' | 'p2' | 'p3'
 
 export interface TaskItem {
   id: number
-  projectId: number
+  projectId: string
   title: string
   description?: string
   assigneeName?: string
@@ -14,7 +14,7 @@ export interface TaskItem {
 }
 
 export interface CreateTaskRequest {
-  projectId: number
+  projectId: string
   title: string
   description?: string
   assigneeId?: number

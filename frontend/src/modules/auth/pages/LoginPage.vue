@@ -16,8 +16,8 @@
         </n-form-item>
 
         <div class="form-row">
-          <n-checkbox v-model:checked="form.remember">记住登录</n-checkbox>
-          <RouterLink class="muted-link" to="/">忘记密码</RouterLink>
+          <n-checkbox disabled :checked="false">记住登录（暂未开放）</n-checkbox>
+          <span class="muted-link">密码找回暂未开放</span>
         </div>
 
         <n-button type="primary" size="large" block :loading="loading" @click="handleLogin">
@@ -43,6 +43,7 @@ import { useMessage, type FormInst, type FormRules } from 'naive-ui'
 import AuthBrandHero from '@/modules/auth/components/AuthBrandHero.vue'
 import AuthPanel from '@/modules/auth/components/AuthPanel.vue'
 import { useAuthStore } from '@/stores/auth'
+import { safeRedirect } from '@/shared/utils/format'
 
 const router = useRouter()
 const route = useRoute()
@@ -70,12 +71,13 @@ const rules: FormRules = {
 }
 
 async function handleLogin() {
-  await formRef.value?.validate()
+  if (loading.value) return
+  try { await formRef.value?.validate() } catch { return }
   loading.value = true
   try {
     await authStore.login({ email: form.email, password: form.password })
     message.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/projects'
+    const redirect = safeRedirect(route.query.redirect)
     await router.push(redirect)
   } catch (error) {
     message.error(error instanceof Error ? error.message : '登录失败，请检查邮箱和密码')

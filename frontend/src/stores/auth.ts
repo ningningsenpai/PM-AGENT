@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { getCurrentUser, login, logout, register } from '@/modules/auth/api'
-import type { AuthTokenResponse, LoginRequest, RegisterRequest, UserProfile } from '@/modules/auth/types'
+import { getCurrentUser, login, logout, register, updateCurrentUser } from '@/modules/auth/api'
+import type { AuthTokenResponse, LoginRequest, RegisterRequest, UserProfile, UpdateUserProfileRequest } from '@/modules/auth/types'
 
 const tokenStorageKey = 'pm-agent-token'
 
@@ -29,12 +29,20 @@ export const useAuthStore = defineStore('auth', {
       this.applyAuthResult(result)
     },
     async loadCurrentUser() {
-      this.user = await getCurrentUser()
+      const token = this.token
+      const user = await getCurrentUser()
+      if (token === this.token) this.user = user
+    },
+    async updateCurrentUser(payload: UpdateUserProfileRequest) {
+      const token = this.token
+      const user = await updateCurrentUser(payload)
+      if (token === this.token) this.user = user
     },
     clearAuth() {
       this.token = ''
       this.user = null
       localStorage.removeItem(tokenStorageKey)
+      Object.keys(sessionStorage).filter((key) => key.startsWith('pm-operation:')).forEach((key) => sessionStorage.removeItem(key))
     },
     async logout() {
       try {
