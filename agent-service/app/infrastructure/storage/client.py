@@ -55,6 +55,51 @@ class ObjectStorage:
                 response.close()
                 response.release_conn()
 
+    def read_versioned(self, location: StorageLocation) -> tuple[bytes, str] | None:
+        """在同一次读取中取得正文和 ETag；仅对象不存在时返回空值。"""
+        response = None
+        try:
+            response = self._client.get_object(location.bucket, location.object_key)
+            content = response.read(16 * 1024 * 1024 + 1)
+            if len(content) > 16 * 1024 * 1024:
+                raise AppException(ErrorCode.FILE_STORAGE_ERROR, "上下文对象超过 16 MiB 限制")
+            etag = response.headers.get("etag", "").strip('"')
+            if not etag:
+                raise AppException(ErrorCode.FILE_STORAGE_ERROR, "对象存储未返回版本标识")
+            return content, etag
+        except S3Error as exception:
+            if exception.code in {"NoSuchKey", "NoSuchObject", "NoSuchBucket"}:
+                return None
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
+        except AppException:
+            raise
+        except Exception as exception:
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
+        finally:
+            if response is not None:
+                response.close()
+                response.release_conn()
+
+    def compare_and_put(self, location: StorageLocation, content: bytes, etag: str | None) -> str:
+        """按读取版本条件写入；空 ETag 表示只能创建，禁止无条件覆盖正式清单。"""
+        if len(content) > 16 * 1024 * 1024:
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR, "上下文对象超过 16 MiB 限制")
+        headers = {"Content-Type": "application/json"}
+        headers.update({"If-Match": f'"{etag}"'} if etag else {"If-None-Match": "*"})
+        try:
+            self._ensure_bucket(location.bucket)
+            # SDK 7.2 的公开 put_object 未暴露条件头，适配限制在此处并由真实存储探针验证。
+            result = self._client._put_object(location.bucket, location.object_key, content, headers)
+            return result.etag
+        except S3Error as exception:
+            if exception.code in {"PreconditionFailed", "ConditionalRequestConflict", "NoSuchKey"}:
+                raise AppException(ErrorCode.RESOURCE_CONFLICT, "云端版本已变化，请重新读取后确认") from exception
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
+        except AppException:
+            raise
+        except Exception as exception:
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR) from exception
+
     def exists(self, location: StorageLocation) -> bool:
         """根据 bucket 和 object_key，判断对象是否存在，同时区分不存在与存储服务异常。"""
         try:
