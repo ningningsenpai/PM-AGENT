@@ -16,6 +16,8 @@ import { listTasks, createTask } from '@/modules/task/api'
 import { renderMarkdown } from '@/shared/utils/markdown'
 import { serverDate, safeRedirect } from '@/shared/utils/format'
 import type { Run } from '@/modules/assistant/types'
+import { useFileParsing } from '@/modules/project/file-parsing'
+import type { ProjectFileResponse, ProjectFileParseResult } from '@/modules/project/types'
 class MemoryStorage {
   map = new Map<string, string>()
   getItem(key: string) {
@@ -303,4 +305,189 @@ test('无法保存恢复信息时不发起有副作用的运行', async () => {
     sessionStorage.setItem = original
     scope.stop()
   }
+})
+
+function parseFile(fileId: number, changes: Partial<ProjectFileResponse> = {}): ProjectFileResponse {
+  return {
+    id: fileId, projectId: id, businessCode: 'project', relativePath: `${fileId}.md`,
+    fileName: `${fileId}.md`, storageName: `${fileId}.md`, minioPath: `project/${fileId}.md`,
+    extension: 'md', contentType: 'text/plain', sizeBytes: 10, sourceMtimeMs: 1,
+    quickFingerprint: '指纹', contentHash: `hash-${fileId}`, status: 'active', uploadStatus: 'success',
+    analysisStatus: 'pending', detailRef: null, lastErrorCode: null, lastErrorMessage: null,
+    lastFailedAt: null, parseAttempts: 0, lockVersion: 0, createdAt: '', updatedAt: '', ...changes,
+  }
+}
+function parseResult(changes: Partial<ProjectFileParseResult> = {}): ProjectFileParseResult {
+  return { status: 'success', candidateCount: 1, successCount: 1, failureCount: 0,
+    failures: [], specificationStatus: 'updated', indexStatus: 'updated', ...changes }
+}
+const settleRequests = () => new Promise<void>((resolve) => setImmediate(resolve))
+
+test('解析进度只统计本轮候选，文件完成后保持锁定直至上下文发布结束', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const scope = effectScope()
+  let snapshot = [parseFile(1), parseFile(2, { parseAttempts: 1, analysisStatus: 'failed' }),
+    parseFile(3, { parseAttempts: 1, detailRef: '旧详情', analysisStatus: 'success' }),
+    parseFile(4, { parseAttempts: 3 }), parseFile(5, { status: 'upload_failed' })]
+  let finish: (result: ProjectFileParseResult) => void = () => {}
+  let posts = 0
+  let gets = 0
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') { gets++; return response(config, snapshot) }
+    posts++
+    return new Promise(resolve => { finish = value => resolve(response(config, value)) })
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    const first = parsing.start()
+    await parsing.start()
+    assert.equal(parsing.busy.value, true)
+    await settleRequests()
+    assert.equal(posts, 1)
+    assert.equal(parsing.total.value, 2)
+    assert.equal(parsing.percentage.value, 0)
+    snapshot = snapshot.map(file => file.id === 1 ? { ...file, parseAttempts: 1 } : file)
+    t.mock.timers.tick(1500)
+    await settleRequests()
+    assert.equal(parsing.percentage.value, 50)
+    snapshot = snapshot.map(file => file.id === 2 ? { ...file, parseAttempts: 2 } : file)
+    t.mock.timers.tick(1500)
+    await settleRequests()
+    assert.equal(parsing.percentage.value, 100)
+    assert.equal(parsing.phase.value, 'publishing')
+    assert.equal(parsing.busy.value, true)
+    await parsing.start()
+    assert.equal(posts, 1)
+    finish(parseResult({ candidateCount: 2, failureCount: 1, status: 'partial' }))
+    await first
+    assert.equal(parsing.phase.value, 'finished')
+    assert.equal(parsing.result.value?.status, 'partial')
+    assert.equal(parsing.busy.value, false)
+    const finishedGets = gets
+    t.mock.timers.tick(5000)
+    await settleRequests()
+    assert.equal(gets, finishedGets)
+  } finally { scope.stop() }
+})
+
+test('定向重试不会把历史成功计入本轮，进度读取失败不重复触发解析', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const scope = effectScope()
+  let snapshot = [parseFile(1, { parseAttempts: 4, detailRef: '旧详情', analysisStatus: 'success' }), parseFile(2)]
+  let failPoll = false
+  let finish: () => void = () => {}
+  let posts = 0
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') {
+      if (failPoll) throw new Error('进度读取断网')
+      return response(config, snapshot)
+    }
+    posts++
+    assert.deepEqual(JSON.parse(config.data), { fileIds: [1] })
+    return new Promise(resolve => { finish = () => resolve(response(config, parseResult())) })
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    const pending = parsing.start([1])
+    await settleRequests()
+    assert.equal(parsing.total.value, 1)
+    assert.equal(parsing.percentage.value, 0)
+    failPoll = true
+    t.mock.timers.tick(1500)
+    await settleRequests()
+    assert.match(parsing.progressError.value, /进度暂时无法更新/)
+    assert.equal(parsing.busy.value, true)
+    await parsing.start([1])
+    assert.equal(posts, 1)
+    failPoll = false
+    snapshot = [parseFile(1, { parseAttempts: 5, detailRef: '新详情', analysisStatus: 'success' })]
+    t.mock.timers.tick(1500)
+    await settleRequests()
+    assert.equal(parsing.percentage.value, 100)
+    assert.equal(parsing.progressError.value, '')
+    finish()
+    await pending
+  } finally { scope.stop() }
+})
+
+test('解析完成后丢弃迟到进度，弹窗本轮结束后不能再次提交', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const scope = effectScope()
+  let reads = 0
+  let posts = 0
+  let finish: () => void = () => {}
+  let latePoll: () => void = () => {}
+  let fileUpdates = 0
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') {
+      if (++reads === 1) return response(config, [parseFile(1)])
+      return new Promise(resolve => { latePoll = () => resolve(response(config, [parseFile(1)])) })
+    }
+    posts++
+    return new Promise(resolve => { finish = () => resolve(response(config, parseResult())) })
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => fileUpdates++))!
+  try {
+    const pending = parsing.start()
+    await settleRequests()
+    t.mock.timers.tick(1500)
+    await settleRequests()
+    finish()
+    await pending
+    latePoll()
+    await settleRequests()
+    assert.equal(parsing.percentage.value, 100)
+    assert.equal(parsing.phase.value, 'finished')
+    assert.equal(fileUpdates, 1)
+    await parsing.start()
+    assert.equal(posts, 1)
+  } finally { scope.stop() }
+})
+
+test('无候选文件仍等待上下文更新，解析请求失败不显示成功或自动重发', async () => {
+  const scope = effectScope()
+  let rejectParse: (error: Error) => void = () => {}
+  let posts = 0
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') return response(config, [])
+    posts++
+    return new Promise((_resolve, reject) => { rejectParse = reject })
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    const pending = parsing.start()
+    await settleRequests()
+    assert.equal(parsing.total.value, 0)
+    assert.equal(parsing.percentage.value, 0)
+    assert.equal(parsing.phase.value, 'publishing')
+    rejectParse(new Error('请求中断'))
+    await pending
+    assert.equal(parsing.phase.value, 'error')
+    assert.equal(parsing.percentage.value, 0)
+    assert.equal(parsing.result.value, null)
+    assert.match(parsing.error.value, /核对结果/)
+    await parsing.start()
+    assert.equal(posts, 1)
+  } finally { scope.stop() }
+})
+
+test('离开解析组件后停止读取并忽略迟到结果', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const scope = effectScope()
+  let finish: () => void = () => {}
+  let gets = 0
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') { gets++; return response(config, [parseFile(1)]) }
+    return new Promise(resolve => { finish = () => resolve(response(config, parseResult())) })
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  const pending = parsing.start()
+  await settleRequests()
+  scope.stop()
+  finish()
+  await pending
+  t.mock.timers.tick(5000)
+  await settleRequests()
+  assert.equal(gets, 1)
+  assert.equal(parsing.result.value, null)
 })

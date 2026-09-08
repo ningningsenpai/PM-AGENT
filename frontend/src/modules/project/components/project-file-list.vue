@@ -11,13 +11,13 @@
         ><n-button :loading="loading" :disabled="busy || disabled" @click="load"
           >刷新列表</n-button
         ><n-button
-          :disabled="busy || disabled || !selected.length"
+          :disabled="busy || showParse || loading || disabled || !selected.length"
           @click="parse(true)"
           >重试所选（{{ selected.length }}）</n-button
         ><n-button
           type="primary"
           :loading="busy"
-          :disabled="disabled || !files.length"
+          :disabled="busy || showParse || loading || disabled || !files.length"
           @click="parse(false)"
           >解析项目文件</n-button
         ></n-space
@@ -81,6 +81,37 @@
       :scroll-x="850"
     />
     <n-modal
+      v-model:show="showParse"
+      preset="card"
+      :title="parseIds ? '重新解析所选文件' : '解析项目文件'"
+      :closable="!busy"
+      :mask-closable="false"
+      :close-on-esc="!busy"
+      style="width: 560px"
+    >
+      <p>{{ parseIds ? '将重新解析所选文件，可能产生模型调用费用。' : '将解析待处理文件并更新项目上下文，可能产生模型调用费用。' }}</p>
+      <div v-if="phase !== 'idle'" class="parse-progress" aria-live="polite">
+        <div class="parse-progress-heading">
+          <strong>{{ parseStage }}</strong>
+          <span>{{ completed }} / {{ total }} 个文件</span>
+        </div>
+        <n-progress type="line" :percentage="percentage" :status="progressStatus" aria-label="本轮文件解析进度">{{ percentage }}%</n-progress>
+        <p class="muted">按本轮已处理文件数更新，包含成功和失败文件；规范与索引更新完成后才结束本次解析。</p>
+        <n-alert v-if="result" :type="parseHasFailures ? 'warning' : 'success'">
+          成功 {{ result.successCount }} 个，失败 {{ result.failureCount }} 个。
+          {{ parseHasFailures ? '本轮存在解析或发布失败，请查看页面解析结果。' : '项目规范与文件索引已处理完成。' }}
+        </n-alert>
+        <RequestError :message="parseError" />
+        <n-alert v-if="progressError" type="warning">{{ progressError }}</n-alert>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button :disabled="busy" @click="showParse = false">{{ phase === 'idle' ? '取消' : '关闭' }}</n-button>
+          <n-button type="primary" :loading="busy" :disabled="busy || disabled || phase !== 'idle'" @click="startParsing">开始解析</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+    <n-modal
       v-model:show="showRead"
       preset="card"
       title="读取原始文件"
@@ -105,16 +136,15 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import {
   NButton,
   NTag,
-  useDialog,
   useMessage,
   type DataTableColumns,
 } from 'naive-ui'
 import {
   getFileReadUrl,
   listProjectFiles,
-  requestProjectFileParsing,
 } from '../api'
-import type { ProjectFileResponse, ProjectFileParseResult } from '../types'
+import type { ProjectFileResponse } from '../types'
+import { useFileParsing } from '../file-parsing'
 import RequestError from '@/shared/components/request-error.vue'
 import { errorMessage } from '@/shared/utils/format'
 const props = defineProps<{
@@ -128,13 +158,26 @@ const selected = ref<number[]>([])
 const query = ref('')
 const status = ref('all')
 const loading = ref(false)
-const busy = ref(false)
 const error = ref('')
-const result = ref<ProjectFileParseResult | null>(null)
+const showParse = ref(false)
+const parseIds = ref<number[]>()
+const parsing = useFileParsing(props.projectId, updateFiles)
+const { busy, phase, total, completed, percentage, result, error: parseError, progressError } = parsing
+const parseHasFailures = computed(() => Boolean(result.value && (result.value.status === 'partial'
+  || result.value.failureCount || result.value.indexStatus === 'failed' || result.value.specificationStatus === 'failed')))
+const progressStatus = computed(() => phase.value === 'error' ? 'error'
+  : phase.value === 'finished' ? parseHasFailures.value ? 'warning' : 'success' : 'default')
+const parseStage = computed(() => ({
+  idle: '待开始',
+  preparing: '正在读取待解析文件',
+  parsing: '正在解析文件',
+  publishing: '正在等待项目规范与索引更新',
+  finished: parseHasFailures.value ? '解析结束，部分未成功' : '解析完成',
+  error: '解析结果待核对',
+})[phase.value])
 const showRead = ref(false)
 const readUrl = ref('')
 const readName = ref('')
-const dialog = useDialog()
 const message = useMessage()
 let generation = 0
 let active = true
@@ -231,10 +274,7 @@ async function load() {
   try {
     const data = await listProjectFiles(props.projectId)
     if (active && current === generation) {
-      files.value = data
-      selected.value = selected.value.filter((id) =>
-        data.some((f) => f.id === id),
-      )
+      updateFiles(data)
     }
   } catch (e) {
     if (active && current === generation) error.value = errorMessage(e)
@@ -242,47 +282,33 @@ async function load() {
     if (active && current === generation) loading.value = false
   }
 }
+function updateFiles(data: ProjectFileResponse[]) {
+  files.value = data
+  selected.value = selected.value.filter((id) => data.some((file) => file.id === id))
+}
 watch(
   () => [props.projectId, props.revision],
   () => void load(),
   { immediate: true },
 )
 function parse(targeted: boolean) {
-  if (busy.value || props.disabled) return
+  if (busy.value || showParse.value || loading.value || props.disabled) return
+  if (targeted && !selected.value.length) return
   if (targeted && selected.value.length > 100) {
     message.warning('一次最多重试 100 个文件')
     return
   }
-  const ids = targeted ? [...selected.value] : undefined
-  dialog.info({
-    title: targeted ? '重新解析所选文件' : '解析项目文件',
-    content: targeted
-      ? '将重新解析所选文件，可能产生模型调用费用。'
-      : '将解析待处理文件并更新项目上下文，可能产生模型调用费用。',
-    positiveText: '开始解析',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      if (busy.value) return false
-      busy.value = true
-      error.value = ''
-      result.value = null
-      try {
-        const data = await requestProjectFileParsing(props.projectId, ids)
-        if (active) result.value = data
-      } catch (e) {
-        if (active)
-          error.value =
-            errorMessage(e) + '；请刷新文件状态核对结果后再决定是否重试。'
-      } finally {
-        if (active) {
-          busy.value = false
-          const operationError = error.value
-          await load()
-          if (operationError) error.value = operationError
-        }
-      }
-    },
-  })
+  if (!parsing.reset()) return
+  parseIds.value = targeted ? [...selected.value] : undefined
+  showParse.value = true
+}
+async function startParsing() {
+  if (!showParse.value || busy.value || props.disabled || phase.value !== 'idle') return
+  error.value = ''
+  await parsing.start(parseIds.value)
+  if (!active) return
+  await load()
+  if (parseError.value) error.value = parseError.value
 }
 async function read(file: ProjectFileResponse) {
   try {
@@ -307,6 +333,23 @@ async function read(file: ProjectFileResponse) {
 }
 h2 {
   margin: 0;
+}
+.parse-progress {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+.parse-progress-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.parse-progress-heading span {
+  color: var(--pm-text-secondary);
+}
+.parse-progress p {
+  margin: 0;
+  line-height: 1.7;
 }
 :deep(.file-error) {
   color: #b54708;

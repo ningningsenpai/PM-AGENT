@@ -84,7 +84,7 @@ export async function uploadProjectFile(projectId: string, payload: UploadProjec
   })
 }
 
-export async function listProjectFiles(projectId: string) {
+export async function listProjectFiles(projectId: string, signal?: AbortSignal) {
   if (useMock) {
     return mockListProjectFiles(projectId)
   }
@@ -93,6 +93,7 @@ export async function listProjectFiles(projectId: string) {
     url: `/api/v1/projects/${projectId}/files`,
     method: 'get',
     params: { businessCode: 'project' },
+    signal,
   })
 }
 
