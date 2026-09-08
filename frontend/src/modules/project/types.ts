@@ -1,30 +1,15 @@
-export type ProjectStatus = 'not_started' | 'running' | 'paused' | 'delayed' | 'done' | 'archived'
+export type ProjectStatus = 'initializing' | 'active' | 'init_failed'
 
 export interface ProjectSummary {
   id: string
-  name: string
-  code?: string
-  description?: string
-  ownerName: string
+  projectName: string
   status: ProjectStatus
-  startDate: string
-  endDate: string
-  taskTotal: number
-  doneTaskTotal: number
+  recordStatus: 'enabled' | 'disabled'
+  createdAt: string
+  updatedAt: string
 }
-
-export interface ProjectDetail extends ProjectSummary {
-  memberTotal: number
-  riskTotal: number
-}
-
-export interface CreateProjectRequest {
-  name: string
-  code?: string
-  description?: string
-  startDate?: string
-  endDate?: string
-}
+export type ProjectDetail = ProjectSummary
+export interface CreateProjectRequest { projectName: string }
 
 export interface UploadProjectFilePayload {
   file: File
@@ -60,6 +45,11 @@ export interface ProjectFileResponse {
   contentHash: string
   status: string
   uploadStatus: string
+  analysisStatus: 'pending' | 'success' | 'failed' | 'unavailable'
+  detailRef: string | null
+  lastErrorCode: string | null
+  lastErrorMessage: string | null
+  lastFailedAt: string | null
   parseAttempts: number
   lockVersion: number
   createdAt: string
@@ -151,6 +141,7 @@ export interface ProjectFileParseFailure {
 }
 
 export interface ProjectFileParseResult {
+  runId?: string | null
   status: 'success' | 'partial'
   candidateCount: number
   successCount: number

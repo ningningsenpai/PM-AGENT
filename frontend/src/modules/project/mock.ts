@@ -16,53 +16,15 @@ import type {
 } from '@/modules/project/types'
 import { hashProjectFile } from '@/modules/project/project-update'
 
-const projects: ProjectDetail[] = [
-  {
-    id: '1',
-    name: 'PM-Agent 平台 MVP',
-    code: 'PM-MVP',
-    description: '完成登录、项目、任务和看板最小闭环，为后续 Agent 能力提供真实业务数据。',
-    ownerName: '宁宁',
-    status: 'running',
-    startDate: '2026-06-01',
-    endDate: '2026-07-15',
-    taskTotal: 6,
-    doneTaskTotal: 1,
-    memberTotal: 1,
-    riskTotal: 0,
-  },
-]
-
-export async function mockListProjects(): Promise<ProjectSummary[]> {
-  return projects
-}
-
+const projects: ProjectDetail[] = [{ id: '1', projectName: '演示项目', status: 'active', recordStatus: 'enabled', createdAt: '2026-06-01T09:00:00', updatedAt: '2026-06-01T09:00:00' }]
+export async function mockListProjects(): Promise<ProjectSummary[]> { return [...projects] }
 export async function mockGetProjectDetail(id: string): Promise<ProjectDetail> {
   const project = projects.find((item) => item.id === id)
-
-  if (!project) {
-    throw new Error('项目不存在')
-  }
-
+  if (!project) throw new Error('项目不存在')
   return project
 }
-
 export async function mockCreateProject(payload: CreateProjectRequest): Promise<ProjectDetail> {
-  const project: ProjectDetail = {
-    id: String(projects.length + 1),
-    name: payload.name,
-    code: payload.code,
-    description: payload.description,
-    ownerName: '宁宁',
-    status: 'not_started',
-    startDate: payload.startDate ?? '2026-06-01',
-    endDate: payload.endDate ?? '2026-07-15',
-    taskTotal: 0,
-    doneTaskTotal: 0,
-    memberTotal: 1,
-    riskTotal: 0,
-  }
-
+  const project: ProjectDetail = { id: String(projects.length + 1), projectName: payload.projectName, status: 'active', recordStatus: 'enabled', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
   projects.unshift(project)
   return project
 }
@@ -93,6 +55,8 @@ export async function mockUploadProjectFile(
     contentHash,
     status: 'active',
     uploadStatus: 'success',
+    analysisStatus: 'pending',
+    detailRef: null, lastErrorCode: null, lastErrorMessage: null, lastFailedAt: null,
     parseAttempts: 0,
     lockVersion: 0,
     createdAt: now,

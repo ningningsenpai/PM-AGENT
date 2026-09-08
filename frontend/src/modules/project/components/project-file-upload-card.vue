@@ -10,11 +10,11 @@
         <p>选择项目文件夹后，后端会统一规划新增、修改、移动和删除，再按计划同步。</p>
       </div>
       <div class="upload-actions">
-        <n-button type="error" secondary :disabled="uploading" @click="clearProjectFiles">
+        <n-button type="error" secondary :disabled="uploading || disabled" @click="clearProjectFiles">
           清空项目文件
         </n-button>
-        <n-button :disabled="uploading" @click="openDirectoryPicker">重新选择</n-button>
-        <n-button type="primary" :loading="uploading" @click="openDirectoryPicker">
+        <n-button :disabled="uploading || disabled" @click="openDirectoryPicker">重新选择</n-button>
+        <n-button type="primary" :loading="uploading" :disabled="disabled" @click="openDirectoryPicker">
           {{ uploading ? '正在同步' : '选择文件夹' }}
         </n-button>
       </div>
@@ -30,7 +30,7 @@
     </div>
 
     <n-alert class="filter-alert" type="info" :show-icon="false">
-      单文件最大 50MB；文件内容使用 SHA-256 比对，删除远端文件前会再次确认。
+      选择文件夹内的源码或文档；不支持 ZIP 等压缩包，单文件最大 50MB。删除远端文件前会再次确认。
     </n-alert>
 
     <div v-if="viewState === 'idle'" class="upload-placeholder">
@@ -130,6 +130,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { useDialog, useMessage } from 'naive-ui'
 import {
   deleteProjectFile,
@@ -156,13 +158,19 @@ interface UploadFailure {
 
 const props = defineProps<{
   projectId: string
+  disabled?: boolean
 }>()
+const emit = defineEmits<{ changed: []; busy: [value: boolean] }>()
 
 const dialog = useDialog()
 const message = useMessage()
 const directoryInput = ref<HTMLInputElement | null>(null)
 const viewState = ref<UploadViewState>('idle')
 const uploading = ref(false)
+watch(uploading, (value) => emit('busy', value), { flush: 'sync' })
+function guardSync() { if (uploading.value) { message.warning('正在同步文件，请等待操作结束'); return false } }
+onBeforeRouteLeave(guardSync)
+onBeforeRouteUpdate(guardSync)
 const selectedDirectoryName = ref('')
 const totalFileCount = ref(0)
 const processedFileCount = ref(0)
@@ -192,7 +200,7 @@ const uploadProgressText = computed(() => {
 })
 
 const completionSummary = computed(() => {
-  if (!parseResult.value) return `${succeededFileCount.value} 个项目文件状态已同步。`
+  if (!parseResult.value) return `${succeededFileCount.value} 个项目文件状态已同步。请在下方单独发起文件解析。`
   const specificationText = {
     updated: '项目规范已刷新',
     kept: '项目规范保持不变',
@@ -221,7 +229,7 @@ const uploadStatusType = computed<'default' | 'info' | 'success' | 'warning'>(()
 })
 
 function openDirectoryPicker() {
-  if (uploading.value || !directoryInput.value) return
+  if (uploading.value || props.disabled || !directoryInput.value) return
   directoryInput.value.value = ''
   directoryInput.value.click()
 }
@@ -276,8 +284,7 @@ async function handleDirectoryChange(event: Event) {
       recordSkippedDeletions(deletionItems, reason)
     }
 
-    const result = await requestProjectFileParsing(props.projectId)
-    applyParseResult(result)
+    emit('changed')
   } catch (error) {
     recordFailure(
       '项目文件同步',
@@ -291,7 +298,7 @@ async function handleDirectoryChange(event: Event) {
 }
 
 async function clearProjectFiles() {
-  if (uploading.value) return
+  if (uploading.value || props.disabled) return
   resetUploadView()
   selectedDirectoryName.value = '项目全部文件'
   uploading.value = true
@@ -326,12 +333,13 @@ async function clearProjectFiles() {
 }
 
 function finishUploadView() {
+  emit('changed')
   if (finalFailures.value.length || parseResult.value?.status === 'partial') {
     viewState.value = 'needs-update'
     message.warning('存在未同步或未解析成功的文件，可重新选择目录重试')
   } else {
     viewState.value = 'success'
-    message.success('项目文件与项目上下文同步完成')
+    message.success(parseResult.value ? '项目文件与项目上下文同步完成' : '文件同步完成，可在下方发起解析')
   }
 }
 

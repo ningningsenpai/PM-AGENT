@@ -9,7 +9,7 @@
       <n-button :loading="refreshing" @click="handleRefresh">刷新资料</n-button>
     </div>
 
-    <div class="profile-grid">
+    <n-tabs :value="tab" @update:value="(value: string) => router.replace({query:{tab:value}})"><n-tab name="profile">基础资料</n-tab><n-tab name="security">账号安全</n-tab></n-tabs><AccountSecurity v-if="tab === 'security'" /><div v-else class="profile-grid">
       <n-card class="glass-card profile-summary" :bordered="false">
         <div class="avatar">{{ avatarText }}</div>
         <h2>{{ authStore.user?.username || '未命名用户' }}</h2>
@@ -42,10 +42,13 @@
 </template>
 
 <script setup lang="ts">
+import AccountSecurity from './account-security.vue'
+import { useRoute, useRouter } from 'vue-router'
 import { computed, reactive, ref, watch } from 'vue'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 
+const route=useRoute(); const router=useRouter(); const tab=computed(()=>route.query.tab === 'security' ? 'security' : 'profile')
 const authStore = useAuthStore()
 const message = useMessage()
 const formRef = ref<FormInst | null>(null)
