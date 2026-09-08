@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -45,7 +46,13 @@ class StructuredJsonGenerator:
         self._max_tokens = max_tokens
         self._timeout_seconds = timeout_seconds
 
-    async def generate(self, prompt: str, model_type: type[ModelT]) -> ModelT:
+    async def generate(
+        self,
+        prompt: str,
+        model_type: type[ModelT],
+        *,
+        normalize_json: Callable[[str], str] | None = None,
+    ) -> ModelT:
         turn = await self._client.complete_turn(
             [
                 {
@@ -75,8 +82,9 @@ class StructuredJsonGenerator:
             )
         if not turn.content.strip():
             raise StructuredOutputError("模型未返回结构化 JSON 内容")
+        content = normalize_json(turn.content) if normalize_json else turn.content
         try:
-            return model_type.model_validate_json(turn.content)
+            return model_type.model_validate_json(content)
         except ValidationError as exception:
             errors = [
                 {
