@@ -246,6 +246,11 @@ textarea {
   max-width: 1720px;
   margin: auto;
 }
+.workspace-content.assistant-content {
+  height: calc(100dvh - 82px);
+  min-height: 0;
+  padding: 16px 24px 20px;
+}
 .surface {
   background: var(--pm-surface);
   border: 1px solid var(--pm-border);

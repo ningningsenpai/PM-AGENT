@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
+import re
 
 from app.core.errors import AppException, ErrorCode
 from app.llm.telemetry import capture_calls
@@ -33,17 +34,37 @@ class ConversationService:
 
     async def create(self, user_id, request):
         await self.projects.get_owned(user_id, request.project_id)
-        # 创建会话时初始化两个作用域，后续抽取阶段只进行增量版本更新。
-        await self.contexts.scopes(user_id, request.project_id)
+        # 复用作用域锁串行分配名称，编号和会话写入在同一事务内完成。
+        await self.contexts.scopes(user_id, request.project_id, lock=True)
+        title = request.title
+        if title is None:
+            titles = await self.repo.conversation_titles(user_id, request.project_id)
+            numbers = [
+                int(match[1])
+                for name in titles
+                if (match := re.fullmatch(r"项目对话-([0-9]+)", name))
+            ]
+            number = max(len(titles), *numbers, 0) + 1
+            title = f"项目对话-{number}"
         row = await self.repo.add(
             AgentConversation(
                 id=next_id(),
                 user_id=user_id,
                 project_id=request.project_id,
-                title=request.title,
+                title=title,
                 learned_message_id=0,
             )
         )
+        view = ConversationView.model_validate(row)
+        await self.repo.session.commit()
+        return view
+
+    async def rename(self, user_id, conversation_id, request):
+        await self.owned(user_id, conversation_id)
+        row = await self.repo.conversation(user_id, conversation_id, lock=True)
+        if row is None:
+            raise AppException(ErrorCode.FORBIDDEN, "会话不存在或无权访问")
+        row.title = request.title
         view = ConversationView.model_validate(row)
         await self.repo.session.commit()
         return view
@@ -60,8 +81,8 @@ class ConversationService:
     async def messages(self, user_id, conversation_id):
         await self.owned(user_id, conversation_id)
         result = [
-            MessageView.model_validate(row)
-            for row in await self.repo.messages(conversation_id)
+            MessageView.model_validate(row).model_copy(update={"request_key": key})
+            for row, key in await self.repo.message_history(conversation_id)
         ]
         await self.repo.session.commit()
         return result

@@ -2,8 +2,13 @@
   <div class="conversation-workspace">
     <div class="conversation-body surface">
       <header class="conversation-head">
-        <div>
-          <h2>{{ conversation.title }}</h2>
+        <div class="conversation-heading">
+          <div class="conversation-title">
+            <h2 :title="conversation.title">{{ conversation.title }}</h2>
+            <n-button quaternary circle size="small" aria-label="修改会话名称" title="修改会话名称" :disabled="locked || renaming" @click="openRename">
+              <template #icon><CreateOutline /></template>
+            </n-button>
+          </div>
           <small class="muted">会话记录自动保存 · 普通问答</small>
         </div>
         <n-button
@@ -14,10 +19,10 @@
           >学习本会话</n-button
         >
       </header>
-      <div class="messages">
+      <div ref="messageViewport" class="messages" @scroll="onMessageScroll">
         <RequestError :message="error" retry @retry="load" />
         <div v-if="loading" class="muted">正在读取历史消息…</div>
-        <div v-else-if="!messages.length" class="chat-welcome">
+        <div v-else-if="!visibleMessages.length" class="chat-welcome">
           <img :src="assistantImage" alt="PM 助手" />
           <h2>从项目里的一个问题开始</h2>
           <p>我会根据已解析的资料回答，并保留工具调用记录。</p>
@@ -31,14 +36,14 @@
           >
         </div>
         <article
-          v-for="item in messages"
+          v-for="item in visibleMessages"
           :key="item.id"
           :class="['message', item.role === 'user' ? 'user' : 'assistant']"
         >
           <div class="message-meta">
             {{ item.role === 'user' ? '你' : 'PM 助手' }} ·
             {{ formatDate(item.createdAt)
-            }}<n-button
+            }}<span v-if="item.id.startsWith('pending:')">{{ pendingStatus }}</span><n-button
               v-if="item.runId"
               text
               size="tiny"
@@ -49,6 +54,12 @@
           </div>
           <SafeMarkdown :content="item.content" />
         </article>
+        <div v-if="operation.pending.value?.kind === 'chat' && operation.unresolved.value" class="reply-status" role="status">
+          {{ operation.busy.value || operation.run.value?.status === 'running' ? 'PM 助手正在处理你的问题…' : '请求结果尚未确认，请使用下方“查询 / 恢复”。' }}
+        </div>
+        <n-alert v-if="operation.run.value?.operation === 'chat' && operation.run.value.status === 'failed'" type="warning">
+          本轮回答生成失败：{{ operation.run.value.error || '请查看运行记录' }}
+        </n-alert>
       </div>
       <div class="composer">
         <RequestError :message="operation.error.value" />
@@ -68,15 +79,15 @@
         <n-input
           v-model:value="draft"
           type="textarea"
-          placeholder="输入项目问题，Ctrl + Enter 发送"
+          placeholder="输入项目问题，Enter 发送，Shift + Enter 换行"
           :maxlength="16000"
           show-count
-          :autosize="{ minRows: 3, maxRows: 8 }"
+          :autosize="{ minRows: 2, maxRows: 4 }"
           :disabled="locked"
-          @keydown.ctrl.enter.prevent="send"
+          @keydown="onComposerKeydown"
         />
         <div class="composer-foot">
-          <small>回答可能存在遗漏，请结合来源核对；学习需要手动确认。</small
+          <small>Enter 发送 · Shift + Enter 换行<br />回答请核对来源，学习需手动确认。</small
           ><n-button
             type="primary"
             :loading="operation.busy.value"
@@ -87,7 +98,7 @@
         </div>
       </div>
     </div>
-    <aside class="surface padded">
+    <aside class="surface padded run-panel">
       <RunDetail :run="operation.run.value" />
       <div class="assistant-note">
         <h4>本轮能力</h4>
@@ -101,14 +112,23 @@
         </p>
       </div>
     </aside>
+    <n-modal v-model:show="showRename" preset="card" title="修改会话名称" style="width: 460px" :closable="!renaming" :mask-closable="!renaming" :close-on-esc="!renaming">
+      <n-input v-model:value="renameTitle" placeholder="输入会话名称" :maxlength="128" show-count autofocus :disabled="renaming" @keydown="onRenameKeydown" />
+      <RequestError :message="renameError" />
+      <template #footer><n-space justify="end">
+        <n-button :disabled="renaming" @click="showRename = false">取消</n-button>
+        <n-button type="primary" :loading="renaming" :disabled="renaming || !renameTitle.trim()" @click="rename">保存名称</n-button>
+      </n-space></template>
+    </n-modal>
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onScopeDispose, ref, watch } from 'vue'
 import { useDialog } from 'naive-ui'
-import { listMessages } from '../api'
-import { useOperation } from '../operation'
-import type { ChatMessage, Conversation } from '../types'
+import { CreateOutline } from '@vicons/ionicons5'
+import { renameConversation } from '../api'
+import { shouldSendOnEnter, useConversationMessages } from '../conversation-messages'
+import type { Conversation } from '../types'
 import SafeMarkdown from '@/shared/components/safe-markdown.vue'
 import RequestError from '@/shared/components/request-error.vue'
 import RunDetail from './run-detail.vue'
@@ -119,44 +139,41 @@ const props = defineProps<{
   conversation: Conversation
   disabled?: boolean
 }>()
-const emit = defineEmits<{ changed: []; busy: [value: boolean] }>()
-const operation = useOperation(props.projectId, props.conversation.id)
+const emit = defineEmits<{ changed: []; busy: [value: boolean]; renamed: [conversation: Conversation] }>()
+const chat = useConversationMessages(props.projectId, props.conversation.id, () => emit('changed'))
+const { operation, messages, visibleMessages, loading, error, load } = chat
 const dialog = useDialog()
-const messages = ref<ChatMessage[]>([])
-const loading = ref(false)
-const error = ref('')
 const draft = ref('')
+const messageViewport = ref<HTMLElement | null>(null)
+const stickToBottom = ref(true)
+const showRename = ref(false)
+const renameTitle = ref('')
+const renameError = ref('')
+const renaming = ref(false)
 const prompts = ['概括当前项目的主要模块', '项目目前有哪些值得关注的风险？']
 const locked = computed(
   () =>
     operation.busy.value ||
     operation.unresolved.value ||
+    loading.value ||
     Boolean(props.disabled),
 )
+const pendingStatus = computed(() => {
+  if (operation.error.value)
+    return operation.unresolved.value ? '发送结果待核对' : '发送失败'
+  if (operation.run.value && operation.run.value.status !== 'running')
+    return '正在同步消息记录'
+  return '正在发送，等待回复'
+})
 let active = true
-let generation = 0
 onScopeDispose(() => {
   active = false
-  generation++
 })
 watch(
   () => operation.busy.value,
   (value) => emit('busy', value),
   { flush: 'sync' },
 )
-async function load() {
-  const current = ++generation
-  loading.value = true
-  error.value = ''
-  try {
-    const data = await listMessages(props.conversation.id)
-    if (active && current === generation) messages.value = data
-  } catch (e) {
-    if (active && current === generation) error.value = errorMessage(e)
-  } finally {
-    if (active && current === generation) loading.value = false
-  }
-}
 onMounted(async () => {
   await load()
   if (!active) return
@@ -164,22 +181,51 @@ onMounted(async () => {
   else if (!operation.pending.value && props.conversation.activeRunId)
     void operation.track(props.conversation.activeRunId)
 })
-watch(
-  () => operation.run.value,
-  (run) => {
-    if (run && run.status !== 'running') {
-      void load()
-      emit('changed')
-    }
-  },
-)
+function onMessageScroll() {
+  const viewport = messageViewport.value
+  if (viewport) stickToBottom.value = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 64
+}
+async function scrollToLatest() {
+  await nextTick()
+  const viewport = messageViewport.value
+  if (active && viewport && stickToBottom.value) viewport.scrollTop = viewport.scrollHeight
+}
+watch(() => visibleMessages.value.map(item => item.id).join(','), scrollToLatest, { flush: 'post' })
+function onComposerKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) event.preventDefault()
+  if (shouldSendOnEnter(event)) void send()
+}
 async function send() {
   if (locked.value || !draft.value.trim()) return
   const content = draft.value.trim()
   draft.value = ''
-  await operation.start('chat', { content })
+  stickToBottom.value = true
+  const sending = chat.send(content)
+  void scrollToLatest()
+  await sending
   if (active && operation.error.value && !operation.unresolved.value)
     draft.value = content
+}
+function openRename() {
+  renameTitle.value = props.conversation.title
+  renameError.value = ''
+  showRename.value = true
+}
+function onRenameKeydown(event: KeyboardEvent) {
+  if (shouldSendOnEnter(event)) { event.preventDefault(); void rename() }
+}
+async function rename() {
+  if (renaming.value || !renameTitle.value.trim()) return
+  renaming.value = true
+  renameError.value = ''
+  try {
+    const item = await renameConversation(props.conversation.id, renameTitle.value.trim())
+    if (active) { emit('renamed', item); showRename.value = false }
+  } catch (e) {
+    if (active) renameError.value = errorMessage(e)
+  } finally {
+    if (active) renaming.value = false
+  }
 }
 function learn() {
   if (locked.value) return
@@ -196,37 +242,49 @@ function learn() {
 <style scoped>
 .conversation-workspace {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) 272px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 14px;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 .conversation-body {
   display: flex;
   flex-direction: column;
-  min-height: 680px;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 .conversation-head {
-  padding: 22px;
+  padding: 14px 18px;
+  flex: none;
   border-bottom: 1px solid var(--pm-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
+.conversation-heading { min-width: 0; }
+.conversation-title { display: flex; align-items: center; gap: 8px; }
+.conversation-title h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
+.conversation-title .n-button { flex: none; }
 h2 {
   font-size: 17px;
   margin: 0 0 6px;
 }
 .messages {
   flex: 1;
-  padding: 24px;
+  min-height: 0;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  max-height: 650px;
+  gap: 18px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
+.messages > * { flex-shrink: 0; }
+.reply-status { color: var(--pm-text-secondary); font-size: 13px; padding: 0 8px; }
 .message {
   padding: 18px;
   border: 1px solid var(--pm-border);
@@ -242,6 +300,7 @@ h2 {
 }
 .message-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   color: var(--pm-text-secondary);
@@ -267,11 +326,15 @@ h2 {
   margin-bottom: 24px;
 }
 .composer {
-  padding: 18px;
+  padding: 12px 16px;
+  flex: none;
+  max-height: 55%;
+  overflow-y: auto;
   border-top: 1px solid var(--pm-border);
   display: grid;
   gap: 12px;
 }
+.run-panel { min-height: 0; height: 100%; overflow-y: auto; padding: 18px; overscroll-behavior: contain; }
 .composer-foot {
   display: flex;
   justify-content: space-between;
@@ -298,10 +361,7 @@ h2 {
 }
 @media (max-width: 1280px) {
   .conversation-workspace {
-    grid-template-columns: minmax(360px, 1fr);
-  }
-  .conversation-workspace > aside {
-    margin-top: 0;
+    grid-template-columns: minmax(0, 1fr) 210px;
   }
 }
 </style>

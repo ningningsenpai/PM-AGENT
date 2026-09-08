@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_serializer,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 from app.core.identifiers import SnowflakeId
@@ -23,9 +30,18 @@ class Schema(BaseModel):
     )
 
 
+ConversationTitle = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
+]
+
+
 class CreateConversation(Schema):
     project_id: SnowflakeId
-    title: str = Field(default="项目问答", min_length=1, max_length=128)
+    title: ConversationTitle | None = None
+
+
+class RenameConversation(Schema):
+    title: ConversationTitle
 
 
 class SendMessage(Schema):
@@ -51,6 +67,7 @@ class MessageView(Schema):
     content: str
     run_id: SnowflakeId
     created_at: datetime
+    request_key: str | None = None
 
 
 class EntryView(Schema):

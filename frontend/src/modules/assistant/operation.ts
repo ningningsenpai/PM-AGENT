@@ -107,7 +107,7 @@ export function useOperation(projectId: string, conversationId?: string) {
       error.value = '用户身份尚未恢复，请刷新页面后再试'
       return
     }
-    pending.value = { key: crypto.randomUUID(), kind, payload, terminal: false }
+    pending.value = { key: crypto.randomUUID(), kind, payload, terminal: false, startedAt: new Date().toISOString() }
     run.value = null
     if (!save()) {
       pending.value = null

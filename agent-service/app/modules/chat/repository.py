@@ -45,10 +45,33 @@ class ChatRepository:
                         AgentConversation.project_id == project_id,
                     )
                     .order_by(AgentConversation.id.desc())
-                    .limit(100)
                 )
             ).all()
         )
+
+    async def conversation_titles(self, user_id, project_id):
+        return list(
+            (
+                await self.session.scalars(
+                    select(AgentConversation.title)
+                    .where(
+                        AgentConversation.user_id == user_id,
+                        AgentConversation.project_id == project_id,
+                    )
+                    .with_for_update()
+                )
+            ).all()
+        )
+
+    async def message_history(self, conversation_id):
+        return (
+            await self.session.execute(
+                select(AgentMessage, AgentRun.request_key)
+                .outerjoin(AgentRun, AgentRun.id == AgentMessage.run_id)
+                .where(AgentMessage.conversation_id == conversation_id)
+                .order_by(AgentMessage.id)
+            )
+        ).all()
 
     async def messages(self, conversation_id, *, after=0):
         return list(

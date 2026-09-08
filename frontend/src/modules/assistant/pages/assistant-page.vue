@@ -1,10 +1,9 @@
 <template>
-  <div class="page-shell">
-    <div class="page-title-row">
-      <div>
-        <p class="eyebrow">项目助手</p>
+  <div class="page-shell assistant-page">
+    <div class="page-title-row assistant-heading">
+      <div class="assistant-title">
         <h1 class="page-title">PM 助手</h1>
-        <p class="page-description">基于项目资料问答，让结论与来源保持关联。</p>
+        <span class="muted">基于项目资料问答，保留可核对的来源</span>
       </div>
       <RouterLink :to="'/projects/' + projectId">管理项目文件 →</RouterLink>
     </div>
@@ -18,16 +17,18 @@
         <n-button
           type="primary"
           block
-          :disabled="creating || operationBusy"
-          @click="showCreate = true"
+          :loading="creating"
+          :disabled="creating || loading || operationBusy"
+          @click="create"
           >新建会话</n-button
         >
         <div class="list-caption">
           <span>历史会话</span
-          ><n-button text size="small" :loading="loading" @click="load"
+          ><n-button text size="small" :loading="loading" :disabled="creating" @click="load"
             >刷新</n-button
           >
         </div>
+        <div class="conversation-scroll">
         <n-empty
           v-if="!conversations.length && !loading"
           description="暂无会话"
@@ -48,6 +49,7 @@
             }}{{ item.activeRunId ? ' · 运行中' : '' }}</small
           >
         </button>
+        </div>
       </aside>
       <ConversationWorkspace
         v-if="selected"
@@ -57,21 +59,22 @@
         :disabled="contextBusy"
         @busy="operationBusy = $event"
         @changed="changed"
+        @renamed="renamed"
       />
-      <section v-else class="surface padded">
+      <section v-else class="surface padded conversation-empty">
         <n-result
           status="info"
           title="创建一个项目会话"
           description="会话按项目独立保存，刷新后可以继续。"
           ><template #footer
-            ><n-button type="primary" @click="showCreate = true"
+            ><n-button type="primary" :loading="creating" :disabled="creating || loading" @click="create"
               >开始问答</n-button
             ></template
           ></n-result
         >
       </section>
     </div>
-    <section v-show="tab === 'context'" class="surface padded">
+    <section v-show="tab === 'context'" class="surface padded context-panel">
       <ContextEntries
         :project-id="projectId"
         :revision="revision"
@@ -79,28 +82,6 @@
         @busy="contextBusy = $event"
       />
     </section>
-    <n-modal
-      v-model:show="showCreate"
-      preset="card"
-      title="新建会话"
-      style="width: 500px"
-      :mask-closable="!creating"
-      :closable="!creating"
-      ><n-input
-        v-model:value="title"
-        placeholder="会话名称"
-        :maxlength="128"
-        @keydown.enter.prevent="create"
-      /><RequestError :message="createError" /><template #footer
-        ><n-button
-          type="primary"
-          :loading="creating"
-          :disabled="!title.trim()"
-          @click="create"
-          >创建会话</n-button
-        ></template
-      ></n-modal
-    >
   </div>
 </template>
 <script setup lang="ts">
@@ -122,9 +103,6 @@ const conversationId = ref(String(route.query.conversation || ''))
 const tab = ref('chat')
 const revision = ref(0)
 const creating = ref(false)
-const showCreate = ref(false)
-const title = ref('项目问答')
-const createError = ref('')
 const operationBusy = ref(false)
 const contextBusy = ref(false)
 const selected = computed(() =>
@@ -162,23 +140,25 @@ async function select(id: string) {
   await router.replace({ query: { ...route.query, conversation: id } })
 }
 async function create() {
-  if (creating.value || !title.value.trim()) return
+  if (creating.value || loading.value || operationBusy.value) return
   creating.value = true
-  createError.value = ''
+  error.value = ''
+  generation++
   try {
-    const item = await createConversation(projectId, title.value.trim())
+    const item = await createConversation(projectId)
     if (active) {
-      showCreate.value = false
       conversations.value = [item, ...conversations.value]
       await select(item.id)
     }
   } catch (e) {
     if (active)
-      createError.value =
-        errorMessage(e) + '；若结果不明，请关闭对话框并刷新会话列表核对。'
+      error.value = errorMessage(e) + '；若结果不明，请先刷新会话列表核对。'
   } finally {
     if (active) creating.value = false
   }
+}
+function renamed(item: Conversation) {
+  conversations.value = conversations.value.map(value => value.id === item.id ? item : value)
 }
 function changed() {
   revision.value++
@@ -196,23 +176,37 @@ watch(
 onMounted(load)
 </script>
 <style scoped>
+.assistant-page { height: 100%; min-height: 0; gap: 12px; overflow: hidden; }
+.assistant-heading { align-items: center; flex: none; }
+.assistant-title { display: flex; align-items: baseline; gap: 14px; }
+.assistant-title .page-title { font-size: 22px; }
+.assistant-page > :deep(.n-tabs) { flex: none; }
 .assistant-grid {
   display: grid;
-  grid-template-columns: 205px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
 }
 .conversation-list {
-  padding: 18px 12px;
-  min-height: 680px;
+  padding: 14px 10px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+.conversation-list > .n-button, .list-caption { flex: none; }
+.conversation-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.conversation-empty, .context-panel { min-height: 0; overflow: auto; }
+.context-panel { flex: 1; }
 .list-caption {
   display: flex;
   justify-content: space-between;
   align-items: center;
   color: var(--pm-text-secondary);
   font-size: 12px;
-  padding: 24px 8px 12px;
+  padding: 16px 8px 10px;
 }
 .conversation-item {
   display: grid;

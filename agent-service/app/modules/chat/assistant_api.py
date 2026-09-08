@@ -10,13 +10,14 @@ from app.core.response import success
 from app.core.security import AuthPrincipal, require_principal
 from app.core.trace import get_trace_id
 
+from .conversation_service import ConversationService
 from .dependencies import (
     get_context_service,
     get_conversation_service,
     get_learning_service,
     get_run_service,
 )
-from .schemas import CreateConversation, SendMessage, UpdateEntry
+from .schemas import CreateConversation, RenameConversation, SendMessage, UpdateEntry
 
 router = APIRouter(prefix="/api/v1/agent", tags=["项目助手闭环"])
 Principal = Annotated[AuthPrincipal, Depends(require_principal)]
@@ -48,6 +49,16 @@ async def list_messages(
     service=Depends(get_conversation_service),
 ):
     return success(await service.messages(principal.user_id, conversation_id))
+
+
+@router.patch("/conversations/{conversation_id}")
+async def rename_conversation(
+    conversation_id: SnowflakeId,
+    request: RenameConversation,
+    principal: Principal,
+    service: Annotated[ConversationService, Depends(get_conversation_service)],
+):
+    return success(await service.rename(principal.user_id, conversation_id, request))
 
 
 @router.post("/conversations/{conversation_id}/messages")

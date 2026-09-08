@@ -19,12 +19,18 @@ export function listConversations(projectId: string) {
     params: { projectId },
   })
 }
-export function createConversation(projectId: string, title: string) {
+export function createConversation(projectId: string, title?: string) {
   realMode()
   return request<Conversation>({
     url: '/api/v1/agent/conversations',
     method: 'post',
     data: { projectId, title },
+  })
+}
+export function renameConversation(id: string, title: string) {
+  realMode()
+  return request<Conversation>({
+    url: `/api/v1/agent/conversations/${id}`, method: 'patch', data: { title },
   })
 }
 export function listMessages(id: string) {

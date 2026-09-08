@@ -12,6 +12,7 @@ export interface ChatMessage {
   content: string
   runId: string
   createdAt: string
+  requestKey?: string | null
 }
 export interface Run {
   runId: string
@@ -57,4 +58,5 @@ export interface PendingOperation {
   payload: Record<string, unknown>
   runId?: string
   terminal: boolean
+  startedAt?: string
 }

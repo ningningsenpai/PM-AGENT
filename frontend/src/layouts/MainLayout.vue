@@ -57,7 +57,7 @@
           >
         </div>
       </header>
-      <main class="workspace-content">
+      <main class="workspace-content" :class="{ 'assistant-content': route.meta.section === 'assistant' }">
         <RouterView
           :key="
             String(route.params.id || '') + ':' + String(auth.user?.id || '')

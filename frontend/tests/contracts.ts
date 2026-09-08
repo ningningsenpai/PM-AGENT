@@ -18,6 +18,9 @@ import { serverDate, safeRedirect } from '@/shared/utils/format'
 import type { Run } from '@/modules/assistant/types'
 import { useFileParsing } from '@/modules/project/file-parsing'
 import type { ProjectFileResponse, ProjectFileParseResult } from '@/modules/project/types'
+import { createConversation, renameConversation } from '@/modules/assistant/api'
+import { mergePendingMessage, shouldSendOnEnter, useConversationMessages } from '@/modules/assistant/conversation-messages'
+import type { ChatMessage } from '@/modules/assistant/types'
 class MemoryStorage {
   map = new Map<string, string>()
   getItem(key: string) {
@@ -490,4 +493,73 @@ test('离开解析组件后停止读取并忽略迟到结果', async (t) => {
   await settleRequests()
   assert.equal(gets, 1)
   assert.equal(parsing.result.value, null)
+})
+
+test('新建会话由后端命名，修改名称使用持久化接口', async () => {
+  http.defaults.adapter = async config => {
+    assert.deepEqual(JSON.parse(config.data), { projectId: id })
+    return response(config, { id: conversation, projectId: id, title: '项目对话-1' })
+  }
+  assert.equal((await createConversation(id)).title, '项目对话-1')
+  http.defaults.adapter = async config => {
+    assert.equal(config.method, 'patch')
+    assert.equal(config.url, `/api/v1/agent/conversations/${conversation}`)
+    assert.deepEqual(JSON.parse(config.data), { title: '需求讨论' })
+    return response(config, { id: conversation, projectId: id, title: '需求讨论' })
+  }
+  assert.equal((await renameConversation(conversation, '需求讨论')).title, '需求讨论')
+})
+
+test('Enter 发送，Shift Enter 换行，中文输入法确认和长按不发送', () => {
+  const enter = { key: 'Enter', shiftKey: false, isComposing: false, keyCode: 13, repeat: false }
+  assert.equal(shouldSendOnEnter(enter), true)
+  for (const changes of [{ shiftKey: true }, { isComposing: true }, { keyCode: 229 }, { repeat: true }, { key: 'a' }]) {
+    assert.equal(shouldSendOnEnter({ ...enter, ...changes }), false)
+  }
+})
+
+test('用户消息立即显示，重复发送被阻止，服务器历史按请求标识替换临时消息', async () => {
+  const scope = effectScope()
+  let finish: () => void = () => {}
+  let posts = 0
+  let history: ChatMessage[] = []
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') return response(config, history)
+    posts++
+    const key = String(config.headers.get('X-Idempotency-Key'))
+    return new Promise(resolve => { finish = () => {
+      history = [{ id: '1', role: 'user', content: '立即显示的问题', runId: run().runId, requestKey: key, createdAt: '' },
+        { id: '2', role: 'assistant', content: '回答', runId: run().runId, requestKey: key, createdAt: '' }]
+      resolve(response(config, { ...run(), result: { userMessageId: '1' } }))
+    } })
+  }
+  const chat = scope.run(() => useConversationMessages(id, conversation, () => {}))!
+  try {
+    const pending = chat.send('立即显示的问题')
+    assert.equal(chat.visibleMessages.value.length, 1)
+    assert.equal(chat.visibleMessages.value[0].content, '立即显示的问题')
+    await chat.send('重复发送')
+    await settleRequests()
+    assert.equal(posts, 1)
+    finish()
+    await pending
+    await settleRequests()
+    assert.deepEqual(chat.visibleMessages.value.map(item => item.id), ['1', '2'])
+  } finally { scope.stop() }
+})
+
+test('相同正文的两次提问不会误去重，恢复中的请求与服务器记录正确合并', async () => {
+  const first: ChatMessage = { id: '1', role: 'user', content: '同一问题', runId: 'first-run', createdAt: '', requestKey: 'first-key' }
+  const second: ChatMessage = { ...first, id: 'pending:second-key', runId: '', requestKey: 'second-key' }
+  assert.equal(mergePendingMessage([first], second, null).length, 2)
+  sessionStorage.setItem(`pm-operation:${useAuthStore().user?.id}:${id}:${conversation}`, JSON.stringify({
+    key: 'second-key', kind: 'chat', payload: { content: '同一问题' }, terminal: false, startedAt: '2026-09-08T00:00:00Z',
+  }))
+  http.defaults.adapter = async config => response(config, [first, { ...second, id: '2', runId: 'second-run' }])
+  const scope = effectScope()
+  const chat = scope.run(() => useConversationMessages(id, conversation, () => {}))!
+  await chat.load()
+  assert.deepEqual(chat.visibleMessages.value.map(item => item.id), ['1', '2'])
+  assert.equal(chat.operation.unresolved.value, true)
+  scope.stop()
 })
