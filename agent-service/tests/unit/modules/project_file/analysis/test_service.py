@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
 from app.core.errors import AppException, ErrorCode
 from app.infrastructure.storage import StorageLocationFactory
+from app.modules.chat.runs.service import RunService
 from app.modules.project_file.analysis import service as analysis_service_module
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 from app.project_context.file_detail.schemas import FileSemanticAnalysisResult
@@ -43,12 +45,15 @@ def _service(
     content_extractor=None,
     semantic_analyzer=None,
     specification=None,
+    runs=None,
 ) -> ProjectFileAnalysisService:
     project_service = projects or AsyncMock()
     project_service.require_owned.return_value = project()
     specification_service = specification or AsyncMock()
     if not isinstance(specification_service.refresh.return_value, str):
         specification_service.refresh.return_value = "updated"
+    run_service = runs if runs is not None else AsyncMock(spec=RunService)
+    run_service.start.return_value = (SimpleNamespace(id=90000000000000001), True)
     return ProjectFileAnalysisService(
         repository,
         project_service,
@@ -58,6 +63,7 @@ def _service(
         content_extractor or AsyncMock(),
         semantic_analyzer or AsyncMock(),
         specification_service,
+        runs=run_service,
     )
 
 
@@ -117,6 +123,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         ]
         index = AsyncMock()
         specification = AsyncMock()
+        runs = AsyncMock(spec=RunService)
         service = _service(
             repository,
             storage=storage,
@@ -124,12 +131,18 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             semantic_analyzer=semantic_analyzer,
             index=index,
             specification=specification,
+            runs=runs,
         )
 
         with patch.object(analysis_service_module, "logger") as logger:
             result = await service.analyze_pending_files(1, 10)
 
         self.assertEqual("partial", result.status)
+        self.assertEqual("90000000000000001", result.run_id)
+        runs.start.assert_awaited_once()
+        runs.finish.assert_awaited_once()
+        self.assertEqual("partial", runs.finish.await_args.args[3]["status"])
+        self.assertIsNotNone(runs.finish.await_args.kwargs["error"])
         self.assertEqual(2, result.candidate_count)
         self.assertEqual(1, result.success_count)
         self.assertEqual(1, result.failure_count)
@@ -306,7 +319,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             await service.analyze_pending_files(1, 10)
 
         self.assertIs(ErrorCode.SYSTEM_ERROR, caught.exception.error)
-        repository.session.rollback.assert_awaited_once()
+        repository.session.rollback.assert_awaited()
         index.write.assert_not_awaited()
         detail_location = storage.put_bytes.call_args.args[0]
         self.assertIn(file.content_hash, detail_location.object_key)
@@ -447,3 +460,52 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             10,
             force=True,
         )
+
+    async def test_successful_batch_records_run_result(self) -> None:
+        runs = AsyncMock(spec=RunService)
+        service = _service(_repository([]), runs=runs)
+
+        result = await service.analyze_pending_files(1, 10)
+
+        self.assertEqual("90000000000000001", result.run_id)
+        runs.finish.assert_awaited_once_with(
+            90000000000000001,
+            1,
+            [],
+            result.model_dump(mode="json", by_alias=True),
+            error=None,
+        )
+
+    async def test_interrupted_batch_records_failure_and_propagates(self) -> None:
+        repository = _repository(
+            [],
+            list_analysis_candidates=AsyncMock(
+                side_effect=RuntimeError("模拟解析中断")
+            ),
+        )
+        runs = AsyncMock(spec=RunService)
+        service = _service(repository, runs=runs)
+
+        with self.assertRaisesRegex(RuntimeError, "模拟解析中断"):
+            await service.analyze_pending_files(1, 10)
+
+        repository.session.rollback.assert_awaited_once()
+        runs.finish.assert_awaited_once_with(
+            90000000000000001,
+            1,
+            [],
+            error="解析运行失败：RuntimeError",
+        )
+
+    async def test_cancelled_batch_records_cancellation(self) -> None:
+        repository = _repository(
+            [], list_analysis_candidates=AsyncMock(side_effect=asyncio.CancelledError())
+        )
+        runs = AsyncMock(spec=RunService)
+        service = _service(repository, runs=runs)
+
+        with self.assertRaises(asyncio.CancelledError):
+            await service.analyze_pending_files(1, 10)
+
+        runs.cancel.assert_awaited_once_with(90000000000000001, 1, [])
+        runs.finish.assert_not_awaited()

@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+from uuid import uuid4
 
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
+from app.core.trace import get_trace_id
 from app.infrastructure.storage import (
     ObjectStorage,
     StorageLocationFactory,
 )
+from app.llm.telemetry import capture_calls
+from app.modules.chat.runs.service import RunService
 from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.schemas import (
     ProjectFileAnalysisBatchResult,
@@ -45,7 +49,7 @@ class ProjectFileAnalysisService:
         content_extractor: FileContentExtractionService,
         semantic_analyzer: FileSemanticAnalysisService,
         specification_service: ProjectSpecificationService,
-        runs=None,
+        runs: RunService,
     ) -> None:
         self._repository = repository
         self._projects = projects
@@ -65,15 +69,6 @@ class ProjectFileAnalysisService:
         force: bool = False,
         file_ids: list[int] | None = None,
     ) -> ProjectFileAnalysisBatchResult:
-        if self._runs is None:
-            return await self._analyze_pending_files(
-                user_id, project_id, force=force, file_ids=file_ids
-            )
-        from uuid import uuid4
-
-        from app.core.trace import get_trace_id
-        from app.llm.telemetry import capture_calls
-
         run, _ = await self._runs.start(
             user_id,
             project_id,
