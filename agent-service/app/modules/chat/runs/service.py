@@ -33,6 +33,11 @@ class RunService:
         conversation_id=None,
         exclusive_scope=None,
     ):
+        """
+        根据业务不同执行不同的幂等校验以及 MySQL lock 机制
+        conversation_id = None -> 非对话请求，仅校 agent_run 验请求幂等
+        conversation_id ！= None -> 对话请求，校验 agent_run 幂等以及为 lock agent_conversation 防止对话重复进行
+        """
         key = (key or "").strip()
         if not key:
             raise AppException(ErrorCode.IDEMPOTENCY_KEY_MISSING)
@@ -97,8 +102,8 @@ class RunService:
             result={},
         )
         if conversation:
+            # 对话窗口幂等预防（业务完成之后 busy_until 会自动设置为NULL）相当于和前端协同预防重复处理
             conversation.active_run_id = run.id
-            # 单轮至多五次 180 秒模型交互，预留工具与发布耗时。
             conversation.busy_until = datetime.now(UTC).replace(
                 tzinfo=None
             ) + timedelta(minutes=20)
@@ -128,6 +133,7 @@ class RunService:
 
     @classmethod
     def _lease_deadline(cls):
+        """在当前时间的基础上添加20分钟冗余时间"""
         return datetime.now(UTC).replace(tzinfo=None) + cls._LEASE_DURATION
 
     def _expire_if_needed(self, run, conversation=None):
@@ -148,7 +154,7 @@ class RunService:
             conversation.busy_until = None
 
     async def renew(self, run_id, user_id):
-        """长批次进入下一处理阶段前续租，避免正常运行被误判为进程中断。"""
+        """长批次进入下一处理阶段前续租（截至到当前时间+20 minutes），避免正常运行被误判为进程中断。"""
         run = await self.repo.run(user_id, run_id)
         if run and run.status == "running" and run.active_scope_key:
             run.lease_until = self._lease_deadline()

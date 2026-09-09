@@ -1,11 +1,12 @@
 """项目对象键生成规则。"""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-import re
-import unicodedata
 from uuid import uuid4
+
+import unicodedata
 
 from app.core.config import StorageConfig
 from app.core.errors import AppException, ErrorCode
@@ -60,6 +61,7 @@ class StorageLocationFactory:
         project_id: int,
         relative_path: str,
     ) -> StorageLocation:
+        """根据对应的文件规则获取 system 文件的路径"""
         normalized = str(PurePosixPath(relative_path))
         if (
             not normalized

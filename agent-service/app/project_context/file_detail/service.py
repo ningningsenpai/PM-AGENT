@@ -60,6 +60,7 @@ class FileSemanticAnalysisService:
                 error_code="FILE_DETAIL_SOURCE_TOO_LARGE",
             )
         try:
+            # 预防私钥进入文件
             sanitized_content = sanitize_sensitive_content(extracted_text)
         except SensitiveContentBlockedError:
             return self._failed(
@@ -173,6 +174,7 @@ class FileSemanticAnalysisService:
                 else:
                     item.pop("source_range", None)
                     item["evidence_verified"] = False
+        # 合并风险内容（私钥风险+llm预测风险）
         semantic_fields["sensitive_flags"] = [
             *sanitized_content.flags,
             *semantic_output.sensitive_flags,

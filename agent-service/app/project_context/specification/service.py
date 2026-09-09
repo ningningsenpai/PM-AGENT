@@ -421,6 +421,7 @@ class ProjectSpecificationService:
         document: ProjectSpecificationDocument,
         inventory: list[dict[str, Any]],
     ) -> ProjectSpecificationDocument:
+        """补全或修正规范规则里的文件来源引用"""
         by_id = {item["file_id"]: item for item in inventory}
         by_path = {item["path"]: item for item in inventory}
 
@@ -465,6 +466,7 @@ class ProjectSpecificationService:
         existing: ProjectSpecificationDocument | None,
         inventory: list[dict[str, Any]],
     ) -> set[tuple[str, str]]:
+        """分析现有项目规范中，哪些规则引用的源文件已经删除、移动、修改或更换了详情版本。"""
         if existing is None:
             return set()
         by_id = {item["file_id"]: item for item in inventory}
@@ -503,6 +505,7 @@ class ProjectSpecificationService:
         sources: list[dict[str, Any]],
         inventory: list[dict[str, Any]],
     ) -> ProjectSpecificationDocument:
+        """检查合并后的项目规范，将来源已经失效且本轮没有被重新确认的规则标记为 pending_review """
         generated_keys = {
             (field_name, rule.id)
             for field_name in self._RULE_FIELDS

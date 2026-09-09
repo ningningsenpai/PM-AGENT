@@ -10,10 +10,10 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
-
 from .documents.long_term_memory import LongTermMemoryDocument
 from .documents.short_term_memory import ShortTermMemoryDocument
 from .documents.user_habits import UserHabitCategory, UserHabitsDocument
+
 
 # 初始化仅创建缺失的空文件；显式学习的权威条目与版本快照由上下文服务管理。
 
@@ -92,6 +92,7 @@ class ChatContextInitializationService:
         content: bytes,
         content_type: str,
     ) -> None:
+        """在 MinIO 中不存在目标文件时，创建一个初始化文件"""
         location = self._locations.system_file(
             project.owner_user_id,
             project.id,

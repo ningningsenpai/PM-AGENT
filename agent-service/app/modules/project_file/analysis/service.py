@@ -69,6 +69,11 @@ class ProjectFileAnalysisService:
         force: bool = False,
         file_ids: list[int] | None = None,
     ) -> ProjectFileAnalysisBatchResult:
+        """
+        处理前端传递的信息进行后续的文件解析处理
+        默认解析 -> force = False, file_ids = []，即全权交给后端根据 MySQL 整理数据然后进行解析。
+        前端重试 -> force = True, file_ids != []，由前端选择对应的文件进行解析重试
+        """
         normalized_file_ids = sorted(set(file_ids)) if file_ids is not None else None
         run, fresh = await self._runs.start(
             user_id,
@@ -162,6 +167,7 @@ class ProjectFileAnalysisService:
                     project.id,
                     result,
                 )
+            # 确保详情文件上传成功之后才可以修改 MySQL
             if result.status == "success" and result.detail is not None:
                 updated = await self._repository.record_analysis_success(
                     project_id,
@@ -379,6 +385,7 @@ class ProjectFileAnalysisService:
         project_id: int,
         result: FileSemanticAnalysisResult,
     ) -> FileSemanticAnalysisResult:
+        """将解析之后的详情文件上传云端或者组合失败信息"""
         try:
             await self._write_detail(user_id, project_id, result)
             return result
