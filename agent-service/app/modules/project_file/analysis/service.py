@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from uuid import uuid4
 
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
@@ -65,23 +64,42 @@ class ProjectFileAnalysisService:
         self,
         user_id: int,
         project_id: int,
+        idempotency_key: str | None,
         *,
         force: bool = False,
         file_ids: list[int] | None = None,
     ) -> ProjectFileAnalysisBatchResult:
-        run, _ = await self._runs.start(
+        normalized_file_ids = sorted(set(file_ids)) if file_ids is not None else None
+        run, fresh = await self._runs.start(
             user_id,
             project_id,
             "parse",
-            uuid4().hex,
-            {"force": force, "fileIds": file_ids},
+            idempotency_key,
+            {"force": force, "fileIds": normalized_file_ids},
             get_trace_id(),
+            exclusive_scope=f"project-file-parse:{project_id}",
         )
+        if not fresh:
+            if run.result:
+                return ProjectFileAnalysisBatchResult.model_validate(run.result)
+            if run.status == "running":
+                raise AppException(
+                    ErrorCode.RESOURCE_CONFLICT,
+                    f"相同文件解析请求仍在执行，运行编号：{run.id}",
+                )
+            raise AppException(
+                ErrorCode.RESOURCE_CONFLICT,
+                "此前文件解析请求未成功完成，请使用新的幂等键重新发起",
+            )
         run_id, events = run.id, []
         try:
             with capture_calls(events):
                 result = await self._analyze_pending_files(
-                    user_id, project_id, force=force, file_ids=file_ids
+                    user_id,
+                    project_id,
+                    run_id=run_id,
+                    force=force,
+                    file_ids=normalized_file_ids,
                 )
             result = result.model_copy(update={"run_id": str(run_id)})
             await self._runs.finish(
@@ -106,7 +124,7 @@ class ProjectFileAnalysisService:
             raise
 
     async def _analyze_pending_files(
-        self, user_id, project_id, *, force=False, file_ids=None
+        self, user_id, project_id, *, run_id, force=False, file_ids=None
     ):
         project = await self._projects.require_owned(user_id, project_id)
         options = {"file_ids": file_ids} if file_ids is not None else {}
@@ -121,6 +139,7 @@ class ProjectFileAnalysisService:
             **options,
         )
         await self._repository.session.commit()
+        await self._runs.renew(run_id, user_id)
         logger.info(
             "开始分析项目文件 action=project_file.analysis.batch "
             "userId=%s projectId=%s force=%s candidateCount=%s",
@@ -134,6 +153,7 @@ class ProjectFileAnalysisService:
         failure_count = 0
         failures: list[ProjectFileAnalysisFailure] = []
         for file in candidates:
+            await self._runs.renew(run_id, user_id)
             request = self._build_request(project.owner_user_id, file)
             result = await self._analyze_file(file, request)
             if result.status == "success" and result.detail is not None:
@@ -203,6 +223,7 @@ class ProjectFileAnalysisService:
 
         files = await self._repository.list(project_id, include_system=True)
         await self._repository.session.commit()
+        await self._runs.renew(run_id, user_id)
         specification_status = "updated"
         try:
             specification_status = await self._specification.refresh(project, files)

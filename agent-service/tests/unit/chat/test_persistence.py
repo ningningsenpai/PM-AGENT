@@ -238,3 +238,80 @@ async def test_idempotency_and_busy_conversation(services):
         1, 11, "chat", "request-2", {}, "trace", conversation.id
     )
     assert fresh
+
+
+async def test_project_run_scope_rejects_parallel_batches_and_releases(services):
+    scope = "project-file-parse:11"
+    first, fresh = await services.runs.start(
+        1,
+        11,
+        "parse",
+        "parse-request-1",
+        {"force": False, "fileIds": None},
+        "trace",
+        exclusive_scope=scope,
+    )
+    assert fresh
+    first_id = first.id
+    same, fresh = await services.runs.start(
+        1,
+        11,
+        "parse",
+        "parse-request-1",
+        {"force": False, "fileIds": None},
+        "trace",
+        exclusive_scope=scope,
+    )
+    assert not fresh and same.id == first.id
+    with pytest.raises(AppException, match="已有运行中的解析任务"):
+        await services.runs.start(
+            1,
+            11,
+            "parse",
+            "parse-request-2",
+            {"force": True, "fileIds": [1]},
+            "trace",
+            exclusive_scope=scope,
+        )
+    await services.session.rollback()
+    await services.runs.finish(first_id, 1, [], {"status": "success"})
+
+    second, fresh = await services.runs.start(
+        1,
+        11,
+        "parse",
+        "parse-request-2",
+        {"force": True, "fileIds": [1]},
+        "trace",
+        exclusive_scope=scope,
+    )
+    assert fresh and second.id != first_id
+
+
+async def test_expired_project_run_scope_can_be_recovered(services):
+    scope = "project-file-parse:11"
+    first, _fresh = await services.runs.start(
+        1,
+        11,
+        "parse",
+        "expired-request",
+        {},
+        "trace",
+        exclusive_scope=scope,
+    )
+    first.lease_until = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=1)
+    await services.session.commit()
+
+    recovered, fresh = await services.runs.start(
+        1,
+        11,
+        "parse",
+        "recovered-request",
+        {},
+        "trace",
+        exclusive_scope=scope,
+    )
+
+    assert fresh and recovered.id != first.id
+    assert first.status == "failed"
+    assert first.active_scope_key is None

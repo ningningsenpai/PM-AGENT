@@ -207,11 +207,12 @@ test('定向重试传递数字文件 ID、force 参数及独立解析超时', as
   http.defaults.adapter = async (config) => {
     assert.equal(config.params.force, true)
     assert.deepEqual(JSON.parse(config.data), { fileIds: [85, 86] })
+    assert.equal(config.headers.get('X-Idempotency-Key'), 'parse-once')
     assert.equal(config.timeout, 0)
     return response(config, { status: 'partial' })
   }
   assert.equal(
-    (await requestProjectFileParsing(id, [85, 86])).status,
+    (await requestProjectFileParsing(id, [85, 86], 'parse-once')).status,
     'partial',
   )
 })
@@ -463,6 +464,31 @@ test('无候选文件仍等待上下文更新，解析请求失败不显示成�
     assert.match(parsing.error.value, /核对结果/)
     await parsing.start()
     assert.equal(posts, 1)
+  } finally { scope.stop() }
+})
+
+test('解析结果不确定时保留并复用幂等键，成功后清除恢复记录', async () => {
+  const scope = effectScope()
+  const keys: string[] = []
+  let attempts = 0
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') return response(config, [])
+    keys.push(config.headers.get('X-Idempotency-Key') as string)
+    if (++attempts === 1) throw new Error('连接中断')
+    return response(config, parseResult({ candidateCount: 0, successCount: 0 }))
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    await parsing.start()
+    assert.equal(parsing.phase.value, 'error')
+    assert.equal(parsing.hasPending.value, true)
+    assert.equal(parsing.reset(), true)
+    await parsing.start()
+    assert.equal(keys.length, 2)
+    assert.equal(keys[0], keys[1])
+    assert.equal(parsing.phase.value, 'finished')
+    assert.equal(parsing.hasPending.value, false)
+    assert.equal((sessionStorage as unknown as MemoryStorage).map.size, 0)
   } finally { scope.stop() }
 })
 

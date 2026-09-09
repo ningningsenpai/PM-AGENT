@@ -301,7 +301,11 @@ async function clearProjectFiles() {
     }
 
     await executeDeletionPlan(plan.deleted)
-    const result = await requestProjectFileParsing(props.projectId)
+    const result = await requestProjectFileParsing(
+      props.projectId,
+      undefined,
+      crypto.randomUUID(),
+    )
     applyParseResult(result)
   } catch (error) {
     recordFailure(

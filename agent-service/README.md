@@ -261,6 +261,8 @@ GET http://localhost:8000/internal/health
 
 `POST /api/v1/projects/{projectId}/files/parse/init` 在同一 Python 进程内完成：
 
+该接口必须携带前端生成并在同批重试中复用的 `X-Idempotency-Key`。后端复用相同请求的运行结果，并通过项目级租约阻止同一项目并发解析。
+
 1. 从 MySQL 查询尚未解析的活动文件；
 2. 通过 MinIO SDK 按对象键读取内容；
 3. 调用本地解析器和模型适配器；

@@ -256,10 +256,21 @@ class ProjectFileClient:
 
     def parse(self) -> dict:
         # 解析接口等待整批模型调用和产物写入完成，与前端保持相同的等待方式。
+        identity = json.dumps(
+            [
+                "parse",
+                self.config["projectId"],
+                self.config["runId"],
+                self.config["forceAnalysis"],
+            ],
+            ensure_ascii=False,
+        )
+        key = f"file-flow-{uuid5(NAMESPACE_URL, identity).hex}"
         return self.send(
             "parse",
             "POST",
             "/parse/init",
+            headers={"X-Idempotency-Key": key},
             params={"force": str(self.config["forceAnalysis"]).lower()},
             timeout=None,
         )

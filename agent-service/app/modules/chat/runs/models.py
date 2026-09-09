@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import (
     JSON,
     BigInteger,
@@ -22,6 +24,7 @@ class AgentRun(TimestampMixin, Base):
     __tablename__ = "agent_run"
     __table_args__ = (
         UniqueConstraint("user_id", "operation", "request_key", name="uk_run_request"),
+        UniqueConstraint("active_scope_key", name="uk_run_active_scope"),
         Index("ix_run_conversation_status", "conversation_id", "status"),
     )
     id: Mapped[int] = mapped_column(ID, primary_key=True, autoincrement=False)
@@ -38,6 +41,8 @@ class AgentRun(TimestampMixin, Base):
     request_key: Mapped[str] = mapped_column(String(128))
     request_hash: Mapped[str] = mapped_column(String(64))
     trace_id: Mapped[str] = mapped_column(String(128))
+    active_scope_key: Mapped[str | None] = mapped_column(String(160))
+    lease_until: Mapped[datetime | None]
     status: Mapped[str] = mapped_column(String(16), default="running")
     events: Mapped[list] = mapped_column(JSON, default=list)
     result: Mapped[dict] = mapped_column(JSON, default=dict)

@@ -11,6 +11,7 @@ from app.core.errors import AppException, ErrorCode
 from app.infrastructure.storage import StorageLocationFactory
 from app.modules.chat.runs.service import RunService
 from app.modules.project_file.analysis import service as analysis_service_module
+from app.modules.project_file.analysis.schemas import ProjectFileAnalysisBatchResult
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 from app.project_context.file_detail.schemas import FileSemanticAnalysisResult
 from tests.unit.modules.project_file.analysis.factories import file_detail
@@ -135,7 +136,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         )
 
         with patch.object(analysis_service_module, "logger") as logger:
-            result = await service.analyze_pending_files(1, 10)
+            result = await service.analyze_pending_files(1, 10, "parse-request")
 
         self.assertEqual("partial", result.status)
         self.assertEqual("90000000000000001", result.run_id)
@@ -205,7 +206,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             semantic_analyzer=semantic_analyzer,
         )
 
-        result = await service.analyze_pending_files(1, 10)
+        result = await service.analyze_pending_files(1, 10, "parse-request")
 
         semantic_analyzer.analyze.assert_not_awaited()
         repository.record_analysis_failure.assert_awaited_once_with(
@@ -243,7 +244,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             specification=specification,
         )
 
-        await service.analyze_pending_files(1, 10)
+        await service.analyze_pending_files(1, 10, "parse-request")
 
         content_extractor.extract_from_bytes.assert_not_awaited()
         semantic_analyzer.analyze.assert_not_awaited()
@@ -275,7 +276,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             index=index,
         )
 
-        result = await service.analyze_pending_files(1, 10)
+        result = await service.analyze_pending_files(1, 10, "parse-request")
 
         repository.record_analysis_success.assert_not_awaited()
         repository.record_analysis_failure.assert_awaited_once_with(
@@ -316,7 +317,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         )
 
         with self.assertRaises(AppException) as caught:
-            await service.analyze_pending_files(1, 10)
+            await service.analyze_pending_files(1, 10, "parse-request")
 
         self.assertIs(ErrorCode.SYSTEM_ERROR, caught.exception.error)
         repository.session.rollback.assert_awaited()
@@ -342,7 +343,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             index=index,
         )
 
-        result = await service.analyze_pending_files(1, 10)
+        result = await service.analyze_pending_files(1, 10, "parse-request")
 
         repository.record_analysis_success.assert_not_awaited()
         repository.record_analysis_failure.assert_awaited_once_with(
@@ -380,7 +381,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             specification=specification,
         )
 
-        result = await service.analyze_pending_files(1, 10)
+        result = await service.analyze_pending_files(1, 10, "parse-request")
 
         content_extractor.extract_from_bytes.assert_not_awaited()
         semantic_analyzer.analyze.assert_not_awaited()
@@ -414,7 +415,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             index=index,
         )
 
-        result = await service.analyze_pending_files(1, 10)
+        result = await service.analyze_pending_files(1, 10, "parse-request")
 
         self.assertEqual("partial", result.status)
         self.assertEqual("failed", result.specification_status)
@@ -445,7 +446,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             index=index,
         )
 
-        result = await service.analyze_pending_files(1, 10)
+        result = await service.analyze_pending_files(1, 10, "parse-request")
 
         self.assertEqual(["specification", "index"], calls)
         self.assertEqual("kept", result.specification_status)
@@ -454,18 +455,94 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         repository = _repository([])
         service = _service(repository)
 
-        await service.analyze_pending_files(1, 10, force=True)
+        await service.analyze_pending_files(1, 10, "parse-request", force=True)
 
         repository.list_analysis_candidates.assert_awaited_once_with(
             10,
             force=True,
         )
 
+    async def test_analysis_uses_client_key_and_normalizes_selection(self) -> None:
+        selected = project_file()
+        repository = _repository([], get=AsyncMock(return_value=selected))
+        runs = AsyncMock(spec=RunService)
+        service = _service(repository, runs=runs)
+
+        await service.analyze_pending_files(
+            1,
+            10,
+            " parse-request ",
+            force=True,
+            file_ids=[31, 30, 31],
+        )
+
+        self.assertEqual(" parse-request ", runs.start.await_args.args[3])
+        self.assertEqual(
+            {"force": True, "fileIds": [30, 31]}, runs.start.await_args.args[4]
+        )
+        self.assertEqual(
+            "project-file-parse:10",
+            runs.start.await_args.kwargs["exclusive_scope"],
+        )
+        repository.list_analysis_candidates.assert_awaited_once_with(
+            10,
+            force=True,
+            file_ids=[30, 31],
+        )
+
+    async def test_duplicate_completed_batch_reuses_archived_result(self) -> None:
+        repository = _repository([])
+        runs = AsyncMock(spec=RunService)
+        service = _service(repository, runs=runs)
+        archived = ProjectFileAnalysisBatchResult(
+            run_id="90000000000000001",
+            status="success",
+            candidate_count=1,
+            success_count=1,
+            failure_count=0,
+            failures=[],
+            specification_status="updated",
+            index_status="updated",
+        )
+        runs.start.return_value = (
+            SimpleNamespace(
+                id=90000000000000001,
+                status="success",
+                result=archived.model_dump(mode="json", by_alias=True),
+            ),
+            False,
+        )
+
+        result = await service.analyze_pending_files(1, 10, "parse-request")
+
+        self.assertEqual(archived, result)
+        repository.list_analysis_candidates.assert_not_awaited()
+        runs.finish.assert_not_awaited()
+
+    async def test_duplicate_running_batch_does_not_execute_again(self) -> None:
+        repository = _repository([])
+        runs = AsyncMock(spec=RunService)
+        service = _service(repository, runs=runs)
+        runs.start.return_value = (
+            SimpleNamespace(
+                id=90000000000000001,
+                status="running",
+                result={},
+            ),
+            False,
+        )
+
+        with self.assertRaisesRegex(AppException, "仍在执行"):
+            await service.analyze_pending_files(1, 10, "parse-request")
+
+        repository.list_analysis_candidates.assert_not_awaited()
+        runs.finish.assert_not_awaited()
+
     async def test_successful_batch_records_run_result(self) -> None:
         runs = AsyncMock(spec=RunService)
         service = _service(_repository([]), runs=runs)
 
-        result = await service.analyze_pending_files(1, 10)
+        result = await service.analyze_pending_files(1, 10, "parse-request")
 
         self.assertEqual("90000000000000001", result.run_id)
         runs.finish.assert_awaited_once_with(
@@ -487,7 +564,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         service = _service(repository, runs=runs)
 
         with self.assertRaisesRegex(RuntimeError, "模拟解析中断"):
-            await service.analyze_pending_files(1, 10)
+            await service.analyze_pending_files(1, 10, "parse-request")
 
         repository.session.rollback.assert_awaited_once()
         runs.finish.assert_awaited_once_with(
@@ -505,7 +582,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         service = _service(repository, runs=runs)
 
         with self.assertRaises(asyncio.CancelledError):
-            await service.analyze_pending_files(1, 10)
+            await service.analyze_pending_files(1, 10, "parse-request")
 
         runs.cancel.assert_awaited_once_with(90000000000000001, 1, [])
         runs.finish.assert_not_awaited()

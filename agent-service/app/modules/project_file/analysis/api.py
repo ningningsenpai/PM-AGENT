@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, Header, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.identifiers import SnowflakeId
@@ -28,6 +28,7 @@ async def initialize_project_file_analysis(
     project_id: SnowflakeId,
     force: bool = Query(default=False),
     selection: Annotated[ParseSelection | None, Body()] = None,
+    idempotency_key: Annotated[str | None, Header(alias="X-Idempotency-Key")] = None,
     principal: AuthPrincipal = Depends(require_principal),
     service: ProjectFileAnalysisService = Depends(get_project_file_analysis_service),
 ) -> ApiResponse:
@@ -35,6 +36,7 @@ async def initialize_project_file_analysis(
         await service.analyze_pending_files(
             principal.user_id,
             project_id,
+            idempotency_key,
             force=force,
             **({"file_ids": selection.fileIds} if selection else {}),
         )

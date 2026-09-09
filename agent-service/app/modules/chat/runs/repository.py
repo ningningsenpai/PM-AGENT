@@ -21,3 +21,9 @@ class RunRepository(ChatRepositoryBase):
                 AgentRun.request_key == key,
             )
         )
+
+    async def active_scope(self, scope_key):
+        """查询占用互斥作用域的运行，唯一约束负责裁决并发创建。"""
+        return await self.session.scalar(
+            select(AgentRun).where(AgentRun.active_scope_key == scope_key)
+        )

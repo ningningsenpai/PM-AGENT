@@ -11,19 +11,25 @@
         ><n-button :loading="loading" :disabled="busy || disabled" @click="load"
           >刷新列表</n-button
         ><n-button
-          :disabled="busy || showParse || loading || disabled || !selected.length"
+          :disabled="busy || hasPending || showParse || loading || disabled || !selected.length"
           @click="parse(true)"
           >重试所选（{{ selected.length }}）</n-button
         ><n-button
           type="primary"
           :loading="busy"
-          :disabled="busy || showParse || loading || disabled || !files.length"
+          :disabled="busy || hasPending || showParse || loading || disabled || !files.length"
           @click="parse(false)"
           >解析项目文件</n-button
         ></n-space
       >
     </div>
     <RequestError :message="error" />
+    <n-alert v-if="hasPending && !busy" type="warning" title="存在待确认的解析批次">
+      上一次解析请求的结果尚未确认，请使用原幂等键恢复，避免重复调用模型。
+      <template #action>
+        <n-button size="small" @click="resumeParsing">恢复上次解析</n-button>
+      </template>
+    </n-alert>
     <n-alert v-if="busy" type="info"
       >正在解析，请保持页面打开。模型处理可能需要数分钟，完成后会更新结果。</n-alert
     >
@@ -162,7 +168,18 @@ const error = ref('')
 const showParse = ref(false)
 const parseIds = ref<number[]>()
 const parsing = useFileParsing(props.projectId, updateFiles)
-const { busy, phase, total, completed, percentage, result, error: parseError, progressError } = parsing
+const {
+  busy,
+  phase,
+  total,
+  completed,
+  percentage,
+  result,
+  error: parseError,
+  progressError,
+  hasPending,
+  pendingFileIds,
+} = parsing
 const parseHasFailures = computed(() => Boolean(result.value && (result.value.status === 'partial'
   || result.value.failureCount || result.value.indexStatus === 'failed' || result.value.specificationStatus === 'failed')))
 const progressStatus = computed(() => phase.value === 'error' ? 'error'
@@ -185,7 +202,11 @@ onScopeDispose(() => {
   active = false
   generation++
 })
-watch(busy, (value) => emit('busy', value), { flush: 'sync' })
+watch(
+  () => busy.value || hasPending.value,
+  (value) => emit('busy', value),
+  { flush: 'sync', immediate: true },
+)
 function guard() {
   if (busy.value) {
     message.warning('正在解析文件，请等待操作结束')
@@ -300,6 +321,12 @@ function parse(targeted: boolean) {
   }
   if (!parsing.reset()) return
   parseIds.value = targeted ? [...selected.value] : undefined
+  showParse.value = true
+}
+function resumeParsing() {
+  if (busy.value || showParse.value || loading.value || props.disabled) return
+  if (!parsing.reset()) return
+  parseIds.value = pendingFileIds.value ? [...pendingFileIds.value] : undefined
   showParse.value = true
 }
 async function startParsing() {

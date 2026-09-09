@@ -18,6 +18,7 @@ class ProjectFileAnalysisApiTest(IsolatedAsyncioTestCase):
         response = await initialize_project_file_analysis(
             project_id=10,
             force=True,
+            idempotency_key="parse-api-request",
             principal=AuthPrincipal(user_id=7, jti="session-jti"),
             service=service,
         )
@@ -25,6 +26,7 @@ class ProjectFileAnalysisApiTest(IsolatedAsyncioTestCase):
         service.analyze_pending_files.assert_awaited_once_with(
             7,
             10,
+            "parse-api-request",
             force=True,
         )
         self.assertIs(result, response.data)

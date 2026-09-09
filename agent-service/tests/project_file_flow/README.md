@@ -45,7 +45,7 @@ $flowScript = 'D:/Code/ning/PM-AGENT/agent-service/tests/project_file_flow/run.p
 | `plan` | 扫描目录、计算元数据、保存清单并请求同步规划 | `POST /sync/plan` |
 | `upload` | 读取本轮保存的规划，对 `data.added` 逐个上传 | 每个文件调用一次 `POST /` |
 | `update` | 读取本轮保存的规划，依次处理 `data.modified`、`data.moved`、`data.deleted` | 内容覆盖：`PUT /{remoteFileId}/content`；路径变更：`PATCH /{remoteFileId}/path`；删除：`DELETE /{remoteFileId}?lockVersion=…` |
-| `parse` | 触发项目批量解析，等待后端完成解析与产物保存 | `POST /parse/init?force=…` |
+| `parse` | 携带稳定 `X-Idempotency-Key` 触发项目批量解析，等待后端完成解析与产物保存 | `POST /parse/init?force=…` |
 | `files` | 查询文件列表和状态 | `GET /?businessCode=project` |
 | `all` | 顺序执行 `plan → upload → update → parse → files` | 上述全部阶段 |
 
@@ -103,7 +103,7 @@ $flowScript = 'D:/Code/ning/PM-AGENT/agent-service/tests/project_file_flow/run.p
 
 更新后若要再次执行写入，应先重新 `plan` 获取最新锁版本。使用旧规划重复执行 `update` 可能产生版本冲突或重复请求响应，脚本原样记录，不自动获取新版本重试。内容覆盖的幂等键由项目、本轮标识、文件 ID、锁版本、内容哈希及修改时间生成。
 
-`update` 完成后不会自行调用模型；通过 `parse` 重新分析已变化的文件。后端会在内容或路径变化时使旧分析详情失效，后续解析生成新的详情。若同一轮还有新增文件，另外执行 `upload`，或直接使用 `all`。同时修改内容和路径的文件可能被规划为 `added` 与 `deleted`，脚本按规划分别上传新文件、删除旧文件，不自行推断移动关系。
+`update` 完成后不会自行调用模型；通过 `parse` 重新分析已变化的文件。解析幂等键由项目、本轮标识和 `forceAnalysis` 生成，同一轮重试复用原运行，不会再次调用模型。后端会在内容或路径变化时使旧分析详情失效，后续解析生成新的详情。若同一轮还有新增文件，另外执行 `upload`，或直接使用 `all`。同时修改内容和路径的文件可能被规划为 `added` 与 `deleted`，脚本按规划分别上传新文件、删除旧文件，不自行推断移动关系。
 
 ## 观察记录
 

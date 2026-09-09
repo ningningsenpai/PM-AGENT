@@ -9,6 +9,7 @@
 POST {{baseUrl}}/api/v1/projects/{{projectId}}/files/parse/init?force={{forceAnalysis}}
 Authorization: Bearer {{accessToken}}
 X-Trace-Id: http-file-analysis-{{$uuid}}
+X-Idempotency-Key: http-file-analysis-{{$uuid}}
 
 ### 查询分析后的文件状态
 # 在 data 数组中找到 id 等于 fileId 的记录，查看 status、uploadStatus 和 parseAttempts。
@@ -24,3 +25,4 @@ X-Trace-Id: http-file-analysis-result-{{$uuid}}
 # @name initializeProjectFileAnalysisWithoutToken
 POST {{baseUrl}}/api/v1/projects/{{projectId}}/files/parse/init?force={{forceAnalysis}}
 X-Trace-Id: http-file-analysis-unauthorized-{{$uuid}}
+X-Idempotency-Key: http-file-analysis-unauthorized-{{$uuid}}

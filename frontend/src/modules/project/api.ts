@@ -171,7 +171,11 @@ export async function planProjectFileSync(
   })
 }
 
-export async function requestProjectFileParsing(projectId: string, fileIds?: number[]) {
+export async function requestProjectFileParsing(
+  projectId: string,
+  fileIds: number[] | undefined,
+  idempotencyKey: string,
+) {
   if (useMock) {
     return mockRequestProjectFileParsing(projectId)
   }
@@ -181,6 +185,7 @@ export async function requestProjectFileParsing(projectId: string, fileIds?: num
     method: 'post',
     params: { force: Boolean(fileIds?.length) },
     data: fileIds?.length ? { fileIds } : undefined,
+    headers: { 'X-Idempotency-Key': idempotencyKey },
     // 文件解析包含串行模型调用，单次模型超时由服务端配置控制。
     timeout: 0,
   })

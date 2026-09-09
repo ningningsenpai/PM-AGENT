@@ -1,11 +1,20 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { listProjectFiles, requestProjectFileParsing } from './api'
 import type { ProjectFileParseResult, ProjectFileResponse } from './types'
+import { RequestError } from '@/api/http'
+import { useAuthStore } from '@/stores/auth'
 import { errorMessage } from '@/shared/utils/format'
 
 type ParsePhase = 'idle' | 'preparing' | 'parsing' | 'publishing' | 'finished' | 'error'
+interface PendingParseRequest {
+  key: string
+  fileIds: number[] | null
+  startedAt: string
+}
 
 export function useFileParsing(projectId: string, onFiles: (files: ProjectFileResponse[]) => void) {
+  const userId = useAuthStore().user?.id
+  const storageKey = `pm-file-parse:${userId || 'unknown'}:${projectId}`
   const busy = ref(false)
   const phase = ref<ParsePhase>('idle')
   const total = ref(0)
@@ -13,6 +22,23 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
   const error = ref('')
   const progressError = ref('')
   const result = ref<ProjectFileParseResult | null>(null)
+  const pending = ref<PendingParseRequest | null>(null)
+  try {
+    const raw = sessionStorage.getItem(storageKey)
+    if (raw) {
+      const value = JSON.parse(raw)
+      if (typeof value.key === 'string'
+        && (value.fileIds === null || (Array.isArray(value.fileIds)
+          && value.fileIds.every((item: unknown) => typeof item === 'number'
+            && Number.isSafeInteger(item))))) {
+        pending.value = value
+      }
+    }
+  } catch {
+    error.value = '无法恢复上一次文件解析请求，请刷新文件状态后再决定是否重试'
+  }
+  const hasPending = computed(() => Boolean(pending.value))
+  const pendingFileIds = computed(() => pending.value?.fileIds ?? undefined)
   const percentage = computed(() => phase.value === 'finished'
     ? 100
     : total.value ? Math.min(100, Math.floor(completed.value / total.value * 100)) : 0)
@@ -43,6 +69,47 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
     return true
   }
 
+  function normalizeFileIds(fileIds?: number[]) {
+    return fileIds?.length ? [...new Set(fileIds)].sort((left, right) => left - right) : null
+  }
+
+  function sameSelection(left: number[] | null, right: number[] | null) {
+    return left === null && right === null
+      || Boolean(left && right && left.length === right.length
+        && left.every((item, index) => item === right[index]))
+  }
+
+  function prepareRequest(fileIds?: number[]) {
+    const normalized = normalizeFileIds(fileIds)
+    if (pending.value) {
+      if (!sameSelection(pending.value.fileIds, normalized)) {
+        throw new Error('上一次解析结果尚未确认，请先恢复原批次')
+      }
+      return { key: pending.value.key, fileIds: normalized }
+    }
+    const request = {
+      key: crypto.randomUUID(),
+      fileIds: normalized,
+      startedAt: new Date().toISOString(),
+    }
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(request))
+    } catch {
+      throw new Error('无法保存解析恢复信息，请检查浏览器存储权限后重试')
+    }
+    pending.value = request
+    return { key: request.key, fileIds: normalized }
+  }
+
+  function clearPending() {
+    pending.value = null
+    try {
+      sessionStorage.removeItem(storageKey)
+    } catch {
+      // 运行结果已经明确时以内存终态为准，存储清理失败不能改写业务结果。
+    }
+  }
+
   async function start(fileIds?: number[]) {
     // 同步占用入口，避免弹窗确认与页面入口在首个请求返回前重复提交。
     if (busy.value || phase.value !== 'idle' || !active) return
@@ -50,8 +117,9 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
     phase.value = 'preparing'
     const current = ++generation
     const isCurrent = () => active && current === generation
-    const ids = fileIds ? [...fileIds] : undefined
     try {
+      const request = prepareRequest(fileIds)
+      const ids = request.fileIds ?? undefined
       readController = new AbortController()
       const before = await listProjectFiles(projectId, readController.signal)
       if (!isCurrent()) return
@@ -90,7 +158,7 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
       }
 
       timer = setTimeout(poll, 1500)
-      const data = await requestProjectFileParsing(projectId, ids)
+      const data = await requestProjectFileParsing(projectId, ids, request.key)
       if (!isCurrent()) return
       generation++
       stopPolling()
@@ -99,16 +167,33 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
       completed.value = data.successCount + data.failureCount
       phase.value = 'finished'
       progressError.value = ''
+      clearPending()
     } catch (e) {
       if (!isCurrent()) return
       generation++
       stopPolling()
       phase.value = 'error'
       error.value = `${errorMessage(e)}；请刷新文件状态核对结果后再决定是否重试。`
+      if (!(e instanceof RequestError && (e.uncertain || e.code === 10003))) {
+        clearPending()
+      }
     } finally {
       if (active) busy.value = false
     }
   }
 
-  return { busy, phase, total, completed, percentage, error, progressError, result, reset, start }
+  return {
+    busy,
+    phase,
+    total,
+    completed,
+    percentage,
+    error,
+    progressError,
+    result,
+    hasPending,
+    pendingFileIds,
+    reset,
+    start,
+  }
 }
