@@ -12,10 +12,13 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
-from app.core.time import shanghai_now_naive
+from app.core.logger import get_logger
+from app.core.time import shanghai_now, shanghai_now_naive
 from app.llm.telemetry import safe_payload
 from app.modules.chat.runs.models import AgentRun
 from app.modules.chat.runs.repository import RunRepository
+
+logger = get_logger(__name__)
 
 
 class RunService:
@@ -75,7 +78,10 @@ class RunService:
         if existing:
             if existing.request_hash != fingerprint:
                 raise AppException(ErrorCode.RESOURCE_CONFLICT, "幂等键已用于不同请求")
-            self._expire_if_needed(existing, conversation)
+            if exclusive_scope:
+                self._expire_project_run_if_needed(existing, project_id)
+            else:
+                self._expire_if_needed(existing, conversation)
             await self.repo.session.commit()
             return existing, False
         if conversation and conversation.active_run_id:
@@ -90,7 +96,7 @@ class RunService:
         if exclusive_scope:
             active = await self.repo.active_scope(exclusive_scope)
             if active:
-                self._expire_if_needed(active)
+                self._expire_project_run_if_needed(active, project_id)
                 if active.active_scope_key:
                     raise AppException(
                         ErrorCode.RESOURCE_CONFLICT,
@@ -163,20 +169,45 @@ class RunService:
             conversation.active_run_id = None
             conversation.busy_until = None
 
+    @staticmethod
+    def _fail_project_run(run, error):
+        """将损坏或过期的项目运行转为可审计失败终态。"""
+        run.status = "failed"
+        run.error = error
+        run.active_scope_key = None
+        run.lease_until = None
+
+    def _expire_project_run_if_needed(self, run, project_id):
+        """校验文件解析租约的完整性和有效期。"""
+        if run.status != "running":
+            return
+        expected_scope = f"project-file-parse:{project_id}"
+        if run.active_scope_key != expected_scope:
+            self._fail_project_run(run, "文件解析运行的项目作用域缺失或损坏，已停止该运行")
+            return
+        if run.lease_until is None:
+            self._fail_project_run(run, "文件解析运行的租约时间缺失，已停止该运行")
+            return
+        if run.lease_until <= shanghai_now_naive():
+            self._fail_project_run(run, "文件解析运行租约已过期，可能因服务中断停止")
+
     async def renew(self, run_id, user_id):
         """在请求会话内续租，供短阶段切换时立即刷新租约。"""
         run = await self.repo.run(user_id, run_id)
-        if run and run.status == "running" and run.active_scope_key:
+        if run:
+            self._expire_project_run_if_needed(run, run.project_id)
+        if run and run.status == "running":
             run.lease_until = self._lease_deadline()
-            await self.repo.session.commit()
+        await self.repo.session.commit()
 
     async def _heartbeat(self, run_id, user_id):
         """使用独立数据库会话续租，避免长模型调用占用请求事务。"""
         while True:
             await asyncio.sleep(self._HEARTBEAT_INTERVAL_SECONDS)
             async with self.session_factory() as session:
+                current = shanghai_now_naive()
                 renewed = await RunRepository(session).renew_lease(
-                    user_id, run_id, self._lease_deadline()
+                    user_id, run_id, current, current + self._LEASE_DURATION
                 )
                 await session.commit()
             if not renewed:
@@ -203,7 +234,7 @@ class RunService:
         run = await self.repo.run(user_id, run_id, lock=True)
         if run is None:
             raise AppException(ErrorCode.RESOURCE_CONFLICT, "解析运行不存在")
-        self._expire_if_needed(run)
+        self._expire_project_run_if_needed(run, run.project_id)
         active = run.status == "running" and bool(run.active_scope_key)
         await self.repo.session.commit()
         if not active:
@@ -234,11 +265,16 @@ class RunService:
                 "retryable": True,
                 "retryMode": "same_key",
                 "leaseUntil": None,
+                "serverTime": shanghai_now(),
                 "result": None,
                 "error": None,
             }
-        self._expire_if_needed(run)
+        if operation == "parse":
+            self._expire_project_run_if_needed(run, project_id)
+        else:
+            self._expire_if_needed(run)
         status = run.status
+        server_time = shanghai_now()
         await self.repo.session.commit()
         return {
             "runId": str(run.id),
@@ -246,6 +282,7 @@ class RunService:
             "retryable": status == "failed",
             "retryMode": "new_key" if status == "failed" else None,
             "leaseUntil": run.lease_until,
+            "serverTime": server_time,
             "result": run.result or None,
             "error": run.error,
         }
@@ -313,7 +350,33 @@ class RunService:
             conversation = await self.conversation_repo.conversation(
                 user_id, run.conversation_id, lock=True
             )
-        self._expire_if_needed(run, conversation)
+        if run.operation == "parse":
+            self._expire_project_run_if_needed(run, run.project_id)
+        else:
+            self._expire_if_needed(run, conversation)
         result = self.view(run)
         await self.repo.session.commit()
         return result
+
+
+async def cleanup_stale_parse_runs(session_factory) -> int:
+    """释放已无法继续的文件解析租约。"""
+    async with session_factory() as session:
+        count = await RunRepository(session).expire_stale_parse_runs(
+            shanghai_now_naive()
+        )
+        await session.commit()
+        return count
+
+
+async def watch_stale_parse_runs(session_factory, interval_seconds: int = 30) -> None:
+    """定期收敛过期解析运行，避免恢复状态依赖前端请求。"""
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            released = await cleanup_stale_parse_runs(session_factory)
+        except Exception:
+            logger.exception("文件解析过期租约定期清理失败")
+        else:
+            if released:
+                logger.info("文件解析过期租约已释放 count=%s", released)

@@ -1,6 +1,6 @@
 """RunRepository 仅执行数据库操作，不调用其他仓储或外部服务。"""
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 
 from .._persistence import ChatRepositoryBase
 from .models import AgentRun
@@ -35,8 +35,8 @@ class RunRepository(ChatRepositoryBase):
             statement = statement.with_for_update()
         return await self.session.scalar(statement)
 
-    async def renew_lease(self, user_id, run_id, deadline):
-        """仅续租仍在运行且仍持有项目作用域的任务。"""
+    async def renew_lease(self, user_id, run_id, current, deadline):
+        """仅续租仍在运行、未过期且持有项目作用域的任务。"""
         result = await self.session.execute(
             update(AgentRun)
             .where(
@@ -44,7 +44,31 @@ class RunRepository(ChatRepositoryBase):
                 AgentRun.id == run_id,
                 AgentRun.status == "running",
                 AgentRun.active_scope_key.is_not(None),
+                AgentRun.lease_until.is_not(None),
+                AgentRun.lease_until >= current,
             )
             .values(lease_until=deadline)
         )
         return result.rowcount == 1
+
+    async def expire_stale_parse_runs(self, current):
+        """原子收敛启动时已过期或缺少租约信息的文件解析运行。"""
+        result = await self.session.execute(
+            update(AgentRun)
+            .where(
+                AgentRun.operation == "parse",
+                AgentRun.status == "running",
+                or_(
+                    AgentRun.lease_until.is_(None),
+                    AgentRun.active_scope_key.is_(None),
+                    AgentRun.lease_until <= current,
+                ),
+            )
+            .values(
+                status="failed",
+                error="文件解析运行租约已失效，后端已自动释放",
+                active_scope_key=None,
+                lease_until=None,
+            )
+        )
+        return result.rowcount

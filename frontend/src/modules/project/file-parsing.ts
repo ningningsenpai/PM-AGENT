@@ -1,6 +1,10 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { listProjectFiles, recoverProjectFileParsing, requestProjectFileParsing } from './api'
-import type { ProjectFileParseResult, ProjectFileResponse } from './types'
+import type {
+  ProjectFileParseRecovery,
+  ProjectFileParseResult,
+  ProjectFileResponse,
+} from './types'
 import { RequestError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { errorMessage } from '@/shared/utils/format'
@@ -12,10 +16,14 @@ interface PendingParseRequest {
   startedAt: string
 }
 
+const RECOVERY_POLL_INTERVAL = 5000
+const TIME_WITH_OFFSET = /(Z|[+-]\d{2}:\d{2})$/i
+
 export function useFileParsing(projectId: string, onFiles: (files: ProjectFileResponse[]) => void) {
   const userId = useAuthStore().user?.id
   const storageKey = `pm-file-parse:${userId || 'unknown'}:${projectId}`
   const busy = ref(false)
+  const recovering = ref(false)
   const phase = ref<ParsePhase>('idle')
   const total = ref(0)
   const completed = ref(0)
@@ -23,6 +31,9 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
   const progressError = ref('')
   const result = ref<ProjectFileParseResult | null>(null)
   const pending = ref<PendingParseRequest | null>(null)
+  const leaseUntil = ref<string | null>(null)
+  const serverTime = ref<string | null>(null)
+  const lastFileIds = ref<number[] | null>(null)
   try {
     const raw = sessionStorage.getItem(storageKey)
     if (raw) {
@@ -31,7 +42,12 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
         && (value.fileIds === null || (Array.isArray(value.fileIds)
           && value.fileIds.every((item: unknown) => typeof item === 'number'
             && Number.isSafeInteger(item))))) {
-        pending.value = value
+        pending.value = {
+          key: value.key,
+          fileIds: value.fileIds,
+          startedAt: typeof value.startedAt === 'string' ? value.startedAt : '',
+        }
+        lastFileIds.value = value.fileIds
       }
     }
   } catch {
@@ -39,6 +55,8 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
   }
   const hasPending = computed(() => Boolean(pending.value))
   const pendingFileIds = computed(() => pending.value?.fileIds ?? undefined)
+  const pendingStartedAt = computed(() => pending.value?.startedAt || null)
+  const retryFileIds = computed(() => lastFileIds.value ?? undefined)
   const percentage = computed(() => phase.value === 'finished'
     ? 100
     : total.value ? Math.min(100, Math.floor(completed.value / total.value * 100)) : 0)
@@ -59,7 +77,7 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
   })
 
   function reset() {
-    if (busy.value) return false
+    if (busy.value || recovering.value) return false
     generation++
     stopPolling()
     phase.value = 'idle'
@@ -81,6 +99,7 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
 
   function prepareRequest(fileIds?: number[]) {
     const normalized = normalizeFileIds(fileIds)
+    lastFileIds.value = normalized
     if (pending.value) {
       if (!sameSelection(pending.value.fileIds, normalized)) {
         throw new Error('上一次解析结果尚未确认，请先恢复原批次')
@@ -103,6 +122,8 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
 
   function clearPending() {
     pending.value = null
+    leaseUntil.value = null
+    serverTime.value = null
     try {
       sessionStorage.removeItem(storageKey)
     } catch {
@@ -119,64 +140,121 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
     clearPending()
   }
 
-  async function waitForRecovery(current: number) {
+  async function waitForRecovery(current: number, delay: number) {
     await new Promise<void>((resolve) => {
-      timer = setTimeout(resolve, 2000)
+      timer = setTimeout(resolve, delay)
     })
     return active && current === generation
   }
 
-  async function resolvePending(current: number, allowAbsentResend: boolean) {
+  function recoveryDelay(recovery: ProjectFileParseRecovery) {
+    if (!recovery.serverTime || !recovery.leaseUntil
+      || !TIME_WITH_OFFSET.test(recovery.serverTime)
+      || !TIME_WITH_OFFSET.test(recovery.leaseUntil)) return null
+    const current = Date.parse(recovery.serverTime)
+    const deadline = Date.parse(recovery.leaseUntil)
+    if (!Number.isFinite(current) || !Number.isFinite(deadline)) return null
+    return deadline - current
+  }
+
+  function pauseRecovery(message: string) {
+    phase.value = 'error'
+    error.value = message
+  }
+
+  async function resolvePending(
+    current: number,
+    allowAbsentResend: boolean,
+    continuePolling = true,
+  ) {
+    if (recovering.value) return
+    recovering.value = true
     const isCurrent = () => active && current === generation
     let resent = false
-    while (isCurrent() && pending.value) {
-      let recovery
-      try {
-        recovery = await recoverProjectFileParsing(projectId, pending.value.key)
-      } catch (recoveryError) {
-        phase.value = 'error'
-        error.value = `暂时无法确认原解析结果：${errorMessage(recoveryError)}。恢复信息已保留。`
-        return
-      }
-      if (!isCurrent()) return
-      if (recovery.status === 'success' && recovery.result) {
-        finish(recovery.result)
-        return
-      }
-      if (recovery.status === 'failed') {
-        if (recovery.result) result.value = recovery.result
-        phase.value = 'error'
-        error.value = `${recovery.error || '本次解析未成功完成'}；可以立即重试，重试将生成新的幂等键。`
-        clearPending()
-        return
-      }
-      if (recovery.status === 'running') {
-        phase.value = 'parsing'
-        if (!await waitForRecovery(current)) return
-        continue
-      }
-      if (recovery.status === 'absent' && allowAbsentResend && !resent) {
-        resent = true
+    let invalidRunningResponses = 0
+    try {
+      while (isCurrent() && pending.value) {
+        let recovery: ProjectFileParseRecovery
         try {
-          const data = await requestProjectFileParsing(
-            projectId,
-            pending.value.fileIds ?? undefined,
-            pending.value.key,
-          )
-          if (isCurrent()) finish(data)
+          recovery = await recoverProjectFileParsing(projectId, pending.value.key)
+        } catch (recoveryError) {
+          pauseRecovery(`暂时无法确认原解析结果：${errorMessage(recoveryError)}。恢复信息已保留，可稍后继续确认。`)
           return
-        } catch (resendError) {
-          if (resendError instanceof RequestError && resendError.uncertain) continue
+        }
+        if (!isCurrent()) return
+        serverTime.value = recovery.serverTime
+        leaseUntil.value = recovery.leaseUntil
+        if (recovery.status === 'success') {
+          if (recovery.retryable || recovery.retryMode !== null || !recovery.result) {
+            pauseRecovery('后端返回的成功恢复状态不完整。恢复信息已保留，请稍后重新确认。')
+            return
+          }
+          finish(recovery.result)
+          return
+        }
+        if (recovery.status === 'failed') {
+          if (!recovery.retryable || recovery.retryMode !== 'new_key') {
+            pauseRecovery('后端返回的失败恢复状态不完整，已保留原幂等键，请稍后重新确认。')
+            return
+          }
+          if (recovery.result) result.value = recovery.result
+          lastFileIds.value = pending.value.fileIds
           phase.value = 'error'
-          error.value = errorMessage(resendError)
+          error.value = `${recovery.error || '本次解析未成功完成'}；可以立即重试，重试将生成新的幂等键。`
           clearPending()
           return
         }
+        if (recovery.status === 'running') {
+          phase.value = 'parsing'
+          const remaining = recoveryDelay(recovery)
+          if (recovery.retryable || recovery.retryMode !== null
+            || remaining === null || remaining <= 0) {
+            invalidRunningResponses++
+            if (invalidRunningResponses === 1) continue
+            pauseRecovery('后端连续返回无效或已过期的运行租约，已停止自动查询。原幂等键仍已保留，请稍后重新确认。')
+            return
+          }
+          invalidRunningResponses = 0
+          if (!continuePolling) return
+          if (!await waitForRecovery(
+            current,
+            Math.min(RECOVERY_POLL_INTERVAL, remaining),
+          )) return
+          continue
+        }
+        if (recovery.status === 'absent'
+          && recovery.retryable
+          && recovery.retryMode === 'same_key'
+          && allowAbsentResend
+          && !resent) {
+          resent = true
+          busy.value = true
+          try {
+            const data = await requestProjectFileParsing(
+              projectId,
+              pending.value.fileIds ?? undefined,
+              pending.value.key,
+            )
+            if (isCurrent()) finish(data)
+            return
+          } catch (resendError) {
+            if (resendError instanceof RequestError
+              && (resendError.uncertain || resendError.code === 10003)) continue
+            pauseRecovery(`补发原解析请求未成功：${errorMessage(resendError)}。恢复信息已保留。`)
+            return
+          } finally {
+            busy.value = false
+          }
+        }
+        if (recovery.status === 'absent' && resent) {
+          pauseRecovery('原解析请求补发后仍未在后端建立运行，已停止自动补发。原幂等键已保留，可稍后重新确认。')
+          return
+        }
+        pauseRecovery('后端返回的解析恢复状态不符合约定，原幂等键已保留，请稍后重新确认。')
+        return
       }
-      phase.value = 'error'
-      error.value = '原请求未在后端创建，可以重新点击解析。'
-      clearPending()
-      return
+    } finally {
+      recovering.value = false
     }
   }
 
@@ -237,6 +315,7 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
       if (!isCurrent()) return
       stopPolling()
       if (e instanceof RequestError && (e.uncertain || e.code === 10003)) {
+        busy.value = false
         await resolvePending(current, true)
       } else {
         phase.value = 'error'
@@ -249,20 +328,30 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
   }
 
   async function recover() {
-    if (busy.value || !active || !pending.value) return
-    busy.value = true
+    if (busy.value || recovering.value || !active || !pending.value) return
     phase.value = 'preparing'
     error.value = ''
     const current = ++generation
-    try {
-      await resolvePending(current, true)
-    } finally {
-      if (active && current === generation) busy.value = false
-    }
+    await resolvePending(current, true)
+  }
+
+  async function recoverOnce() {
+    if (busy.value || recovering.value || !active || !pending.value) return
+    phase.value = 'preparing'
+    error.value = ''
+    const current = ++generation
+    await resolvePending(current, true, false)
+  }
+
+  if (pending.value) {
+    queueMicrotask(() => {
+      if (active && pending.value) void recover()
+    })
   }
 
   return {
     busy,
+    recovering,
     phase,
     total,
     completed,
@@ -272,8 +361,13 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
     result,
     hasPending,
     pendingFileIds,
+    pendingStartedAt,
+    retryFileIds,
+    leaseUntil,
+    serverTime,
     reset,
     start,
     recover,
+    recoverOnce,
   }
 }

@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest import TestCase
 from unittest.mock import Mock, call
 
+from app.infrastructure.database.schema_version import EXPECTED_DATABASE_REVISION
+
 
 def _load_revision():
     revision_path = (
@@ -37,6 +39,7 @@ class DropLegacyContextTablesRevisionTest(TestCase):
             revision.op.drop_table.call_args_list,
         )
         self.assertEqual("20260910_01", revision.down_revision)
+        self.assertEqual(revision.revision, EXPECTED_DATABASE_REVISION)
 
     def test_downgrade_restores_tables_and_indexes(self) -> None:
         revision = _load_revision()

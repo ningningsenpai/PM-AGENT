@@ -208,7 +208,7 @@ test('定向重试传递数字文件 ID、force 参数及独立解析超时', as
     assert.equal(config.params.force, true)
     assert.deepEqual(JSON.parse(config.data), { fileIds: [85, 86] })
     assert.equal(config.headers.get('X-Idempotency-Key'), 'parse-once')
-    assert.equal(config.timeout, 0)
+    assert.equal(config.timeout, 120000)
     return response(config, { status: 'partial' })
   }
   assert.equal(
@@ -447,7 +447,7 @@ test('无候选文件仍等待上下文更新，确认失败后解除锁定且�
   http.defaults.adapter = async config => {
     if (config.method === 'get') return response(config, [])
     if (config.url?.endsWith('/parse/recover')) {
-      return response(config, { runId: 'failed-run', status: 'failed', retryable: true, retryMode: 'new_key', leaseUntil: null, result: null, error: '解析失败' })
+      return response(config, { runId: 'failed-run', status: 'failed', retryable: true, retryMode: 'new_key', leaseUntil: null, serverTime: '2026-09-10T14:00:00+08:00', result: null, error: '解析失败' })
     }
     parsePosts++
     return new Promise((_resolve, reject) => { rejectParse = reject })
@@ -479,7 +479,7 @@ test('解析结果不确定且后端无记录时以原幂等键补发一次，�
     if (config.method === 'get') return response(config, [])
     if (config.url?.endsWith('/parse/recover')) {
       assert.equal(config.headers.get('X-Idempotency-Key'), keys[0])
-      return response(config, { runId: null, status: 'absent', retryable: true, retryMode: 'same_key', leaseUntil: null, result: null, error: null })
+      return response(config, { runId: null, status: 'absent', retryable: true, retryMode: 'same_key', leaseUntil: null, serverTime: '2026-09-10T14:00:00+08:00', result: null, error: null })
     }
     keys.push(config.headers.get('X-Idempotency-Key') as string)
     if (++attempts === 1) throw new Error('连接中断')
@@ -493,6 +493,133 @@ test('解析结果不确定且后端无记录时以原幂等键补发一次，�
     assert.equal(parsing.phase.value, 'finished')
     assert.equal(parsing.hasPending.value, false)
     assert.equal((sessionStorage as unknown as MemoryStorage).map.size, 0)
+  } finally { scope.stop() }
+})
+
+test('解析请求超时后按服务端租约轮询，失败后解锁并使用新键重试', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const scope = effectScope()
+  let recoveries = 0
+  const keys: string[] = []
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') return response(config, [])
+    if (config.url?.endsWith('/parse/recover')) {
+      recoveries++
+      if (recoveries === 1) {
+        return response(config, {
+          runId: 'running-run', status: 'running', retryable: false, retryMode: null,
+          serverTime: '2026-09-10T10:00:00+08:00', leaseUntil: '2026-09-10T10:00:10+08:00',
+          result: null, error: null,
+        })
+      }
+      return response(config, {
+        runId: 'failed-run', status: 'failed', retryable: true, retryMode: 'new_key',
+        serverTime: '2026-09-10T10:00:05+08:00', leaseUntil: null,
+        result: null, error: '运行租约已过期',
+      })
+    }
+    keys.push(config.headers.get('X-Idempotency-Key') as string)
+    if (keys.length === 1) throw Object.assign(new Error('请求超时'), { code: 'ECONNABORTED' })
+    return response(config, parseResult({ candidateCount: 0, successCount: 0 }))
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    const pending = parsing.start()
+    await settleRequests()
+    assert.equal(parsing.busy.value, false)
+    assert.equal(parsing.recovering.value, true)
+    assert.equal(parsing.leaseUntil.value, '2026-09-10T10:00:10+08:00')
+    t.mock.timers.tick(4999)
+    await settleRequests()
+    assert.equal(recoveries, 1)
+    t.mock.timers.tick(1)
+    await pending
+    assert.equal(recoveries, 2)
+    assert.equal(parsing.recovering.value, false)
+    assert.equal(parsing.hasPending.value, false)
+    assert.match(parsing.error.value, /立即重试/)
+
+    assert.equal(parsing.reset(), true)
+    await parsing.start()
+    assert.equal(keys.length, 2)
+    assert.notEqual(keys[0], keys[1])
+  } finally { scope.stop() }
+})
+
+test('连续两次无效 running 租约会停止轮询并保留原幂等键', async () => {
+  const scope = effectScope()
+  let recoveries = 0
+  http.defaults.adapter = async config => {
+    if (config.method === 'get') return response(config, [])
+    if (config.url?.endsWith('/parse/recover')) {
+      recoveries++
+      return response(config, {
+        runId: 'broken-run', status: 'running', retryable: false, retryMode: null,
+        serverTime: '2026-09-10T10:00:01+08:00', leaseUntil: '2026-09-10T10:00:00+08:00',
+        result: null, error: null,
+      })
+    }
+    throw new Error('连接中断')
+  }
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    await parsing.start()
+    assert.equal(recoveries, 2)
+    assert.equal(parsing.recovering.value, false)
+    assert.equal(parsing.busy.value, false)
+    assert.equal(parsing.hasPending.value, true)
+    assert.match(parsing.error.value, /已停止自动查询/)
+  } finally { scope.stop() }
+})
+
+test('页面重新进入时自动恢复未确认请求，恢复接口断网不锁定页面', async () => {
+  const userId = useAuthStore().user!.id
+  sessionStorage.setItem(`pm-file-parse:${userId}:${id}`, JSON.stringify({
+    key: 'stored-key', fileIds: [7], startedAt: '2026-09-10T09:59:00+08:00',
+  }))
+  let recoveries = 0
+  http.defaults.adapter = async config => {
+    assert.ok(config.url?.endsWith('/parse/recover'))
+    recoveries++
+    throw new Error('恢复网络不可用')
+  }
+  const scope = effectScope()
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    await settleRequests()
+    assert.equal(recoveries, 1)
+    assert.equal(parsing.busy.value, false)
+    assert.equal(parsing.recovering.value, false)
+    assert.equal(parsing.hasPending.value, true)
+    assert.deepEqual(parsing.pendingFileIds.value, [7])
+    assert.match(parsing.error.value, /恢复信息已保留/)
+  } finally { scope.stop() }
+})
+
+test('刷新列表可单次确认待恢复运行，running 状态不启动持续轮询', async () => {
+  const userId = useAuthStore().user!.id
+  sessionStorage.setItem(`pm-file-parse:${userId}:${id}`, JSON.stringify({
+    key: 'refresh-recover-key', fileIds: null, startedAt: '2026-09-10T10:00:00+08:00',
+  }))
+  let recoveries = 0
+  http.defaults.adapter = async config => {
+    assert.ok(config.url?.endsWith('/parse/recover'))
+    recoveries++
+    return response(config, {
+      runId: 'refresh-running', status: 'running', retryable: false, retryMode: null,
+      serverTime: '2026-09-10T10:00:00+08:00', leaseUntil: '2026-09-10T10:02:00+08:00',
+      result: null, error: null,
+    })
+  }
+  const scope = effectScope()
+  const parsing = scope.run(() => useFileParsing(id, () => {}))!
+  try {
+    await parsing.recoverOnce()
+    await settleRequests()
+    assert.equal(recoveries, 1)
+    assert.equal(parsing.recovering.value, false)
+    assert.equal(parsing.hasPending.value, true)
+    assert.equal(parsing.phase.value, 'parsing')
   } finally { scope.stop() }
 })
 

@@ -49,5 +49,6 @@ class ProjectFileParseRecovery(AnalysisResponseSchema):
     retryable: bool
     retry_mode: Literal["same_key", "new_key"] | None
     lease_until: ShanghaiDateTime | None
+    server_time: ShanghaiDateTime
     result: ProjectFileAnalysisBatchResult | None
     error: str | None

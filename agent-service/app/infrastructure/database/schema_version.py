@@ -3,7 +3,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-EXPECTED_DATABASE_REVISION = "20260910_01"
+EXPECTED_DATABASE_REVISION = "20260910_02"
 
 
 async def verify_database_revision(engine: AsyncEngine) -> None:
@@ -19,7 +19,7 @@ async def verify_database_revision(engine: AsyncEngine) -> None:
         ) from exception
     if revision != EXPECTED_DATABASE_REVISION:
         raise RuntimeError(
-            "数据库结构版本落后于当前代码："
+            "数据库结构版本与当前代码不一致："
             f"当前={revision or '未知'}，要求={EXPECTED_DATABASE_REVISION}；"
             "请先执行 python -m alembic upgrade head"
         )

@@ -187,19 +187,26 @@ export async function requestProjectFileParsing(
     params: { force: Boolean(fileIds?.length) },
     data: fileIds?.length ? { fileIds } : undefined,
     headers: { 'X-Idempotency-Key': idempotencyKey },
-    // 文件解析包含串行模型调用，单次模型超时由服务端配置控制。
-    timeout: 0,
+    // 传输超时只转入原幂等键恢复，不代表服务端解析已停止。
+    timeout: 2 * 60 * 1000,
   })
 }
 
 export async function recoverProjectFileParsing(projectId: string, idempotencyKey: string) {
   if (useMock) {
+    const serverTime = new Intl.DateTimeFormat('sv-SE', {
+      dateStyle: 'short',
+      timeStyle: 'medium',
+      hour12: false,
+      timeZone: 'Asia/Shanghai',
+    }).format(new Date()).replace(' ', 'T') + '+08:00'
     return {
       runId: null,
       status: 'absent',
       retryable: true,
       retryMode: 'same_key',
       leaseUntil: null,
+      serverTime,
       result: null,
       error: null,
     } satisfies ProjectFileParseRecovery

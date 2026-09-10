@@ -8,7 +8,7 @@
         </p>
       </div>
       <n-space
-        ><n-button :loading="loading" :disabled="busy || disabled" @click="load"
+        ><n-button :loading="loading" :disabled="busy || disabled" @click="refresh"
           >刷新列表</n-button
         ><n-button
           :disabled="busy || hasPending || showParse || loading || disabled || !selected.length"
@@ -24,10 +24,32 @@
       >
     </div>
     <RequestError :message="error" />
-    <n-alert v-if="hasPending && !busy" type="warning" title="存在待确认的解析批次">
-      上一次解析请求的结果尚未确认，请使用原幂等键恢复，避免重复调用模型。
+    <n-alert
+      v-if="hasPending && !busy"
+      :type="recovering ? 'info' : 'warning'"
+      :title="recovering ? '正在确认上次解析批次' : '存在待确认的解析批次'"
+    >
+      {{ recovering
+        ? '后端仍在处理时每 5 秒确认一次；可以离开本页，返回后会自动恢复。'
+        : (parseError || '上一次解析请求的结果尚未确认，请使用原幂等键恢复，避免重复调用模型。') }}
+      <p v-if="pendingStartedAt" class="muted">发起时间：{{ formatDate(pendingStartedAt) }}</p>
+      <p v-if="leaseUntil" class="muted">当前租约截止：{{ formatDate(leaseUntil) }}</p>
       <template #action>
-        <n-button size="small" @click="resumeParsing">恢复上次解析</n-button>
+        <n-button size="small" :loading="recovering" :disabled="recovering || loading" @click="resumeParsing">
+          {{ recovering ? '正在自动确认' : '重新确认' }}
+        </n-button>
+      </template>
+    </n-alert>
+    <n-alert
+      v-if="phase === 'error' && parseError && !hasPending && !showParse"
+      type="error"
+      title="解析未成功"
+    >
+      {{ parseError }}
+      <template #action>
+        <n-button size="small" type="warning" :disabled="busy || disabled" @click="retryRecoveredParsing">
+          立即重试
+        </n-button>
       </template>
     </n-alert>
     <n-alert v-if="busy" type="info"
@@ -153,7 +175,7 @@ import {
 import type { ProjectFileResponse } from '../types'
 import { useFileParsing } from '../file-parsing'
 import RequestError from '@/shared/components/request-error.vue'
-import { errorMessage } from '@/shared/utils/format'
+import { errorMessage, formatDate } from '@/shared/utils/format'
 const props = defineProps<{
   projectId: string
   revision?: number
@@ -171,6 +193,7 @@ const parseIds = ref<number[]>()
 const parsing = useFileParsing(props.projectId, updateFiles)
 const {
   busy,
+  recovering,
   phase,
   total,
   completed,
@@ -180,7 +203,11 @@ const {
   progressError,
   hasPending,
   pendingFileIds,
+  pendingStartedAt,
+  retryFileIds,
+  leaseUntil,
   recover,
+  recoverOnce,
 } = parsing
 const parseHasFailures = computed(() => Boolean(result.value && (result.value.status === 'partial'
   || result.value.failureCount || result.value.indexStatus === 'failed' || result.value.specificationStatus === 'failed')))
@@ -192,7 +219,7 @@ const parseStage = computed(() => ({
   parsing: '正在解析文件',
   publishing: '正在等待项目规范与索引更新',
   finished: parseHasFailures.value ? '解析结束，部分未成功' : '解析完成',
-  error: hasPending.value ? '正在核对原解析结果' : '解析未成功，可立即重试',
+  error: hasPending.value ? '恢复已暂停，可稍后重新确认' : '解析未成功，可立即重试',
 })[phase.value])
 const showRead = ref(false)
 const readUrl = ref('')
@@ -205,9 +232,15 @@ onScopeDispose(() => {
   generation++
 })
 watch(
-  () => busy.value || hasPending.value,
+  () => busy.value,
   (value) => emit('busy', value),
   { flush: 'sync', immediate: true },
+)
+watch(
+  () => recovering.value,
+  (value, previous) => {
+    if (previous && !value && active) void load()
+  },
 )
 function guard() {
   if (busy.value) {
@@ -305,6 +338,13 @@ async function load() {
     if (active && current === generation) loading.value = false
   }
 }
+async function refresh() {
+  if (busy.value || loading.value || props.disabled) return
+  if (hasPending.value && !recovering.value) {
+    await recoverOnce()
+  }
+  if (active) await load()
+}
 function updateFiles(data: ProjectFileResponse[]) {
   files.value = data
   selected.value = selected.value.filter((id) => data.some((file) => file.id === id))
@@ -326,7 +366,7 @@ function parse(targeted: boolean) {
   showParse.value = true
 }
 async function resumeParsing() {
-  if (busy.value || showParse.value || loading.value || props.disabled) return
+  if (busy.value || recovering.value || showParse.value || loading.value || props.disabled) return
   if (!parsing.reset()) return
   parseIds.value = pendingFileIds.value ? [...pendingFileIds.value] : undefined
   showParse.value = true
@@ -334,6 +374,13 @@ async function resumeParsing() {
   if (!active) return
   await load()
   if (parseError.value) error.value = parseError.value
+}
+async function retryRecoveredParsing() {
+  if (busy.value || recovering.value || hasPending.value || props.disabled) return
+  if (!parsing.reset()) return
+  parseIds.value = retryFileIds.value ? [...retryFileIds.value] : undefined
+  showParse.value = true
+  await startParsing()
 }
 async function startParsing() {
   if (!showParse.value || busy.value || props.disabled || phase.value !== 'idle') return

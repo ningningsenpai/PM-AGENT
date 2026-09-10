@@ -157,6 +157,7 @@ export interface ProjectFileParseRecovery {
   retryable: boolean
   retryMode: 'same_key' | 'new_key' | null
   leaseUntil: string | null
+  serverTime: string
   result: ProjectFileParseResult | null
   error: string | null
 }
