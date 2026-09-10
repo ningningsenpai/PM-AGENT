@@ -8,9 +8,10 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
+
+from app.core.time import shanghai_now
 
 _events: ContextVar[list | None] = ContextVar("llm_events", default=None)
 
@@ -119,7 +120,7 @@ class ModelCall:
         self.event = {
             "type": "model",
             "callId": self.id,
-            "startedAt": datetime.now(UTC).isoformat(),
+            "startedAt": shanghai_now().isoformat(),
             "request": safe_payload(body),
             "status": "running",
             "reservedCny": self.reserved,

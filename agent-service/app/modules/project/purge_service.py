@@ -5,9 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime
 
 from app.core.logger import get_logger
+from app.core.time import shanghai_now_naive
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
 from app.modules.project.repository import ProjectRepository
 
@@ -39,7 +39,7 @@ class ProjectPurgeService:
         self._locations = locations
 
     async def run_once(self) -> ProjectPurgeSummary:
-        now = datetime.now()  # noqa: DTZ005
+        now = shanghai_now_naive()
         projects = await self._repository.list_purge_due(now)
         await self._repository.session.commit()
         summary = ProjectPurgeSummary(scanned=len(projects))

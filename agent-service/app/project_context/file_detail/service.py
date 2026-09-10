@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from pydantic import ValidationError
 
 from app.core.logger import get_logger
+from app.core.time import shanghai_now
 from app.llm.prompts.project_context import ProjectFileDetailPrompt
 from app.llm.structured import (
     StructuredJsonGenerator,
@@ -153,7 +153,7 @@ class FileSemanticAnalysisService:
             )
             return self._failed(request, "文件语义分析失败")
 
-        now = datetime.now()
+        now = shanghai_now()
         semantic_fields = semantic_output.model_dump()
         for field in ("content_slices", "project_facts"):
             for item in semantic_fields[field]:

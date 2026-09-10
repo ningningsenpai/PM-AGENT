@@ -1,11 +1,11 @@
 """显式学习的模型候选输出，不等同于已确认的上下文。"""
 
-from datetime import datetime
 from typing import Literal
 
 from pydantic import Field, model_validator
 
 from app.core.schemas import Schema
+from app.core.time import ShanghaiDateTime
 
 from ..context.schemas import EntryKind
 
@@ -40,7 +40,7 @@ class LearnedCandidate(Schema):
     invalidate: bool = False
     aliases: list[str] = Field(default_factory=list, max_length=20)
     canonical: str | None = Field(default=None, max_length=200)
-    expires_at: datetime | None = None
+    expires_at: ShanghaiDateTime | None = None
     conditions: list[str] = Field(default_factory=list, max_length=20)
     related_entry_ids: list[str] = Field(default_factory=list, max_length=30)
     coexist_reason: str | None = Field(default=None, max_length=1000)

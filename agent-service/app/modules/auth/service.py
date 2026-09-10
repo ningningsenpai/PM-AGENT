@@ -1,16 +1,17 @@
 """注册、登录与注销编排。"""
-from __future__ import annotations
 
-from datetime import datetime
+from __future__ import annotations
 
 from app.core.logger import get_logger
 from app.core.security import AuthPrincipal, JwtManager
+from app.core.time import shanghai_now_naive
 from app.infrastructure.redis import SessionStore
 from app.modules.auth.schemas import LoginRequest, LoginResponse, RegisterRequest
 from app.modules.user.schemas import to_profile
 from app.modules.user.service import UserService
 
 logger = get_logger(__name__)
+
 
 class AuthService:
     def __init__(
@@ -29,7 +30,7 @@ class AuthService:
             request.username,
             request.email,
             request.password,
-            datetime.now(),
+            shanghai_now_naive(),
         )
         logger.info("用户注册成功：%s， 用户ID：%s", user.id, user.email)
         return await self._create_login_response(user)

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal
 
 from pydantic import ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app.core.schemas import Schema
+from app.core.time import ShanghaiDateTime
 
 __all__ = [
     "ProjectFileAnalysisBatchResult",
@@ -48,6 +48,6 @@ class ProjectFileParseRecovery(AnalysisResponseSchema):
     status: Literal["absent", "running", "success", "failed"]
     retryable: bool
     retry_mode: Literal["same_key", "new_key"] | None
-    lease_until: datetime | None
+    lease_until: ShanghaiDateTime | None
     result: ProjectFileAnalysisBatchResult | None
     error: str | None

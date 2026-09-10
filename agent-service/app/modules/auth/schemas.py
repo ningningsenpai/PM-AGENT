@@ -1,17 +1,19 @@
 """认证请求与响应模型。"""
+
 from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
+from app.core.schemas import Schema
 from app.modules.user.schemas import UserProfileResponse
 
 _EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
-class AuthSchema(BaseModel):
+class AuthSchema(Schema):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 

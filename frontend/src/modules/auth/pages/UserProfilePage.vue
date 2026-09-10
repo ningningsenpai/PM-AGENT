@@ -21,7 +21,7 @@
         <n-descriptions class="profile-details" label-placement="left" :column="1">
           <n-descriptions-item label="用户 ID">{{ authStore.user?.id ?? '-' }}</n-descriptions-item>
           <n-descriptions-item label="最近登录（服务端时间）">
-            {{ formatLoginTime(authStore.user?.lastLoginAt) }}
+            {{ formatDate(authStore.user?.lastLoginAt) }}
           </n-descriptions-item>
         </n-descriptions>
       </n-card>
@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatLoginTime } from '@/shared/utils/format'
+import { formatDate } from '@/shared/utils/format'
 import AccountSecurity from './account-security.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { computed, reactive, ref, watch } from 'vue'

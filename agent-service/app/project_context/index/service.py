@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 import json
 from typing import Any, Iterable
 
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
+from app.core.time import shanghai_now
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
 from app.project_context.index.schemas import (
     ProjectIndexDocument,
@@ -112,7 +112,7 @@ class ProjectIndexService:
             owner_user_id=project.owner_user_id,
             schema_version=self.SCHEMA_VERSION,
             generated_at=project.created_at,
-            updated_at=datetime.now(),
+            updated_at=shanghai_now(),
             storage=ProjectIndexStorage(
                 provider="minio",
                 bucket=prefix.bucket,

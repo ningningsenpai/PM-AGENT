@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.identifiers import SnowflakeId
+from app.core.schemas import Schema
+from app.core.time import ShanghaiDateTime
 
 __all__ = [
     "FileDetail",
@@ -20,7 +21,7 @@ Keyword = Annotated[str, Field(min_length=1, max_length=128)]
 EvidenceText = Annotated[str, Field(min_length=1, max_length=500)]
 
 
-class FileSemanticAnalysisRequest(BaseModel):
+class FileSemanticAnalysisRequest(Schema):
     """文件语义分析所需的完整元数据。"""
 
     model_config = ConfigDict(
@@ -46,7 +47,7 @@ class FileSemanticAnalysisRequest(BaseModel):
     content_hash: str
 
 
-class FileRuleCandidate(BaseModel):
+class FileRuleCandidate(Schema):
     """由单文件语义分析生成、等待项目级规范确认的结构化规则候选。"""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -63,7 +64,7 @@ class FileRuleCandidate(BaseModel):
     evidence: list[EvidenceText] = Field(default_factory=list, max_length=20)
 
 
-class FileDetailSemanticOutput(BaseModel):
+class FileDetailSemanticOutput(Schema):
     """限制模型只生成文件语义，身份和控制字段由服务端补充。"""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -100,7 +101,7 @@ class FileDetailSemanticOutput(BaseModel):
         ]
 
 
-class FileDetail(BaseModel):
+class FileDetail(Schema):
     """服务端组装的完整文件详情和索引投影来源。"""
 
     model_config = ConfigDict(
@@ -112,8 +113,8 @@ class FileDetail(BaseModel):
     project_id: SnowflakeId
     file_id: int
     schema_version: str
-    generated_at: datetime
-    updated_at: datetime
+    generated_at: ShanghaiDateTime
+    updated_at: ShanghaiDateTime
     storage_uuid: str
     storage_name: str
     detail_ref: str
@@ -143,7 +144,7 @@ class FileDetail(BaseModel):
     project_facts: list[dict[str, Any]] = Field(default_factory=list)
 
 
-class FileSemanticAnalysisResult(BaseModel):
+class FileSemanticAnalysisResult(Schema):
     """文件语义分析返回的结构化结果或失败信息。"""
 
     model_config = ConfigDict(

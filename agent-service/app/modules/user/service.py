@@ -1,4 +1,5 @@
 """用户业务服务。"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,6 +10,7 @@ from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import SnowflakeIdGenerator
 from app.core.logger import get_logger
 from app.core.security import PasswordManager
+from app.core.time import shanghai_now_naive
 from app.modules.user.domain import UserStatus
 from app.modules.user.errors import email_exists, user_not_found, username_exists
 from app.modules.user.models import User
@@ -72,7 +74,7 @@ class UserService:
             raise AppException(ErrorCode.AUTH_LOGIN_FAILED)
         if user.status != UserStatus.ENABLED.value:
             raise AppException(ErrorCode.USER_DISABLED)
-        user.last_login_at = datetime.now()
+        user.last_login_at = shanghai_now_naive()
         await self._repository.session.commit()
         logger.debug(
             "用户认证完成 action=user.authenticate userId=%s",

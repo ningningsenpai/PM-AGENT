@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.identifiers import SnowflakeId
+from app.core.schemas import Schema
+from app.core.time import ShanghaiDateTime
 from app.modules.project.domain import ProjectRecordStatus
 
 
-class ProjectSchema(BaseModel):
+class ProjectSchema(Schema):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -36,8 +36,8 @@ class ProjectResponse(ProjectSchema):
     project_name: str
     status: str
     record_status: str = ProjectRecordStatus.ENABLED.value
-    created_at: datetime
-    updated_at: datetime
+    created_at: ShanghaiDateTime
+    updated_at: ShanghaiDateTime
 
 
 def to_response(project) -> ProjectResponse:

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from app.core.identifiers import SnowflakeId
+from app.core.schemas import Schema
+from app.core.time import ShanghaiDateTime
 
 
-class ProjectIndexSchema(BaseModel):
+class ProjectIndexSchema(Schema):
     model_config = ConfigDict(extra="forbid")
 
 
@@ -40,7 +40,7 @@ class ProjectIndexFileEntry(ProjectIndexSchema):
     status: str
     quick_fingerprint: str
     content_hash: str
-    updated_at: datetime
+    updated_at: ShanghaiDateTime
     detail_ref: str | None
     module: str | None
     kind: str | None
@@ -62,7 +62,7 @@ class ProjectIndexUploadFailure(ProjectIndexSchema):
     status: str
     attempts: int
     last_error_code: str | None
-    updated_at: datetime
+    updated_at: ShanghaiDateTime
 
 
 class ProjectIndexSystemReferences(ProjectIndexSchema):
@@ -81,8 +81,8 @@ class ProjectIndexDocument(ProjectIndexSchema):
     project_name: str
     owner_user_id: SnowflakeId
     schema_version: str
-    generated_at: datetime
-    updated_at: datetime
+    generated_at: ShanghaiDateTime
+    updated_at: ShanghaiDateTime
     storage: ProjectIndexStorage
     summary: ProjectIndexSummary
     project: list[ProjectIndexFileEntry] = Field(default_factory=list)

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
-
-from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
 from app.modules.project import service as project_service_module
@@ -15,6 +13,7 @@ from app.modules.project.domain import ProjectRecordStatus
 from app.modules.project.models import Project
 from app.modules.project.schemas import CreateProjectRequest
 from app.modules.project.service import ProjectService
+from sqlalchemy.exc import IntegrityError
 
 
 def _project(
@@ -386,16 +385,19 @@ class ProjectServiceTest(IsolatedAsyncioTestCase):
         project = _project()
         repository = _repository(get_by_id=AsyncMock(return_value=project))
         service = _service(repository)
-        deleted_at = datetime(2026, 9, 3, 10, 0, 0, tzinfo=UTC)
+        deleted_at = datetime(2026, 9, 3, 10, 0, 0)
 
-        with patch.object(project_service_module, "datetime") as current_datetime:
-            current_datetime.now.return_value = deleted_at
+        with patch.object(
+            project_service_module,
+            "shanghai_now_naive",
+            return_value=deleted_at,
+        ):
             await service.delete_owned(7, 12)
 
         self.assertEqual(ProjectRecordStatus.DISABLED.value, project.record_status)
         self.assertEqual(deleted_at, project.deleted_at)
         self.assertEqual(
-            datetime(2026, 10, 3, 10, 0, 0, tzinfo=UTC),
+            datetime(2026, 10, 3, 10, 0, 0),
             project.purge_after,
         )
         repository.session.commit.assert_awaited_once()

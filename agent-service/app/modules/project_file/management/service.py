@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.exc import IntegrityError
 
@@ -11,6 +11,7 @@ from app.core.config import FileConfig, StorageConfig
 from app.core.errors import AppException, ErrorCode
 from app.core.idempotency import IdempotencyGuard
 from app.core.logger import get_logger
+from app.core.time import shanghai_now, shanghai_now_naive
 from app.infrastructure.storage import (
     ObjectStorage,
     StorageLocation,
@@ -185,7 +186,7 @@ class ProjectFileService:
             file.upload_status = ProjectFileUploadStatus.FAILED.value
             file.last_error_code = exception.error.name
             file.last_error_message = exception.message[:500]
-            file.last_failed_at = datetime.now()
+            file.last_failed_at = shanghai_now_naive()
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
             logger.warning(
@@ -307,7 +308,7 @@ class ProjectFileService:
                 )
                 file.last_error_code = exception.error.name
                 file.last_error_message = exception.message[:500]
-                file.last_failed_at = datetime.now()
+                file.last_failed_at = shanghai_now_naive()
                 await self._repository.session.commit()
                 logger.warning(
                     "文件覆盖重试失败 action=project_file.overwrite "
@@ -624,7 +625,7 @@ class ProjectFileService:
             file_id=file.id,
             file_name=file.file_name,
             url=url,
-            expires_at=datetime.now()
+            expires_at=shanghai_now()
             + timedelta(seconds=self._storage_config.read_url_expiry_seconds),
         )
 

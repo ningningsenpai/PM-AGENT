@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Literal, TypeVar
 
 from pydantic import ConfigDict, Field
 
 from app.core.identifiers import SnowflakeId
 from app.core.schemas import Schema
-from app.core.time import shanghai_now
+from app.core.time import ShanghaiDateTime, shanghai_now
 
 RuleT = TypeVar("RuleT", bound="SpecificationRule")
 
@@ -32,8 +31,8 @@ class SpecificationRule(SpecificationSchema):
     status: Literal["active", "conflicted", "deprecated", "pending_review"]
     confidence: Literal["high", "medium", "low"]
     source_refs: list[SpecificationSourceRef] = Field(default_factory=list)
-    created_at: datetime
-    updated_at: datetime
+    created_at: ShanghaiDateTime
+    updated_at: ShanghaiDateTime
     previous_versions: list[dict[str, Any]] = Field(default_factory=list)
     learning_entry_id: SnowflakeId | None = None
     learning_version: int | None = Field(default=None, ge=1)
@@ -90,7 +89,7 @@ class SpecificationChange(SpecificationSchema):
     ]
     target_id: str = ""
     summary: str
-    created_at: datetime
+    created_at: ShanghaiDateTime
     before: dict[str, Any] = Field(default_factory=dict)
     after: dict[str, Any] = Field(default_factory=dict)
     reason: str = ""
@@ -110,7 +109,7 @@ class ProjectSpecificationDocument(SpecificationSchema):
 
     project_id: SnowflakeId
     schema_version: str = "1.0.0"
-    updated_at: datetime
+    updated_at: ShanghaiDateTime
     project_specification: ProjectSpecificationBody = Field(
         default_factory=ProjectSpecificationBody
     )

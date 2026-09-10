@@ -7,14 +7,15 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
-from sqlalchemy.exc import IntegrityError
-
 from app.core.errors import AppException, ErrorCode
+from app.core.time import shanghai_now
 from app.infrastructure.storage import StorageLocationFactory
-from app.modules.project_file.models import ProjectFile
 from app.modules.project_file.management import service as project_file_service_module
 from app.modules.project_file.management.schemas import UpdateProjectFilePathRequest
 from app.modules.project_file.management.service import ProjectFileService
+from app.modules.project_file.models import ProjectFile
+from sqlalchemy.exc import IntegrityError
+
 from tests.unit.modules.project_file.factories import (
     project,
     project_file,
@@ -701,7 +702,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
 
         self.assertEqual(30, result.file_id)
         self.assertEqual("https://storage.example/read", result.url)
-        self.assertGreater(result.expires_at, datetime.now())
+        self.assertGreater(result.expires_at, shanghai_now())
         storage.presigned_get.assert_called_once()
 
     async def test_create_read_url_rejects_inaccessible_file(self) -> None:

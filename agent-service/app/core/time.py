@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta, timezone
+from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from pydantic import PlainSerializer
 
 try:
     SHANGHAI_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -37,6 +40,12 @@ def shanghai_naive(value: datetime) -> datetime:
 def shanghai_iso(value: datetime) -> str:
     """输出带 +08:00 偏移的 RFC 3339 时间。"""
     return as_shanghai(value).isoformat()
+
+
+ShanghaiDateTime = Annotated[
+    datetime,
+    PlainSerializer(shanghai_iso, return_type=str, when_used="json"),
+]
 
 
 def legacy_utc_to_shanghai(value: datetime) -> datetime:

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
+from datetime import datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock
@@ -314,7 +314,7 @@ class ProjectIndexServiceTest(IsolatedAsyncioTestCase):
             list(payload["system"]),
         )
         self.assertEqual("2.0.0", payload["schema_version"])
-        self.assertEqual("2026-07-27T09:00:00", payload["generated_at"])
+        self.assertEqual("2026-07-27T09:00:00+08:00", payload["generated_at"])
         datetime.fromisoformat(payload["updated_at"])
         self.assertEqual([1], [item["id"] for item in payload["project"]])
         self.assertEqual([2], [item["id"] for item in payload["user"]])
@@ -327,10 +327,10 @@ class ProjectIndexServiceTest(IsolatedAsyncioTestCase):
             payload["project"][0]["content_hash"],
         )
         self.assertEqual(
-            "2026-07-27T10:00:00",
+            "2026-07-27T10:00:00+08:00",
             payload["project"][0]["updated_at"],
         )
         self.assertEqual(
-            "2026-07-27T10:00:00",
+            "2026-07-27T10:00:00+08:00",
             payload["upload_failures"][0]["updated_at"],
         )

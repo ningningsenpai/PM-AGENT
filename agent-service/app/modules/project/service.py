@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import SnowflakeIdGenerator
 from app.core.logger import get_logger
+from app.core.time import shanghai_now_naive
 from app.modules.chat import ChatContextInitializationService
 from app.modules.project.domain import ProjectRecordStatus, ProjectStatus
 from app.modules.project.errors import (
@@ -177,7 +178,7 @@ class ProjectService:
             project_id,
         )
         project = await self.require_owned(owner_user_id, project_id)
-        deleted_at = datetime.now()  # noqa: DTZ005
+        deleted_at = shanghai_now_naive()
         project.record_status = ProjectRecordStatus.DISABLED.value
         project.deleted_at = deleted_at
         project.purge_after = deleted_at + PROJECT_PURGE_DELAY

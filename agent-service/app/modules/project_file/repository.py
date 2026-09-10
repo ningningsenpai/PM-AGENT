@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import shanghai_now_naive
 from app.modules.project_file.models import ProjectFile
 
 
@@ -180,7 +179,7 @@ class ProjectFileRepository:
                 parse_attempts=ProjectFile.parse_attempts + 1,
                 last_error_code=error_code[:64],
                 last_error_message=error_message[:500],
-                last_failed_at=datetime.now(),
+                last_failed_at=shanghai_now_naive(),
             )
         )
         result = await self.session.execute(statement)

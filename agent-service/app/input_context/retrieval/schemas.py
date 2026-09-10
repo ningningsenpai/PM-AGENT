@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
+
+from app.core.schemas import Schema
+from app.core.time import ShanghaiDateTime
 
 RetrievalFocus = Literal[
     "auto",
@@ -27,7 +29,7 @@ RetrievalSourceType = Literal[
 ]
 
 
-class RetrievalSchema(BaseModel):
+class RetrievalSchema(Schema):
     model_config = ConfigDict(extra="forbid")
 
 
@@ -73,7 +75,7 @@ class RetrievalResult(RetrievalSchema):
 
     query: str
     normalized_terms: list[str] = Field(default_factory=list, max_length=200)
-    index_updated_at: datetime | None = None
+    index_updated_at: ShanghaiDateTime | None = None
     hits: list[RetrievalHit] = Field(default_factory=list, max_length=8)
     warnings: list[str] = Field(default_factory=list, max_length=30)
     degraded: bool = False

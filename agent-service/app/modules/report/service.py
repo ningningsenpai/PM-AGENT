@@ -8,6 +8,7 @@ import logging
 
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
+from app.core.time import shanghai_iso
 from app.llm.telemetry import capture_calls
 from app.modules.report.schemas import ReportDraft
 
@@ -36,7 +37,7 @@ def report_data(row):
         "markdown": row.markdown,
         "sourceVersions": row.source_versions,
         "evidence": row.evidence,
-        "createdAt": row.created_at.isoformat(),
+        "createdAt": shanghai_iso(row.created_at),
     }
 
 
