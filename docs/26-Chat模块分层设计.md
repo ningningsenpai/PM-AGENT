@@ -51,7 +51,7 @@ app/modules/chat/
     └── api.py                  # 原无状态问答协议
 ```
 
-学习没有独立业务表，不创建自己的 Model 和 Repository。文件初始化契约与 MySQL 学习条目分别维护，不能把初始化空文件的结构当成条目管理接口。
+学习草稿由 `agent_learning_draft` 保存工作流状态，正式内容仍由固定上下文文件承担。文件初始化契约与学习草稿分别维护，不能把初始化空文件的结构当成条目管理接口。
 
 报告拥有 `app/modules/report/schemas.py` 和 `dependencies.py`。共用的严格字段别名规则位于 `app/core/schemas.py`，结构化生成器装配位于 `app/llm/dependencies.py`。报告不会通过 Chat 获取自己的模型输出结构或服务工厂。
 
@@ -60,11 +60,11 @@ app/modules/chat/
 | 子包 | 实体表 | 数据访问 |
 |---|---|---|
 | conversation | agent_conversation、agent_message | ConversationRepository |
-| context | agent_context_scope、agent_context_entry、agent_context_change | ContextRepository |
+| context | 无业务表；正式内容位于 MinIO `system/` 固定文件 | ContextService → FixedContextStore |
 | runs | agent_run | RunRepository |
 | report | pm_report | 报告模块自己的 ReportRepository |
 
-ORM 类在各自子包中只有一份定义，由数据库 `model_registry.py` 集中导入供 Alembic 收集。表名、字段类型、索引、外键和默认值保持既有定义；本次没有数据库迁移。
+仍在使用的 ORM 类由数据库 `model_registry.py` 集中导入供 Alembic 收集。旧 Context 表已由 revision `20260910_02` 删除且不再注册；历史内容迁移完成后，运行时只读取固定上下文文件。
 
 依赖方向为 `API → Service → Repository / 基础设施`。API 不访问数据库和存储客户端；模型工具仅接收公开业务 Service。各 Repository 独立执行 SQL，不调用其他 Repository。会话消息查询通过 SQL 关联运行表取得 requestKey，不向运行仓储转发查询。
 

@@ -1,10 +1,5 @@
 """集中导入 ORM 模型，供 Alembic 收集元数据。"""
 
-from app.modules.chat.context.models import (
-    AgentContextChange,
-    AgentContextEntry,
-    AgentContextScope,
-)
 from app.modules.chat.conversation.models import AgentConversation, AgentMessage
 from app.modules.chat.learning.models import AgentLearningDraft
 from app.modules.chat.runs.models import AgentRun
@@ -14,9 +9,6 @@ from app.modules.report.models import ProjectReport
 from app.modules.user.models import User
 
 __all__ = [
-    "AgentContextChange",
-    "AgentContextEntry",
-    "AgentContextScope",
     "AgentConversation",
     "AgentLearningDraft",
     "AgentMessage",

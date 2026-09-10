@@ -12,6 +12,23 @@ from app.project_context.specification.schemas import ProjectSpecificationDocume
 
 
 class SpecificationModelOutputTest(TestCase):
+    def test_top_level_json_object_metadata_is_removed(self):
+        payload = json.loads(ProjectSpecificationDocument.empty(10).model_dump_json())
+        payload["type"] = "json_object"
+        raw = json.dumps(payload, ensure_ascii=False)
+
+        with self.assertRaises(ValidationError):
+            ProjectSpecificationDocument.model_validate_json(raw)
+        with self.assertLogs(
+            "app.project_context.specification.model_output", level="WARNING"
+        ) as logs:
+            normalized = normalize_specification_json(raw)
+
+        saved = ProjectSpecificationDocument.model_validate_json(normalized)
+        self.assertEqual(10, saved.project_id)
+        self.assertNotIn("type", json.loads(normalized))
+        self.assertIn("type:json_object->removed", "\n".join(logs.output))
+
     def test_only_rule_body_field_is_renamed_in_each_category(self):
         now = "2026-09-08T17:00:04"
         for field, expected, alias in (
@@ -79,6 +96,8 @@ class SpecificationModelOutputTest(TestCase):
             '{"project_specification": {"coding_rules": [{"text": "正文"}]}}',
             '{"project_specification": {"coding_rules": [{"rule": "正文", "constraint": "正文"}]}}',
             '{"project_specification": {"coding_rules": [{"rule": null, "constraint": "正文"}]}}',
+            '{"type": "other", "project_specification": {}}',
+            '{"unexpected": true, "project_specification": {}}',
         ):
             with self.subTest(content=content):
                 self.assertEqual(content, normalize_specification_json(content))
