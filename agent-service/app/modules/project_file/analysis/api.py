@@ -13,6 +13,7 @@ from app.core.security import AuthPrincipal, require_principal
 from app.modules.project_file.analysis.dependencies import (
     get_project_file_analysis_service,
 )
+from app.modules.project_file.analysis.schemas import ProjectFileParseRecovery
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 
 router = APIRouter()
@@ -41,3 +42,15 @@ async def initialize_project_file_analysis(
             **({"file_ids": selection.fileIds} if selection else {}),
         )
     )
+
+
+@router.post("/parse/recover", response_model=ApiResponse)
+async def recover_project_file_analysis(
+    project_id: SnowflakeId,
+    idempotency_key: Annotated[str | None, Header(alias="X-Idempotency-Key")] = None,
+    principal: AuthPrincipal = Depends(require_principal),
+    service: ProjectFileAnalysisService = Depends(get_project_file_analysis_service),
+) -> ApiResponse:
+    """按原幂等键确认解析结果，并清理已经过期的项目租约。"""
+    result = await service.recover(principal.user_id, project_id, idempotency_key)
+    return success(ProjectFileParseRecovery.model_validate(result))

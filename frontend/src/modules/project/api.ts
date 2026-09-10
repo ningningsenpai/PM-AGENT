@@ -18,6 +18,7 @@ import type {
   ProjectDetail,
   ProjectFileResponse,
   ProjectFileParseResult,
+  ProjectFileParseRecovery,
   ProjectFileSyncPlan,
   ProjectFileSyncPlanRequest,
   ProjectFileUploadResponse,
@@ -188,6 +189,26 @@ export async function requestProjectFileParsing(
     headers: { 'X-Idempotency-Key': idempotencyKey },
     // 文件解析包含串行模型调用，单次模型超时由服务端配置控制。
     timeout: 0,
+  })
+}
+
+export async function recoverProjectFileParsing(projectId: string, idempotencyKey: string) {
+  if (useMock) {
+    return {
+      runId: null,
+      status: 'absent',
+      retryable: true,
+      retryMode: 'same_key',
+      leaseUntil: null,
+      result: null,
+      error: null,
+    } satisfies ProjectFileParseRecovery
+  }
+
+  return request<ProjectFileParseRecovery>({
+    url: `/api/v1/projects/${projectId}/files/parse/recover`,
+    method: 'post',
+    headers: { 'X-Idempotency-Key': idempotencyKey },
   })
 }
 

@@ -113,6 +113,7 @@
       <template #footer>
         <n-space justify="end">
           <n-button :disabled="busy" @click="showParse = false">{{ phase === 'idle' ? '取消' : '关闭' }}</n-button>
+          <n-button v-if="phase === 'error' && !hasPending" type="warning" :loading="busy" :disabled="busy || disabled" @click="retryParsing">立即重试</n-button>
           <n-button type="primary" :loading="busy" :disabled="busy || disabled || phase !== 'idle'" @click="startParsing">开始解析</n-button>
         </n-space>
       </template>
@@ -179,6 +180,7 @@ const {
   progressError,
   hasPending,
   pendingFileIds,
+  recover,
 } = parsing
 const parseHasFailures = computed(() => Boolean(result.value && (result.value.status === 'partial'
   || result.value.failureCount || result.value.indexStatus === 'failed' || result.value.specificationStatus === 'failed')))
@@ -190,7 +192,7 @@ const parseStage = computed(() => ({
   parsing: '正在解析文件',
   publishing: '正在等待项目规范与索引更新',
   finished: parseHasFailures.value ? '解析结束，部分未成功' : '解析完成',
-  error: '解析结果待核对',
+  error: hasPending.value ? '正在核对原解析结果' : '解析未成功，可立即重试',
 })[phase.value])
 const showRead = ref(false)
 const readUrl = ref('')
@@ -323,11 +325,15 @@ function parse(targeted: boolean) {
   parseIds.value = targeted ? [...selected.value] : undefined
   showParse.value = true
 }
-function resumeParsing() {
+async function resumeParsing() {
   if (busy.value || showParse.value || loading.value || props.disabled) return
   if (!parsing.reset()) return
   parseIds.value = pendingFileIds.value ? [...pendingFileIds.value] : undefined
   showParse.value = true
+  await recover()
+  if (!active) return
+  await load()
+  if (parseError.value) error.value = parseError.value
 }
 async function startParsing() {
   if (!showParse.value || busy.value || props.disabled || phase.value !== 'idle') return
@@ -336,6 +342,11 @@ async function startParsing() {
   if (!active) return
   await load()
   if (parseError.value) error.value = parseError.value
+}
+async function retryParsing() {
+  if (busy.value || hasPending.value || props.disabled) return
+  if (!parsing.reset()) return
+  await startParsing()
 }
 async function read(file: ProjectFileResponse) {
   try {

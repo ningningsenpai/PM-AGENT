@@ -98,14 +98,15 @@ class ProjectFileAnalysisService:
             )
         run_id, events = run.id, []
         try:
-            with capture_calls(events):
-                result = await self._analyze_pending_files(
-                    user_id,
-                    project_id,
-                    run_id=run_id,
-                    force=force,
-                    file_ids=normalized_file_ids,
-                )
+            async with self._runs.keep_alive(run_id, user_id):
+                with capture_calls(events):
+                    result = await self._analyze_pending_files(
+                        user_id,
+                        project_id,
+                        run_id=run_id,
+                        force=force,
+                        file_ids=normalized_file_ids,
+                    )
             result = result.model_copy(update={"run_id": str(run_id)})
             await self._runs.finish(
                 run_id,
@@ -127,6 +128,10 @@ class ProjectFileAnalysisService:
                 run_id, user_id, events, error=f"解析运行失败：{type(exc).__name__}"
             )
             raise
+
+    async def recover(self, user_id, project_id, idempotency_key):
+        """查询原解析请求的确定状态，不触发模型调用。"""
+        return await self._runs.recover(user_id, project_id, "parse", idempotency_key)
 
     async def _analyze_pending_files(
         self, user_id, project_id, *, run_id, force=False, file_ids=None
@@ -162,12 +167,14 @@ class ProjectFileAnalysisService:
             request = self._build_request(project.owner_user_id, file)
             result = await self._analyze_file(file, request)
             if result.status == "success" and result.detail is not None:
+                await self._runs.ensure_active(run_id, user_id)
                 result = await self._write_detail_or_failure(
                     project.owner_user_id,
                     project.id,
                     result,
                 )
             # 确保详情文件上传成功之后才可以修改 MySQL
+            await self._runs.ensure_active(run_id, user_id)
             if result.status == "success" and result.detail is not None:
                 updated = await self._repository.record_analysis_success(
                     project_id,
@@ -231,6 +238,7 @@ class ProjectFileAnalysisService:
         await self._repository.session.commit()
         await self._runs.renew(run_id, user_id)
         specification_status = "updated"
+        await self._runs.ensure_active(run_id, user_id)
         try:
             specification_status = await self._specification.refresh(project, files)
         except Exception:
@@ -243,6 +251,7 @@ class ProjectFileAnalysisService:
                 project_id,
             )
         index_status = "updated"
+        await self._runs.ensure_active(run_id, user_id)
         try:
             await self._index.write(project, files)
         except Exception:

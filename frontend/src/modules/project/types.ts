@@ -150,3 +150,13 @@ export interface ProjectFileParseResult {
   specificationStatus: 'updated' | 'kept' | 'failed'
   indexStatus: 'updated' | 'failed'
 }
+
+export interface ProjectFileParseRecovery {
+  runId: string | null
+  status: 'absent' | 'running' | 'success' | 'failed'
+  retryable: boolean
+  retryMode: 'same_key' | 'new_key' | null
+  leaseUntil: string | null
+  result: ProjectFileParseResult | null
+  error: string | null
+}

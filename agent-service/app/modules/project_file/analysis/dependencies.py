@@ -15,8 +15,7 @@ from app.infrastructure.storage import (
 )
 from app.llm.factory import get_llm_client
 from app.llm.structured import StructuredJsonGenerator
-from app.modules.chat.context.service import ContextService
-from app.modules.chat.dependencies import get_context_service, get_run_service
+from app.modules.chat.dependencies import get_run_service
 from app.modules.chat.runs.service import RunService
 from app.modules.project.dependencies import get_project_service
 from app.modules.project.service import ProjectService
@@ -37,7 +36,6 @@ def get_project_file_analysis_service(
     projects: ProjectService = Depends(get_project_service),
     storage: ObjectStorage = Depends(get_object_storage),
     runs: RunService = Depends(get_run_service),
-    contexts: ContextService = Depends(get_context_service),
 ) -> ProjectFileAnalysisService:
     """装配请求级项目文件分析服务。"""
     settings = get_settings()
@@ -68,6 +66,6 @@ def get_project_file_analysis_service(
             generator,
             max_semantic_input_bytes=file_detail_config.max_semantic_input_bytes,
         ),
-        ProjectSpecificationService(storage, locations, generator, contexts=contexts),
+        ProjectSpecificationService(storage, locations, generator),
         runs=runs,
     )

@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, ref } from 'vue'
-import { listProjectFiles, requestProjectFileParsing } from './api'
+import { listProjectFiles, recoverProjectFileParsing, requestProjectFileParsing } from './api'
 import type { ProjectFileParseResult, ProjectFileResponse } from './types'
 import { RequestError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
@@ -110,6 +110,76 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
     }
   }
 
+  function finish(data: ProjectFileParseResult) {
+    result.value = data
+    total.value = data.candidateCount
+    completed.value = data.successCount + data.failureCount
+    phase.value = data.status === 'success' ? 'finished' : 'error'
+    progressError.value = ''
+    clearPending()
+  }
+
+  async function waitForRecovery(current: number) {
+    await new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, 2000)
+    })
+    return active && current === generation
+  }
+
+  async function resolvePending(current: number, allowAbsentResend: boolean) {
+    const isCurrent = () => active && current === generation
+    let resent = false
+    while (isCurrent() && pending.value) {
+      let recovery
+      try {
+        recovery = await recoverProjectFileParsing(projectId, pending.value.key)
+      } catch (recoveryError) {
+        phase.value = 'error'
+        error.value = `暂时无法确认原解析结果：${errorMessage(recoveryError)}。恢复信息已保留。`
+        return
+      }
+      if (!isCurrent()) return
+      if (recovery.status === 'success' && recovery.result) {
+        finish(recovery.result)
+        return
+      }
+      if (recovery.status === 'failed') {
+        if (recovery.result) result.value = recovery.result
+        phase.value = 'error'
+        error.value = `${recovery.error || '本次解析未成功完成'}；可以立即重试，重试将生成新的幂等键。`
+        clearPending()
+        return
+      }
+      if (recovery.status === 'running') {
+        phase.value = 'parsing'
+        if (!await waitForRecovery(current)) return
+        continue
+      }
+      if (recovery.status === 'absent' && allowAbsentResend && !resent) {
+        resent = true
+        try {
+          const data = await requestProjectFileParsing(
+            projectId,
+            pending.value.fileIds ?? undefined,
+            pending.value.key,
+          )
+          if (isCurrent()) finish(data)
+          return
+        } catch (resendError) {
+          if (resendError instanceof RequestError && resendError.uncertain) continue
+          phase.value = 'error'
+          error.value = errorMessage(resendError)
+          clearPending()
+          return
+        }
+      }
+      phase.value = 'error'
+      error.value = '原请求未在后端创建，可以重新点击解析。'
+      clearPending()
+      return
+    }
+  }
+
   async function start(fileIds?: number[]) {
     // 同步占用入口，避免弹窗确认与页面入口在首个请求返回前重复提交。
     if (busy.value || phase.value !== 'idle' || !active) return
@@ -162,23 +232,32 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
       if (!isCurrent()) return
       generation++
       stopPolling()
-      result.value = data
-      total.value = data.candidateCount
-      completed.value = data.successCount + data.failureCount
-      phase.value = 'finished'
-      progressError.value = ''
-      clearPending()
+      finish(data)
     } catch (e) {
       if (!isCurrent()) return
-      generation++
       stopPolling()
-      phase.value = 'error'
-      error.value = `${errorMessage(e)}；请刷新文件状态核对结果后再决定是否重试。`
-      if (!(e instanceof RequestError && (e.uncertain || e.code === 10003))) {
+      if (e instanceof RequestError && (e.uncertain || e.code === 10003)) {
+        await resolvePending(current, true)
+      } else {
+        phase.value = 'error'
+        error.value = errorMessage(e)
         clearPending()
       }
     } finally {
       if (active) busy.value = false
+    }
+  }
+
+  async function recover() {
+    if (busy.value || !active || !pending.value) return
+    busy.value = true
+    phase.value = 'preparing'
+    error.value = ''
+    const current = ++generation
+    try {
+      await resolvePending(current, true)
+    } finally {
+      if (active && current === generation) busy.value = false
     }
   }
 
@@ -195,5 +274,6 @@ export function useFileParsing(projectId: string, onFiles: (files: ProjectFileRe
     pendingFileIds,
     reset,
     start,
+    recover,
   }
 }

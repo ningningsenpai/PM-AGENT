@@ -2,25 +2,34 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from contextlib import asynccontextmanager, suppress
+from datetime import timedelta
 
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
+from app.core.time import shanghai_now_naive
 from app.llm.telemetry import safe_payload
 from app.modules.chat.runs.models import AgentRun
+from app.modules.chat.runs.repository import RunRepository
 
 
 class RunService:
-    _LEASE_DURATION = timedelta(minutes=20)
+    _LEASE_DURATION = timedelta(seconds=120)
+    _HEARTBEAT_INTERVAL_SECONDS = 30
+    _CONVERSATION_LEASE_DURATION = timedelta(minutes=20)
 
-    def __init__(self, repository, projects, conversation_repository):
+    def __init__(
+        self, repository, projects, conversation_repository, session_factory=None
+    ):
         self.repo = repository
         self.projects = projects
         self.conversation_repo = conversation_repository
+        self.session_factory = session_factory
 
     async def start(
         self,
@@ -70,9 +79,10 @@ class RunService:
             await self.repo.session.commit()
             return existing, False
         if conversation and conversation.active_run_id:
-            if conversation.busy_until and conversation.busy_until > datetime.now(
-                UTC
-            ).replace(tzinfo=None):
+            if (
+                conversation.busy_until
+                and conversation.busy_until > shanghai_now_naive()
+            ):
                 raise AppException(ErrorCode.RESOURCE_CONFLICT, "会话仍有运行中的请求")
             previous = await self.repo.run(user_id, conversation.active_run_id)
             if previous and previous.status == "running":
@@ -104,9 +114,9 @@ class RunService:
         if conversation:
             # 对话窗口幂等预防（业务完成之后 busy_until 会自动设置为NULL）相当于和前端协同预防重复处理
             conversation.active_run_id = run.id
-            conversation.busy_until = datetime.now(UTC).replace(
-                tzinfo=None
-            ) + timedelta(minutes=20)
+            conversation.busy_until = (
+                shanghai_now_naive() + self._CONVERSATION_LEASE_DURATION
+            )
         try:
             await self.repo.add(run)
             await self.repo.session.commit()
@@ -133,8 +143,8 @@ class RunService:
 
     @classmethod
     def _lease_deadline(cls):
-        """在当前时间的基础上添加20分钟冗余时间"""
-        return datetime.now(UTC).replace(tzinfo=None) + cls._LEASE_DURATION
+        """生成 120 秒项目解析滑动租约的到期时间。"""
+        return shanghai_now_naive() + cls._LEASE_DURATION
 
     def _expire_if_needed(self, run, conversation=None):
         """释放进程中断遗留的过期租约，同时保留失败运行供调用方核对。"""
@@ -143,7 +153,7 @@ class RunService:
         deadline = run.lease_until or (
             conversation.busy_until if conversation else None
         )
-        if not deadline or deadline >= datetime.now(UTC).replace(tzinfo=None):
+        if not deadline or deadline >= shanghai_now_naive():
             return
         run.status = "failed"
         run.error = "运行租约已过期，可能因服务重启中断"
@@ -154,11 +164,91 @@ class RunService:
             conversation.busy_until = None
 
     async def renew(self, run_id, user_id):
-        """长批次进入下一处理阶段前续租（截至到当前时间+20 minutes），避免正常运行被误判为进程中断。"""
+        """在请求会话内续租，供短阶段切换时立即刷新租约。"""
         run = await self.repo.run(user_id, run_id)
         if run and run.status == "running" and run.active_scope_key:
             run.lease_until = self._lease_deadline()
             await self.repo.session.commit()
+
+    async def _heartbeat(self, run_id, user_id):
+        """使用独立数据库会话续租，避免长模型调用占用请求事务。"""
+        while True:
+            await asyncio.sleep(self._HEARTBEAT_INTERVAL_SECONDS)
+            async with self.session_factory() as session:
+                renewed = await RunRepository(session).renew_lease(
+                    user_id, run_id, self._lease_deadline()
+                )
+                await session.commit()
+            if not renewed:
+                return
+
+    @asynccontextmanager
+    async def keep_alive(self, run_id, user_id):
+        """在长运行期间维持项目租约；测试或非项目运行可不配置独立会话。"""
+        task = (
+            asyncio.create_task(self._heartbeat(run_id, user_id))
+            if self.session_factory is not None
+            else None
+        )
+        try:
+            yield
+        finally:
+            if task is not None:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+
+    async def ensure_active(self, run_id, user_id):
+        """外部写入前确认运行仍持有有效租约，阻止过期执行继续发布。"""
+        run = await self.repo.run(user_id, run_id, lock=True)
+        if run is None:
+            raise AppException(ErrorCode.RESOURCE_CONFLICT, "解析运行不存在")
+        self._expire_if_needed(run)
+        active = run.status == "running" and bool(run.active_scope_key)
+        await self.repo.session.commit()
+        if not active:
+            raise AppException(
+                ErrorCode.RESOURCE_CONFLICT, "解析运行已失效，禁止继续写入"
+            )
+
+    async def recover(self, user_id, project_id, operation, key):
+        """按原幂等键查询并原子清理过期运行。"""
+        key = (key or "").strip()
+        if not key:
+            raise AppException(ErrorCode.IDEMPOTENCY_KEY_MISSING)
+        if len(key) > 128:
+            raise AppException(ErrorCode.PARAM_INVALID, "幂等键长度不能超过 128 个字符")
+        await self.projects.get_owned(user_id, project_id)
+        run = await self.repo.duplicate(
+            user_id,
+            operation,
+            key,
+            project_id=project_id,
+            lock=True,
+        )
+        if run is None:
+            await self.repo.session.commit()
+            return {
+                "runId": None,
+                "status": "absent",
+                "retryable": True,
+                "retryMode": "same_key",
+                "leaseUntil": None,
+                "result": None,
+                "error": None,
+            }
+        self._expire_if_needed(run)
+        status = run.status
+        await self.repo.session.commit()
+        return {
+            "runId": str(run.id),
+            "status": status,
+            "retryable": status == "failed",
+            "retryMode": "new_key" if status == "failed" else None,
+            "leaseUntil": run.lease_until,
+            "result": run.result or None,
+            "error": run.error,
+        }
 
     async def cancel(self, run_id, user_id, events):
         """请求取消时回滚未提交内容、保存已发生的调用并释放会话租约。"""
@@ -167,8 +257,22 @@ class RunService:
             run_id, user_id, events, error="运行已取消，已保留调用记录"
         )
 
-    async def finish(self, run_id, user_id, events, result=None, error=None):
-        run = await self.repo.run(user_id, run_id)
+    async def finish(
+        self,
+        run_id,
+        user_id,
+        events,
+        result=None,
+        error=None,
+        *,
+        recover_failed=False,
+    ):
+        run = await self.repo.run(user_id, run_id, lock=True)
+        if run is None:
+            raise AppException(ErrorCode.RESOURCE_CONFLICT, "运行不存在，无法完成收尾")
+        if run.status != "running" and not (recover_failed and run.status == "failed"):
+            await self.repo.session.commit()
+            return self.view(run)
         run.events = safe_payload(events)
         run.result = safe_payload(result or {})
         run.status = "failed" if error else "success"
@@ -200,10 +304,16 @@ class RunService:
         }
 
     async def get(self, user_id, run_id):
-        run = await self.repo.run(user_id, run_id)
+        run = await self.repo.run(user_id, run_id, lock=True)
         if run is None:
             raise AppException(ErrorCode.FORBIDDEN, "运行不存在或无权访问")
         await self.projects.get_owned(user_id, run.project_id)
+        conversation = None
+        if run.conversation_id:
+            conversation = await self.conversation_repo.conversation(
+                user_id, run.conversation_id, lock=True
+            )
+        self._expire_if_needed(run, conversation)
         result = self.view(run)
         await self.repo.session.commit()
         return result

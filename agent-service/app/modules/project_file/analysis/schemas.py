@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-__all__ = ["ProjectFileAnalysisBatchResult", "ProjectFileAnalysisFailure"]
+from app.core.schemas import Schema
+
+__all__ = [
+    "ProjectFileAnalysisBatchResult",
+    "ProjectFileAnalysisFailure",
+    "ProjectFileParseRecovery",
+]
 
 
-class AnalysisResponseSchema(BaseModel):
+class AnalysisResponseSchema(Schema):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
@@ -34,3 +41,13 @@ class ProjectFileAnalysisBatchResult(AnalysisResponseSchema):
     failures: list[ProjectFileAnalysisFailure] = Field(default_factory=list)
     specification_status: Literal["updated", "kept", "failed"]
     index_status: Literal["updated", "failed"]
+
+
+class ProjectFileParseRecovery(AnalysisResponseSchema):
+    run_id: str | None
+    status: Literal["absent", "running", "success", "failed"]
+    retryable: bool
+    retry_mode: Literal["same_key", "new_key"] | None
+    lease_until: datetime | None
+    result: ProjectFileAnalysisBatchResult | None
+    error: str | None

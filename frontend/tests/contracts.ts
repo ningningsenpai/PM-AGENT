@@ -227,10 +227,10 @@ test('学习纠正携带项目、读取版本及稳定幂等键，成功返回�
   const result = await updateEntry(id, { projectId: id, version: 3, reason: '核对后纠正', content: '新内容' }, 'edit-once')
   assert.equal(result.publication.published, true)
 })
-test('UTC 时间和登录返回地址符合实际契约', () => {
+test('旧无偏移时间按上海时区解释，登录返回地址符合实际契约', () => {
   assert.equal(
     serverDate('2026-09-08T07:18:22').toISOString(),
-    '2026-09-08T07:18:22.000Z',
+    '2026-09-07T23:18:22.000Z',
   )
   assert.equal(safeRedirect('//example.test'), '/overview')
   assert.equal(safeRedirect('/projects/' + id), '/projects/' + id)
@@ -356,7 +356,7 @@ test('解析进度只统计本轮候选，文件完成后保持锁定直至上�
     assert.equal(posts, 1)
     finish(parseResult({ candidateCount: 2, failureCount: 1, status: 'partial' }))
     await first
-    assert.equal(parsing.phase.value, 'finished')
+    assert.equal(parsing.phase.value, 'error')
     assert.equal(parsing.result.value?.status, 'partial')
     assert.equal(parsing.busy.value, false)
     const finishedGets = gets
@@ -440,13 +440,16 @@ test('解析完成后丢弃迟到进度，弹窗本轮结束后不能再次提�
   } finally { scope.stop() }
 })
 
-test('无候选文件仍等待上下文更新，解析请求失败不显示成功或自动重发', async () => {
+test('无候选文件仍等待上下文更新，确认失败后解除锁定且不自动重跑模型', async () => {
   const scope = effectScope()
   let rejectParse: (error: Error) => void = () => {}
-  let posts = 0
+  let parsePosts = 0
   http.defaults.adapter = async config => {
     if (config.method === 'get') return response(config, [])
-    posts++
+    if (config.url?.endsWith('/parse/recover')) {
+      return response(config, { runId: 'failed-run', status: 'failed', retryable: true, retryMode: 'new_key', leaseUntil: null, result: null, error: '解析失败' })
+    }
+    parsePosts++
     return new Promise((_resolve, reject) => { rejectParse = reject })
   }
   const parsing = scope.run(() => useFileParsing(id, () => {}))!
@@ -461,28 +464,29 @@ test('无候选文件仍等待上下文更新，解析请求失败不显示成�
     assert.equal(parsing.phase.value, 'error')
     assert.equal(parsing.percentage.value, 0)
     assert.equal(parsing.result.value, null)
-    assert.match(parsing.error.value, /核对结果/)
+    assert.match(parsing.error.value, /立即重试/)
+    assert.equal(parsing.hasPending.value, false)
     await parsing.start()
-    assert.equal(posts, 1)
+    assert.equal(parsePosts, 1)
   } finally { scope.stop() }
 })
 
-test('解析结果不确定时保留并复用幂等键，成功后清除恢复记录', async () => {
+test('解析结果不确定且后端无记录时以原幂等键补发一次，成功后清除恢复记录', async () => {
   const scope = effectScope()
   const keys: string[] = []
   let attempts = 0
   http.defaults.adapter = async config => {
     if (config.method === 'get') return response(config, [])
+    if (config.url?.endsWith('/parse/recover')) {
+      assert.equal(config.headers.get('X-Idempotency-Key'), keys[0])
+      return response(config, { runId: null, status: 'absent', retryable: true, retryMode: 'same_key', leaseUntil: null, result: null, error: null })
+    }
     keys.push(config.headers.get('X-Idempotency-Key') as string)
     if (++attempts === 1) throw new Error('连接中断')
     return response(config, parseResult({ candidateCount: 0, successCount: 0 }))
   }
   const parsing = scope.run(() => useFileParsing(id, () => {}))!
   try {
-    await parsing.start()
-    assert.equal(parsing.phase.value, 'error')
-    assert.equal(parsing.hasPending.value, true)
-    assert.equal(parsing.reset(), true)
     await parsing.start()
     assert.equal(keys.length, 2)
     assert.equal(keys[0], keys[1])
