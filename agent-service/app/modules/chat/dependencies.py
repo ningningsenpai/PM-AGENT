@@ -6,7 +6,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.infrastructure.database import get_db_session
+from app.infrastructure.database import get_db_session, get_session_factory
 from app.infrastructure.storage import ObjectStorage, get_object_storage
 from app.llm.dependencies import get_structured_generator
 from app.modules.project.dependencies import get_project_service
@@ -16,6 +16,7 @@ from .context.repository import ContextRepository
 from .context.service import ContextService
 from .conversation.repository import ConversationRepository
 from .conversation.service import ConversationService
+from .learning.repository import LearningDraftRepository
 from .learning.service import LearningService
 from .runs.repository import RunRepository
 from .runs.service import RunService
@@ -36,6 +37,10 @@ def get_run_repository(session: Session) -> RunRepository:
     return RunRepository(session)
 
 
+def get_learning_draft_repository(session: Session) -> LearningDraftRepository:
+    return LearningDraftRepository(session)
+
+
 def get_run_service(
     repo: Annotated[RunRepository, Depends(get_run_repository)],
     projects: Projects,
@@ -43,7 +48,7 @@ def get_run_service(
         ConversationRepository, Depends(get_conversation_repository)
     ],
 ) -> RunService:
-    return RunService(repo, projects, conversations)
+    return RunService(repo, projects, conversations, get_session_factory())
 
 
 def get_context_service(
@@ -69,6 +74,7 @@ def get_learning_service(
     conversations: Annotated[ConversationService, Depends(get_conversation_service)],
     contexts: Annotated[ContextService, Depends(get_context_service)],
     runs: Annotated[RunService, Depends(get_run_service)],
+    drafts: Annotated[LearningDraftRepository, Depends(get_learning_draft_repository)],
 ) -> LearningService:
     return LearningService(
         repo,
@@ -77,4 +83,5 @@ def get_learning_service(
         contexts,
         runs,
         get_structured_generator(get_settings().llm.memory_max_tokens),
+        drafts,
     )

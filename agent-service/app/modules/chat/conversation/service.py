@@ -33,8 +33,8 @@ class ConversationService:
 
     async def create(self, user_id, request):
         await self.projects.get_owned(user_id, request.project_id)
-        # 复用作用域锁串行分配名称，编号和会话写入在同一事务内完成。
-        await self.contexts.scopes(user_id, request.project_id, lock=True)
+        # 项目行只承担会话编号串行化，不再借用旧上下文作用域表。
+        await self.repo.lock_project(user_id, request.project_id)
         title = request.title
         if title is None:
             titles = await self.repo.conversation_titles(user_id, request.project_id)

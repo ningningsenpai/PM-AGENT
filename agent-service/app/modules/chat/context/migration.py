@@ -26,6 +26,9 @@ def specification_entries(project_id, document):
     for field in RULE_FIELDS:
         for item in root.get(field, []):
             key = f"{field}:{item['id']}"
+            entry_id = item.get("learning_entry_id") or stable_id(
+                f"specification:{project_id}:{key}"
+            )
             content = (
                 item.get("rule")
                 or item.get("constraint")
@@ -34,7 +37,7 @@ def specification_entries(project_id, document):
             )
             result.append(
                 EntryView(
-                    id=stable_id(f"specification:{project_id}:{key}"),
+                    id=entry_id,
                     project_id=project_id,
                     kind="project_rule",
                     content=content,
@@ -43,11 +46,16 @@ def specification_entries(project_id, document):
                         "sourceType": "file_specification",
                         "original": item,
                         "field": field,
+                        "targetFile": "project_specification.json",
+                        "targetSection": field,
+                        "originalId": item["id"],
+                        "humanEdited": bool(item.get("human_edited")),
+                        "originalKind": item.get("original_kind"),
                     },
                     status={"active": "active", "deprecated": "invalid"}.get(
                         item.get("status"), "pending"
                     ),
-                    version=1,
+                    version=item.get("learning_version") or 1,
                     source_message_id=None,
                     expires_at=None,
                     conditions=[item["scope"]] if item.get("scope") else [],

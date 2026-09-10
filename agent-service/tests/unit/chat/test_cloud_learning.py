@@ -5,11 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from app.core.errors import AppException, ErrorCode
-from app.modules.chat.context.models import AgentContextChange, AgentContextEntry
 from app.modules.chat.context.schemas import UpdateEntry
-from app.modules.chat.context.store import json_bytes
 from app.modules.chat.conversation.models import AgentMessage
 from app.modules.chat.conversation.schemas import CreateConversation
 from app.modules.chat.learning.schemas import ConfirmDraft, EditDraft, RefineDraft
@@ -55,55 +52,32 @@ def confirmation(draft):
     )
 
 
-async def test_migration_retains_history_and_stops_reading_sql_body(services):
-    await services.contexts.scopes(1, 11)
-    row = await services.context_repo.add(
-        AgentContextEntry(
-            id=88,
-            user_id=1,
-            project_id=11,
-            scope_key="1:11",
-            kind="short_memory",
-            canonical_key="abc",
-            content="本周核对部署",
-            attributes={"key": "本周事项", "sourceQuote": "核对部署"},
-            status="active",
-            version=3,
-            source_message_id=100,
-            expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
-        )
-    )
-    await services.context_repo.add(
-        AgentContextChange(
-            id=99,
-            entry_id=88,
-            version=3,
-            before={"content": "旧值"},
-            after={"content": row.content},
-            reason="历史纠正",
-            source_message_id=100,
-        )
-    )
-    await services.session.commit()
+async def test_fixed_files_are_formal_source_and_sql_context_body_is_not_read(services):
+    output = candidate("本周核对部署", kind="short_memory", key="本周事项")
+    draft = await draft_for(services, output)
+    await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
     entries = await services.contexts.list_entries(1, 11)
-    assert entries[0]["version"] == 3 and entries[0]["sourceMessageId"] == "100"
-    assert (await services.contexts.changes(1, 11, 88))[0]["reason"] == "历史纠正"
+    assert entries[0]["content"] == "本周核对部署"
     services.context_repo.entries = AsyncMock(
-        side_effect=AssertionError("已迁移后不能再读取 SQL 正文")
+        side_effect=AssertionError("正式召回不能再读取旧 SQL 上下文正文")
     )
     assert (await services.contexts.list_entries(1, 11))[0]["content"] == "本周核对部署"
     request = UpdateEntry(
         projectId="11",
-        version=3,
+        version=1,
         reason="用户到期设置",
         expiresAt=(datetime.now(UTC) - timedelta(seconds=1)).isoformat(),
     )
-    result = await services.contexts.update_entry(1, 88, request, "expire")
-    assert result["version"] == 4 and row.version == 3
+    result = await services.contexts.update_entry(
+        1, int(entries[0]["id"]), request, "expire"
+    )
+    assert result["version"] == 2
     assert await services.contexts.list_entries(1, 11) == []
-    assert (await services.contexts.update_entry(1, 88, request, "expire"))[
-        "version"
-    ] == 4
+    assert (
+        await services.contexts.update_entry(
+            1, int(entries[0]["id"]), request, "expire"
+        )
+    )["version"] == 2
 
 
 async def test_partial_publication_recovers_only_failed_scope(services):
@@ -113,7 +87,7 @@ async def test_partial_publication_recovers_only_failed_scope(services):
     original_write = services.contexts.storage.compare_and_put
 
     def fail_project(location, content, etag):
-        if location.object_key == "PM-AGENT/1/11/system/context/manifest.json":
+        if location.object_key.endswith("system/long_term_memory.json"):
             from app.core.errors import ErrorCode
 
             raise AppException(ErrorCode.FILE_STORAGE_ERROR, "模拟项目发布失败")
@@ -122,17 +96,20 @@ async def test_partial_publication_recovers_only_failed_scope(services):
     services.contexts.storage.compare_and_put = fail_project
     partial = await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
     assert (
-        partial["state"] == "partial" and partial["publications"]["1:user"]["published"]
+        partial["state"] == "partial"
+        and partial["publications"]["user_habits/work.json"]["published"]
     )
     assert len(await services.contexts.list_entries(1, 11)) == 1
-    user_version = (await services.contexts.versions(1, 11))["1:user"]
+    user_version = (await services.contexts.versions(1, 11))["user_habits/work.json"]
     services.contexts.storage.compare_and_put = original_write
     recovered = await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
     assert (
-        recovered["state"] == "published"
+        recovered["state"] == "applied"
         and len(await services.contexts.list_entries(1, 11)) == 2
     )
-    assert (await services.contexts.versions(1, 11))["1:user"] == user_version
+    assert (await services.contexts.versions(1, 11))[
+        "user_habits/work.json"
+    ] == user_version
 
 
 async def test_stale_draft_requires_rebase_and_reconfirmation(services):
@@ -222,7 +199,7 @@ async def test_manual_edit_skips_model_and_same_condition_conflict_is_blocked(se
     )
     assert (await services.learning.confirm(1, 11, draft["id"], confirmation(revised)))[
         "state"
-    ] == "published"
+    ] == "applied"
     assert services.learning.generator is None
 
 
@@ -261,11 +238,51 @@ async def test_file_refresh_uses_same_manifest_and_preserves_human_correction(se
         current[0]["content"] == "代码注释统一使用简体中文"
         and current[0]["version"] == 2
     )
-    assert "保留人工版本" in (await services.contexts.changes(1, 11))[0]["reason"]
+    assert (await services.contexts.changes(1, 11))[0]["reason"] == "用户明确规范"
     with pytest.raises(AppException, match="基础版本"):
         await services.contexts.publish_specification(
             1, 11, snapshot, {**doc, "updated_at": datetime.now(UTC).isoformat()}
         )
+
+
+async def test_short_memory_promotion_recovers_after_old_file_removal_failure(services):
+    draft = await draft_for(
+        services,
+        candidate("本周完成发布", kind="short_memory", key="本周事项"),
+    )
+    await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
+    entry = (await services.contexts.list_entries(1, 11))[0]
+    request = UpdateEntry(
+        projectId="11",
+        version=1,
+        kind="long_memory",
+        reason="转为长期项目约定",
+    )
+    original_apply = services.contexts.fixed.apply
+    interrupted = False
+
+    async def fail_old_file_once(user_id, project_id, path, changes, etag):
+        nonlocal interrupted
+        if path == "short_term_memory.json" and not interrupted:
+            interrupted = True
+            raise AppException(ErrorCode.FILE_STORAGE_ERROR, "模拟旧文件移除失败")
+        return await original_apply(user_id, project_id, path, changes, etag)
+
+    services.contexts.fixed.apply = fail_old_file_once
+    with pytest.raises(AppException, match="移除失败"):
+        await services.contexts.update_entry(1, int(entry["id"]), request, "promote")
+    services.contexts.fixed.apply = original_apply
+
+    recovered = await services.contexts.update_entry(
+        1,
+        int(entry["id"]),
+        request,
+        "promote",
+    )
+    entries = await services.contexts.list_entries(1, 11)
+    assert recovered["kind"] == "long_memory"
+    assert len(entries) == 1 and entries[0]["kind"] == "long_memory"
+    assert entries[0]["version"] == 2
 
 
 async def test_durable_draft_recovers_failed_run_without_model_replay(services):
@@ -315,14 +332,14 @@ async def test_lost_draft_receipt_does_not_overwrite_later_manual_edit(services)
     save = services.learning.drafts.save
 
     async def fail_receipt(value, etag):
-        if value["state"] == "published":
+        if value["state"] == "applied":
             raise AppException(ErrorCode.FILE_STORAGE_ERROR, "模拟发布回执未保存")
         return await save(value, etag)
 
     services.learning.drafts.save = fail_receipt
     with pytest.raises(AppException, match="回执"):
         await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
-    assert (await services.learning.get(1, 11, draft["id"]))["state"] == "publishing"
+    assert (await services.learning.get(1, 11, draft["id"]))["state"] == "updating"
     entry = (await services.contexts.list_entries(1, 11))[0]
     await services.contexts.update_entry(
         1,
@@ -335,33 +352,26 @@ async def test_lost_draft_receipt_does_not_overwrite_later_manual_edit(services)
         ),
         "later-edit",
     )
-    version = (await services.contexts.versions(1, 11))["1:11"]
+    version = (await services.contexts.versions(1, 11))["long_term_memory.json"]
     services.learning.drafts.save = save
     recovered = await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
-    assert recovered["state"] == "published"
+    assert recovered["state"] == "partial"
     current = (await services.contexts.list_entries(1, 11))[0]
     assert current["version"] == 2 and current["content"] == "上线调整至 10 月 8 日"
-    assert (await services.contexts.versions(1, 11))["1:11"] == version
+    assert (await services.contexts.versions(1, 11))["long_term_memory.json"] == version
 
 
 async def test_partial_rebase_moves_only_unpublished_scope_to_new_draft(services):
     output = candidate("偏好中文", kind="habit", scope="user", key="语言")
     output.candidates += candidate().candidates
     draft = await draft_for(services, output)
-    publish = services.contexts.store.publish
-
-    async def fail_project(uid, pid, *args, **kwargs):
-        if pid == 11:
-            raise AppException(ErrorCode.FILE_STORAGE_ERROR, "模拟项目暂时不可写")
-        return await publish(uid, pid, *args, **kwargs)
-
-    services.contexts.store.publish = fail_project
+    services.contexts.storage.fail_suffix = "system/long_term_memory.json"
     partial = await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
     assert partial["state"] == "partial"
-    user_version = (await services.contexts.versions(1, 11))["1:user"]
-    services.contexts.store.publish = publish
+    user_version = (await services.contexts.versions(1, 11))["user_habits/work.json"]
+    services.contexts.storage.fail_suffix = None
     concurrent = await draft_for(
-        services, candidate("开发使用 Python", kind="project_rule", key="技术栈")
+        services, candidate("开发使用 Python", kind="long_memory", key="技术栈")
     )
     await services.learning.confirm(1, 11, concurrent["id"], confirmation(concurrent))
     rebased = await services.learning.rebase(1, 11, draft["id"], 1)
@@ -374,48 +384,21 @@ async def test_partial_rebase_moves_only_unpublished_scope_to_new_draft(services
         await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
     assert (
         await services.learning.confirm(1, 11, rebased["id"], confirmation(rebased))
-    )["state"] == "published"
-    assert (await services.contexts.versions(1, 11))["1:user"] == user_version
+    )["state"] == "applied"
+    assert (await services.contexts.versions(1, 11))[
+        "user_habits/work.json"
+    ] == user_version
     assert len(await services.contexts.list_entries(1, 11)) == 3
 
 
-async def test_legacy_cloud_migration_preserves_source_expiry_and_archive(services):
-    store = services.contexts.store
-    location = store.location("PM-AGENT/1/11/system/", "short_term_memory.json")
-    expired = (datetime.now(UTC) - timedelta(days=1)).isoformat()
-    legacy = {
-        "project_id": 11,
-        "short_term_memory": [
-            {
-                "id": "old-1",
-                "content": "旧阶段部署核对",
-                "status": "active",
-                "version": 4,
-                "expires_at": expired,
-                "source_refs": ["旧会议记录"],
-            },
-            {"content": "尚待确认的部署约束", "status": "unknown"},
-        ],
-        "changes": [{"reason": "历史调整"}],
-        "ignored_items": [{"content": "过时假设"}],
-    }
-    body = json_bytes(legacy)
-    services.contexts.storage.put_bytes(location, body, "application/json")
-    entries = await services.contexts.list_entries(1, 11, effective=False)
-    old = next(e for e in entries if e["version"] == 4)
-    assert old["attributes"]["original"]["source_refs"] == ["旧会议记录"]
-    assert old["expiresAt"] is not None
-    assert any(e["status"] == "pending" for e in entries)
-    assert await services.contexts.list_entries(1, 11) == []
-    history = await services.contexts.changes(1, 11)
-    archive = next(
-        c["archive"] for c in history if c.get("sourcePath") == "short_term_memory.json"
-    )
-    archived = services.contexts.storage.read_bytes(
-        store.location(store.prefix(1, 11), archive["path"])
-    )
-    assert archived == body
-    assert services.contexts.storage.read_bytes(location) == body
+async def test_learning_does_not_create_new_context_version_objects(services):
+    draft = await draft_for(services, candidate())
+    await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
+    keys = [key for _bucket, key in services.contexts.storage.data]
+    assert any(key.endswith("system/long_term_memory.json") for key in keys)
+    assert not any("/context/manifest.json" in key for key in keys)
+    assert not any("/context/versions/" in key for key in keys)
+    assert not any("/context/drafts/" in key for key in keys)
 
 
 async def test_feedback_split_resolves_server_ids_and_requires_complete_selection(
@@ -482,7 +465,7 @@ async def test_feedback_split_resolves_server_ids_and_requires_complete_selectio
             ConfirmDraft(version=updated["version"], candidateIds=[left["id"]]),
         )
     result = await services.learning.confirm(1, 11, draft["id"], confirmation(updated))
-    assert result["state"] == "published"
+    assert result["state"] == "applied"
     entries = await services.contexts.list_entries(1, 11)
     assert len(entries) == 2 and {e["sourceMessageId"] for e in entries} == {None}
     assert {e["attributes"]["sourceType"] for e in entries} == {"user_feedback"}

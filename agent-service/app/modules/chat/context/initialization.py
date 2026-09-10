@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
 
+from app.core.time import shanghai_now
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
+
 from .documents.long_term_memory import LongTermMemoryDocument
 from .documents.short_term_memory import ShortTermMemoryDocument
 from .documents.user_habits import UserHabitCategory, UserHabitsDocument
 
-
-# 初始化仅创建缺失的空文件；显式学习的权威条目与版本快照由上下文服务管理。
+# 初始化仅创建缺失的固定文件；正式上下文始终从这些文件读取。
 
 
 class ChatContextInitializationService:
@@ -39,7 +39,7 @@ class ChatContextInitializationService:
 
     async def initialize(self, project: Any) -> None:
         """幂等创建长短期记忆、用户习惯和更新日志空文件。"""
-        initialized_at = datetime.now()
+        initialized_at = shanghai_now()
         documents: list[tuple[str, BaseModel]] = [
             (
                 "short_term_memory.json",

@@ -6,13 +6,13 @@ import asyncio
 import json
 from collections import deque
 from collections.abc import Iterable
-from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import ValidationError
 
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
+from app.core.time import shanghai_now
 from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
 from app.llm.prompts.project_context import ProjectSpecificationPrompt
 from app.llm.structured import StructuredJsonGenerator, StructuredOutputTruncatedError
@@ -52,21 +52,20 @@ class ProjectSpecificationService:
         storage: ObjectStorage,
         locations: StorageLocationFactory,
         generator: StructuredJsonGenerator | None = None,
-        *,
-        contexts=None,
     ) -> None:
         self._storage = storage
         self._locations = locations
         self._generator = generator
-        self._contexts = contexts
 
     async def initialize(self, project) -> SpecificationRefreshStatus:
         """不调用模型，为新项目写入合法空规范。"""
         location = self._location(project)
-        existing = await self._load_existing(location, project.id)
+        existing, etag = await self._load_existing_versioned(location, project.id)
         if existing is not None:
             return "kept"
-        await self._write(location, ProjectSpecificationDocument.empty(project.id))
+        await self._write(
+            location, ProjectSpecificationDocument.empty(project.id), etag
+        )
         return "updated"
 
     async def refresh(
@@ -76,18 +75,15 @@ class ProjectSpecificationService:
     ) -> SpecificationRefreshStatus:
         current_files = list(files)
         location = self._location(project)
-        cloud_snapshot = None
-        if self._contexts is not None:
-            cloud_snapshot, stored = await self._contexts.specification_snapshot(project.owner_user_id, project.id)
-            existing = ProjectSpecificationDocument.model_validate(stored) if stored else None
-        else:
-            existing = await self._load_existing(location, project.id)
+        existing, etag = await self._load_existing_versioned(location, project.id)
         inventory = self._build_inventory(current_files)
         sources = await self._load_rule_sources(project, current_files)
         stale_rule_keys = self._stale_rule_keys(existing, inventory)
         if not sources and not stale_rule_keys:
             if existing is None:
-                await self._publish(project, location, ProjectSpecificationDocument.empty(project.id), cloud_snapshot)
+                await self._write(
+                    location, ProjectSpecificationDocument.empty(project.id), etag
+                )
                 return "updated"
             return "kept"
         if self._generator is None:
@@ -106,7 +102,7 @@ class ProjectSpecificationService:
                 inventory,
             )
             document = self._enrich_source_refs(document, inventory)
-            await self._publish(project, location, document, cloud_snapshot)
+            await self._write(location, document, etag)
             return "updated"
         except (ValidationError, ValueError) as exception:
             logger.warning(
@@ -127,12 +123,6 @@ class ProjectSpecificationService:
             raise AppException(
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
             ) from exception
-
-    async def _publish(self, project, location, document, cloud_snapshot):
-        if self._contexts is not None:
-            await self._contexts.publish_specification(project.owner_user_id, project.id, cloud_snapshot, document.model_dump(mode="json"))
-        else:
-            await self._write(location, document)
 
     async def _generate_batches(
         self,
@@ -247,10 +237,22 @@ class ProjectSpecificationService:
         如果文件不存在，则返回 None。
         如果存在则加载并且验证文件归属
         """
-        exists = await asyncio.to_thread(self._storage.exists, location)
-        if not exists:
-            return None
-        document_bytes = await asyncio.to_thread(self._storage.read_bytes, location)
+        document, _etag = await self._load_existing_versioned(location, project_id)
+        return document
+
+    async def _load_existing_versioned(self, location, project_id):
+        """同一次读取中取得规范正文和 ETag，供条件发布使用。"""
+        if getattr(type(self._storage), "read_versioned", None) is not None:
+            stored = await asyncio.to_thread(self._storage.read_versioned, location)
+            if stored is None:
+                return None, None
+            document_bytes, etag = stored
+        else:
+            exists = await asyncio.to_thread(self._storage.exists, location)
+            if not exists:
+                return None, None
+            document_bytes = await asyncio.to_thread(self._storage.read_bytes, location)
+            etag = None
         try:
             document = ProjectSpecificationDocument.model_validate_json(document_bytes)
         except ValidationError as exception:
@@ -259,20 +261,30 @@ class ProjectSpecificationService:
             ) from exception
         if document.project_id != project_id:
             raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED)
-        return document
+        return document, etag
 
-    async def _write(self, location, document: ProjectSpecificationDocument) -> None:
+    async def _write(
+        self, location, document: ProjectSpecificationDocument, etag: str | None
+    ) -> None:
         document_bytes = json.dumps(
             document.model_dump(mode="json"),
             ensure_ascii=False,
             indent=2,
         ).encode("utf-8")
-        await asyncio.to_thread(
-            self._storage.put_bytes,
-            location,
-            document_bytes,
-            "application/json",
-        )
+        if getattr(type(self._storage), "compare_and_put", None) is not None:
+            await asyncio.to_thread(
+                self._storage.compare_and_put,
+                location,
+                document_bytes,
+                etag,
+            )
+        else:
+            await asyncio.to_thread(
+                self._storage.put_bytes,
+                location,
+                document_bytes,
+                "application/json",
+            )
 
     async def _load_rule_sources(
         self,
@@ -505,7 +517,7 @@ class ProjectSpecificationService:
         sources: list[dict[str, Any]],
         inventory: list[dict[str, Any]],
     ) -> ProjectSpecificationDocument:
-        """检查合并后的项目规范，将来源已经失效且本轮没有被重新确认的规则标记为 pending_review """
+        """检查合并后的项目规范，将来源已经失效且本轮没有被重新确认的规则标记为 pending_review"""
         generated_keys = {
             (field_name, rule.id)
             for field_name in self._RULE_FIELDS
@@ -538,7 +550,7 @@ class ProjectSpecificationService:
                     rule = rule.model_copy(
                         update={
                             "status": "pending_review",
-                            "updated_at": datetime.now(),
+                            "updated_at": shanghai_now(),
                         }
                     )
                 updated_rules.append(rule)

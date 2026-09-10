@@ -4,9 +4,8 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
 from app.core.errors import AppException
+from app.core.time import shanghai_now_naive
 from app.infrastructure.database import Base
 from app.modules.chat.context.repository import ContextRepository
 from app.modules.chat.context.schemas import UpdateEntry
@@ -20,6 +19,7 @@ from app.modules.chat.runs.repository import RunRepository
 from app.modules.chat.runs.service import RunService
 from app.modules.project.models import Project
 from app.modules.user.models import User
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from tests.unit.chat.storage_stub import MemoryStorage
 
 pytestmark = pytest.mark.anyio
@@ -109,7 +109,7 @@ async def confirmed(services, user, project, output, messages, _versions):
         draft["id"],
         ConfirmDraft(version=1, candidateIds=[c["id"] for c in draft["candidates"]]),
     )
-    assert result["state"] == "published"
+    assert result["state"] == "applied"
     return [c["after"] for c in result["plan"]["changes"]]
 
 
@@ -143,7 +143,7 @@ async def test_correction_and_cross_project_isolation(services):
         await services.contexts.changes(1, 12, int(entry["id"]))
 
 
-async def test_user_habits_shared_only_with_owner_and_expiry(services):
+async def test_user_habits_use_current_project_fixed_file_and_expiry(services):
     habit = candidate(
         "请记住，我偏好简洁中文", kind="habit", scope="user", key="回答风格"
     )
@@ -156,7 +156,7 @@ async def test_user_habits_shared_only_with_owner_and_expiry(services):
         {},
     )
     await services.session.commit()
-    assert len(await services.contexts.list_entries(1, 12)) == 1
+    assert await services.contexts.list_entries(1, 12) == []
     assert await services.contexts.list_entries(2, 21) == []
     short = candidate(
         "确认本周先完成测试",
@@ -315,3 +315,53 @@ async def test_expired_project_run_scope_can_be_recovered(services):
     assert fresh and recovered.id != first.id
     assert first.status == "failed"
     assert first.active_scope_key is None
+
+
+async def test_parse_recovery_distinguishes_absent_running_success_and_failed(services):
+    absent = await services.runs.recover(1, 11, "parse", "not-created")
+    assert absent["status"] == "absent"
+    assert absent["retryable"] and absent["retryMode"] == "same_key"
+
+    running, _fresh = await services.runs.start(
+        1,
+        11,
+        "parse",
+        "recover-running",
+        {},
+        "trace",
+        exclusive_scope="project-file-parse:11",
+    )
+    running_state = await services.runs.recover(1, 11, "parse", "recover-running")
+    assert running_state["status"] == "running"
+    assert running_state["leaseUntil"] is not None
+    assert running_state["retryMode"] is None
+
+    running.lease_until = shanghai_now_naive() - timedelta(seconds=1)
+    await services.session.commit()
+    failed = await services.runs.recover(1, 11, "parse", "recover-running")
+    assert failed["status"] == "failed"
+    assert failed["retryable"] and failed["retryMode"] == "new_key"
+    assert running.active_scope_key is None
+    await services.runs.finish(
+        running.id,
+        1,
+        [{"stage": "late"}],
+        {"status": "success"},
+    )
+    assert running.status == "failed"
+    assert running.result == {}
+
+    success, _fresh = await services.runs.start(
+        1,
+        11,
+        "parse",
+        "recover-success",
+        {},
+        "trace",
+        exclusive_scope="project-file-parse:11",
+    )
+    await services.runs.finish(success.id, 1, [], {"status": "success"})
+    recovered = await services.runs.recover(1, 11, "parse", "recover-success")
+    assert recovered["status"] == "success"
+    assert recovered["result"] == {"status": "success"}
+    assert not recovered["retryable"]

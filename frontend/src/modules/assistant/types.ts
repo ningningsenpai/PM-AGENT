@@ -83,6 +83,11 @@ export interface LearningProposal {
   conditions: string[]
   relatedEntryIds: string[]
   coexistReason: string | null
+  targetFile: 'project_specification.json' | 'short_term_memory.json' | 'long_term_memory.json'
+    | 'user_habits/work.json' | 'user_habits/thinking.json'
+    | 'user_habits/specification.json' | 'user_habits/tooling.json' | 'user_habits/life.json'
+  targetSection: 'development_approach' | 'technical_constraints' | 'coding_rules'
+    | 'document_rules' | 'risk_rules' | null
 }
 export interface DraftCandidate { id: string; proposal: LearningProposal }
 export interface LearningDraft {
@@ -90,7 +95,7 @@ export interface LearningDraft {
   projectId: string
   conversationId: string
   version: number
-  state: 'pending' | 'publishing' | 'partial' | 'published' | 'discarded'
+  state: 'pending' | 'updating' | 'partial' | 'applied' | 'discarded'
   createdAt: string
   candidates: DraftCandidate[]
   existing: ContextEntry[]

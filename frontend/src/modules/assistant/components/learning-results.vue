@@ -3,7 +3,7 @@
     <div class="results-head"><h3>学习结果</h3><n-button text size="small" :loading="loading" @click="load">刷新结果</n-button></div>
     <RequestError :message="error" />
     <article v-for="draft in drafts" :key="draft.id" class="learning-result">
-      <div class="result-heading"><n-tag size="small" :type="draft.state === 'published' ? 'success' : 'info'">{{ draftStates[draft.state] }}</n-tag><small>{{ formatDate(draft.createdAt) }}</small></div>
+      <div class="result-heading"><n-tag size="small" :type="draft.state === 'applied' ? 'success' : 'info'">{{ draftStates[draft.state] }}</n-tag><small>{{ formatDate(draft.createdAt) }}</small></div>
       <p>{{ draftSummary(draft) }}</p>
       <p v-if="draft.state === 'pending'" class="muted">候选尚未生效，请查看并选择要保留的内容。</p>
       <n-button secondary type="primary" size="small" @click="open(draft)">{{ draft.state === 'pending' ? '查看并确认' : '查看结果与历史' }}</n-button>

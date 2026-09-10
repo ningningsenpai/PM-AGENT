@@ -30,6 +30,9 @@ def build_entries(draft, selected):
         proposal = LearnedCandidate.model_validate(candidates[candidate_id]["proposal"])
         validate_source(proposal, sources)
         pid = None if proposal.scope == "user" else draft["projectId"]
+        formal_kind = proposal.kind
+        if proposal.kind == "term":
+            formal_kind = "habit" if proposal.scope == "user" else "project_rule"
         target = (
             by_id.get(proposal.replaces_entry_id)
             if proposal.replaces_entry_id
@@ -38,7 +41,10 @@ def build_entries(draft, selected):
         if proposal.replaces_entry_id and (
             target is None
             or target["projectId"] != pid
-            or target["kind"] != proposal.kind
+            or (
+                target["kind"] != formal_kind
+                and target.get("attributes", {}).get("originalKind") != proposal.kind
+            )
         ):
             raise AppException(
                 ErrorCode.FORBIDDEN, "纠正目标不属于候选的类型和作用范围"
@@ -72,7 +78,7 @@ def build_entries(draft, selected):
         entry = EntryView(
             id=target_id,
             project_id=pid,
-            kind=proposal.kind,
+            kind=formal_kind,
             content=sanitize_sensitive_content(proposal.content).text,
             attributes={
                 "key": proposal.key,
@@ -85,6 +91,9 @@ def build_entries(draft, selected):
                 "feedbackId": None if original_message else proposal.source_message_id,
                 "coexistReason": proposal.coexist_reason,
                 "humanEdited": True,
+                "originalKind": proposal.kind,
+                "targetFile": proposal.target_file,
+                "targetSection": proposal.target_section,
             },
             status="invalid" if proposal.invalidate else "active",
             version=before.get("version", 0) + 1,

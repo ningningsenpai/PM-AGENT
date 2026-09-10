@@ -6,6 +6,7 @@ from app.modules.chat.context.models import (
     AgentContextScope,
 )
 from app.modules.chat.conversation.models import AgentConversation, AgentMessage
+from app.modules.chat.learning.models import AgentLearningDraft
 from app.modules.chat.runs.models import AgentRun
 from app.modules.project.models import Project
 from app.modules.project_file.models import ProjectFile
@@ -17,6 +18,7 @@ __all__ = [
     "AgentContextEntry",
     "AgentContextScope",
     "AgentConversation",
+    "AgentLearningDraft",
     "AgentMessage",
     "AgentRun",
     "Project",

@@ -3,7 +3,11 @@
     <n-form label-placement="top" :disabled="disabled">
       <div class="two-columns">
         <n-form-item label="内容分类"><n-select v-model:value="proposal.kind" :options="kindOptions" @update:value="validateScope" /></n-form-item>
-        <n-form-item label="适用范围"><n-select v-model:value="proposal.scope" :options="scopeOptions" /></n-form-item>
+        <n-form-item label="适用范围"><n-select v-model:value="proposal.scope" :options="scopeOptions" @update:value="syncTarget" /></n-form-item>
+      </div>
+      <div class="two-columns">
+        <n-form-item label="生效文件"><n-select v-model:value="proposal.targetFile" :options="targetFileOptions" /></n-form-item>
+        <n-form-item v-if="proposal.targetFile === 'project_specification.json'" label="规则分区"><n-select v-model:value="proposal.targetSection" clearable :options="sectionOptions" /></n-form-item>
       </div>
       <n-form-item label="主题"><n-input v-model:value="proposal.key" :maxlength="200" /></n-form-item>
       <n-form-item label="内容"><n-input v-model:value="proposal.content" type="textarea" :maxlength="4000" :autosize="{ minRows: 2, maxRows: 8 }" /></n-form-item>
@@ -37,8 +41,33 @@ const props = defineProps<{ existing: ContextEntry[]; candidates: DraftCandidate
 const proposal = computed(() => model.value.proposal)
 const kindOptions = Object.entries(entryKinds).map(([value, label]) => ({ value, label }))
 const scopeOptions = computed(() => [{ label: '当前项目', value: 'project' },
-  ...(['habit', 'term'].includes(proposal.value.kind) ? [{ label: '个人通用（跨项目）', value: 'user' }] : [])])
-const replacementOptions = computed(() => props.existing.filter(e => e.kind === proposal.value.kind && (proposal.value.scope === 'user' ? !e.projectId : !!e.projectId))
+  ...(['habit', 'term'].includes(proposal.value.kind) ? [{ label: '个人偏好（当前项目习惯文件）', value: 'user' }] : [])])
+const targetFileOptions = computed(() => {
+  if (proposal.value.kind === 'project_rule' || (proposal.value.kind === 'term' && proposal.value.scope === 'project')) {
+    return [{ label: '项目规则文件', value: 'project_specification.json' }]
+  }
+  if (proposal.value.kind === 'short_memory') return [{ label: '短期记忆文件', value: 'short_term_memory.json' }]
+  if (proposal.value.kind === 'long_memory') return [{ label: '长期记忆文件', value: 'long_term_memory.json' }]
+  return [
+    { label: '工作习惯', value: 'user_habits/work.json' },
+    { label: '思考习惯', value: 'user_habits/thinking.json' },
+    { label: '规范与术语', value: 'user_habits/specification.json' },
+    { label: '工具习惯', value: 'user_habits/tooling.json' },
+    { label: '生活习惯', value: 'user_habits/life.json' },
+  ]
+})
+const sectionOptions = [
+  { label: '研发方式', value: 'development_approach' },
+  { label: '技术约束', value: 'technical_constraints' },
+  { label: '编码规则', value: 'coding_rules' },
+  { label: '文档规则', value: 'document_rules' },
+  { label: '风险规则', value: 'risk_rules' },
+]
+const replacementOptions = computed(() => props.existing.filter(e => {
+  const originalKind = e.attributes.originalKind
+  return (e.kind === proposal.value.kind || originalKind === proposal.value.kind)
+    && (proposal.value.scope === 'user' ? !e.projectId : !!e.projectId)
+})
   .map(e => ({ label: `${e.content.slice(0, 80)} · v${e.version}`, value: e.id })))
 const relationOptions = computed(() => [
   ...props.existing.map(e => ({ label: `已有：${e.content.slice(0, 70)}`, value: e.id })),
@@ -46,8 +75,23 @@ const relationOptions = computed(() => [
 ])
 function validateScope() {
   if (!['habit', 'term'].includes(proposal.value.kind)) proposal.value.scope = 'project'
+  syncTarget()
   proposal.value.replacesEntryId = null
   proposal.value.invalidate = false
+}
+function syncTarget() {
+  if (proposal.value.kind === 'project_rule' || (proposal.value.kind === 'term' && proposal.value.scope === 'project')) {
+    proposal.value.targetFile = 'project_specification.json'
+  } else if (proposal.value.kind === 'short_memory') {
+    proposal.value.targetFile = 'short_term_memory.json'
+  } else if (proposal.value.kind === 'long_memory') {
+    proposal.value.targetFile = 'long_term_memory.json'
+  } else if (proposal.value.kind === 'term') {
+    proposal.value.targetFile = 'user_habits/specification.json'
+  } else if (!proposal.value.targetFile.startsWith('user_habits/')) {
+    proposal.value.targetFile = 'user_habits/work.json'
+  }
+  if (proposal.value.targetFile !== 'project_specification.json') proposal.value.targetSection = null
 }
 </script>
 <style scoped>

@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import UTC, datetime
 
 from app.core.errors import AppException, ErrorCode
 from app.core.identifiers import get_snowflake_id_generator
+from app.core.time import shanghai_now
 from app.llm.telemetry import capture_calls
 from app.project_context.file_detail.sensitive_content import sanitize_sensitive_content
 
@@ -16,6 +16,7 @@ from ..context.conflicts import normalized, validate_conflicts
 from ..context.store import digest, json_bytes
 from .candidates import build_entries, preview
 from .prompts import LEARNING_PROMPT_VERSION, LEARNING_RULES, REFINEMENT_RULES
+from .repository import LearningDraftRepository
 from .schemas import LearningOutput
 from .store import DraftStore
 
@@ -26,7 +27,14 @@ def new_id():
 
 class LearningService:
     def __init__(
-        self, repository, message_repository, conversations, contexts, runs, generator
+        self,
+        repository,
+        message_repository,
+        conversations,
+        contexts,
+        runs,
+        generator,
+        draft_repository=None,
     ):
         self.repo, self.message_repo, self.conversations = (
             repository,
@@ -34,7 +42,9 @@ class LearningService:
             conversations,
         )
         self.contexts, self.runs, self.generator = contexts, runs, generator
-        self.drafts = DraftStore(contexts.store)
+        self.drafts = DraftStore(
+            draft_repository or LearningDraftRepository(repository.session)
+        )
 
     async def learn(self, user_id, conversation_id, key, trace_id):
         conversation = await self.conversations.owned(user_id, conversation_id)
@@ -65,6 +75,7 @@ class LearningService:
                     user_id,
                     run.events,
                     self.result(recovered, len(recovered["messages"])),
+                    recover_failed=True,
                 )
             return self.runs.view(run)
         try:
@@ -91,7 +102,7 @@ class LearningService:
                         {
                             "messages": messages,
                             "existing": existing,
-                            "now": datetime.now(UTC).isoformat(),
+                            "now": shanghai_now().isoformat(),
                         },
                         ensure_ascii=False,
                     )
@@ -110,7 +121,7 @@ class LearningService:
                 snapshots,
                 learned_message_id=next_cursor,
             )
-            # 草稿先落云端；游标只表示已完成提取，不表示用户已经确认。
+            # 草稿先写入 MySQL；游标只表示已完成提取，不表示用户已经确认。
             conversation = await self.message_repo.conversation(
                 user_id, conversation_id, lock=True
             )
@@ -171,9 +182,14 @@ class LearningService:
             "conversationId": str(conversation_id),
             "version": 1,
             "state": "pending",
-            "createdAt": datetime.now(UTC).isoformat(),
+            "createdAt": shanghai_now().isoformat(),
             "learnedMessageId": str(learned_message_id),
             "base": {key: s.revision for key, s in snapshots.items()},
+            "fileBase": {
+                path: etag
+                for snapshot in snapshots.values()
+                for path, etag in snapshot.files.items()
+            },
             "existing": [e for s in snapshots.values() for e in s.entries],
             "messages": messages,
             "candidates": self.materialize_candidates(output),
@@ -240,6 +256,7 @@ class LearningService:
         await self.contexts.authorize(user_id, project_id)
         await self.repo.session.commit()
         draft, _ = await self.drafts.load(user_id, project_id, draft_id)
+        await self.repo.session.commit()
         return preview(draft)
 
     async def list(self, user_id, project_id, conversation_id=None):
@@ -249,10 +266,9 @@ class LearningService:
             if conversation.project_id != project_id:
                 raise AppException(ErrorCode.FORBIDDEN, "会话不属于当前项目")
         await self.repo.session.commit()
-        return [
-            preview(d)
-            for d in await self.drafts.list(user_id, project_id, conversation_id)
-        ]
+        drafts = await self.drafts.list(user_id, project_id, conversation_id)
+        await self.repo.session.commit()
+        return [preview(draft) for draft in drafts]
 
     async def edit(self, user_id, project_id, draft_id, request):
         await self.get(user_id, project_id, draft_id)
@@ -308,6 +324,7 @@ class LearningService:
                     ErrorCode.RESOURCE_CONFLICT,
                     "反馈提交后草稿已被其他操作修改，请重新选择",
                 )
+            await self.repo.session.commit()
             source_ids = {c["proposal"]["sourceMessageId"] for c in selected} | {
                 feedback["id"]
             }
@@ -397,6 +414,7 @@ class LearningService:
     async def confirm(self, user_id, project_id, draft_id, request):
         await self.get(user_id, project_id, draft_id)
         draft, etag = await self.drafts.load(user_id, project_id, draft_id)
+        await self.repo.session.commit()
         fingerprint = digest(json_bytes(request.model_dump(mode="json")))
         if draft.get("replacementDraftId"):
             raise AppException(
@@ -405,9 +423,18 @@ class LearningService:
             )
         if draft.get("plan") is None:
             self.drafts.editable(draft, request.version)
-            snapshots = await self.contexts.snapshots(user_id, project_id)
+            current_files = await self.contexts.file_versions(user_id, project_id)
+            selected_candidates = [
+                candidate
+                for candidate in draft["candidates"]
+                if candidate["id"] in request.candidate_ids
+            ]
+            target_files = {
+                candidate["proposal"]["targetFile"] for candidate in selected_candidates
+            }
             if any(
-                s.revision != draft["base"][scope] for scope, s in snapshots.items()
+                current_files.get(path) != draft.get("fileBase", {}).get(path)
+                for path in target_files
             ):
                 raise AppException(
                     ErrorCode.RESOURCE_CONFLICT,
@@ -422,44 +449,45 @@ class LearningService:
                 "candidateIds": request.candidate_ids,
                 "version": request.version,
             }
-            draft["state"] = "publishing"
+            draft["state"] = "updating"
             await self.drafts.save(draft, etag)
             draft, etag = await self.drafts.load(user_id, project_id, draft_id)
+            await self.repo.session.commit()
         elif draft["plan"]["requestHash"] != fingerprint:
             raise AppException(
                 ErrorCode.RESOURCE_CONFLICT, "发布计划已经固定，只能恢复原确认请求"
             )
         plan = draft["plan"]
-        for pid in (None, project_id):
-            scope = self.contexts.key(user_id, pid)
+        target_files = sorted(
+            {
+                self.contexts.fixed.target_for(change["after"])
+                for change in plan["changes"]
+            }
+        )
+        for target_file in target_files:
             changed = [
                 c
                 for c in plan["changes"]
-                if c["after"]["projectId"] == (str(pid) if pid else None)
+                if self.contexts.fixed.target_for(c["after"]) == target_file
             ]
-            if not changed or draft["publications"].get(scope, {}).get("published"):
+            if draft["publications"].get(target_file, {}).get("published"):
                 continue
             try:
-                receipt = await self.contexts.store.publish(
+                receipt = await self.contexts.fixed.apply(
                     user_id,
-                    pid,
-                    draft["base"][scope],
-                    [
-                        e
-                        for e in plan["entries"]
-                        if e["projectId"] == (str(pid) if pid else None)
-                    ],
-                    f"draft:{draft_id}:v{plan['version']}:{scope}",
+                    project_id,
+                    target_file,
                     changed,
+                    draft["fileBase"].get(target_file),
                 )
-                draft["publications"][scope] = {
+                draft["publications"][target_file] = {
                     "published": True,
                     "version": receipt.version,
                     "revision": receipt.revision,
                     "error": None,
                 }
             except AppException as exc:
-                draft["publications"][scope] = {
+                draft["publications"][target_file] = {
                     "published": False,
                     "error": exc.message,
                     "code": exc.error.code,
@@ -468,7 +496,7 @@ class LearningService:
         draft["state"] = (
             "partial"
             if failures
-            else "published"
+            else "applied"
             if plan["candidateIds"]
             else "discarded"
         )
@@ -498,7 +526,7 @@ class LearningService:
                     candidate_ids=draft["plan"]["candidateIds"],
                 ),
             )
-            if recovered["state"] == "published":
+            if recovered["state"] == "applied":
                 return recovered
             draft, etag = await self.drafts.load(user_id, project_id, draft_id)
             snapshots = await self.contexts.snapshots(user_id, project_id)
@@ -507,13 +535,7 @@ class LearningService:
                 for c in draft["candidates"]
                 if c["id"] in draft["plan"]["candidateIds"]
                 and not draft["publications"]
-                .get(
-                    self.contexts.key(
-                        user_id,
-                        None if c["proposal"]["scope"] == "user" else project_id,
-                    ),
-                    {},
-                )
+                .get(c["proposal"]["targetFile"], {})
                 .get("published")
             ]
             import copy
@@ -529,6 +551,11 @@ class LearningService:
                 parentDraftId=draft["id"],
             )
             updated["base"] = {key: s.revision for key, s in snapshots.items()}
+            updated["fileBase"] = {
+                path: etag
+                for snapshot in snapshots.values()
+                for path, etag in snapshot.files.items()
+            }
             updated["existing"] = [
                 entry for s in snapshots.values() for entry in s.entries
             ]
@@ -541,6 +568,11 @@ class LearningService:
         snapshots = await self.contexts.snapshots(user_id, project_id)
         updated = self.drafts.next_version(draft, "重新读取正式内容，等待用户再次核对")
         updated["base"] = {key: s.revision for key, s in snapshots.items()}
+        updated["fileBase"] = {
+            path: etag
+            for snapshot in snapshots.values()
+            for path, etag in snapshot.files.items()
+        }
         updated["existing"] = [entry for s in snapshots.values() for entry in s.entries]
         build_entries(updated, [c["id"] for c in updated["candidates"]])
         return preview(await self.drafts.save(updated, etag))

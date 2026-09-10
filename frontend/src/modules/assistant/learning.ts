@@ -6,8 +6,8 @@ export const entryKinds: Record<EntryKind, string> = {
   short_memory: '短期记忆', long_memory: '长期记忆',
 }
 export const draftStates: Record<LearningDraft['state'], string> = {
-  pending: '待确认', publishing: '发布待恢复', partial: '部分发布失败',
-  published: '已发布', discarded: '未采纳',
+  pending: '待确认', updating: '更新待恢复', partial: '部分更新失败',
+  applied: '已生效', discarded: '未采纳',
 }
 export function entryState(entry: ContextEntry) {
   return entry.status === 'active' && entry.expiresAt && serverDate(entry.expiresAt).getTime() <= Date.now() ? 'expired' : entry.status

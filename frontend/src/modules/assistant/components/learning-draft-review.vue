@@ -2,7 +2,7 @@
   <n-drawer :show="show" :width="780" :mask-closable="!busy" :close-on-esc="!busy" @update:show="emit('update:show', $event)">
     <n-drawer-content title="核对学习结果" :closable="!busy">
       <div class="review-intro">
-        <n-space align="center"><n-tag :type="draft.state === 'published' ? 'success' : 'info'">{{ draftStates[draft.state] }}</n-tag><span class="muted">草稿版本 {{ draft.version }}</span></n-space>
+        <n-space align="center"><n-tag :type="draft.state === 'applied' ? 'success' : 'info'">{{ draftStates[draft.state] }}</n-tag><span class="muted">草稿版本 {{ draft.version }}</span></n-space>
         <p>{{ draftSummary(draft) }}</p>
         <p class="muted">请核对内容、来源和适用条件。只有确认发布的条目才会参与后续问答；人工编辑不调用模型。</p>
       </div>
@@ -14,7 +14,7 @@
         可以说明不同的适用条件，或取消其中一项。是否共存需要你明确确认。
       </n-alert>
       <n-alert v-for="(publication, scope) in draft.publications" :key="scope" :type="publication.published ? 'success' : 'warning'">
-        {{ String(scope).endsWith(':user') ? '个人通用内容' : '项目内容' }}：{{ publication.published ? `已发布，版本 ${publication.version}` : publication.error || '等待恢复' }}
+        {{ targetFileLabel(String(scope)) }}：{{ publication.published ? '已更新并生效' : publication.error || '等待恢复' }}
       </n-alert>
       <n-space v-if="editable" class="selection-tools">
         <n-button size="small" :disabled="busy" @click="selectedIds = candidates.map(c => c.id)">全选</n-button>
@@ -53,7 +53,7 @@
           <n-button v-if="editable || draft.state === 'partial' || draft.replacementDraftId" :disabled="busy || dirty" @click="rebase">{{ draft.replacementDraftId ? '查看后继草稿' : draft.state === 'partial' ? '重新核对未发布内容' : '核对最新正式内容' }}</n-button>
           <n-button v-if="dirty" type="primary" :loading="saving" :disabled="busy || !editReason.trim()" @click="save">保存草稿</n-button>
           <n-button v-else-if="editable" type="primary" :loading="saving" :disabled="busy" @click="confirm">{{ selectedIds.length ? `确认发布 ${selectedIds.length} 条` : '不采纳本次候选' }}</n-button>
-          <n-button v-else-if="['partial', 'publishing'].includes(draft.state) && !draft.replacementDraftId" type="primary" :loading="saving" :disabled="busy" @click="confirm">恢复原发布</n-button>
+          <n-button v-else-if="['partial', 'updating'].includes(draft.state) && !draft.replacementDraftId" type="primary" :loading="saving" :disabled="busy" @click="confirm">恢复原更新</n-button>
         </n-space>
       </template>
     </n-drawer-content>
@@ -104,7 +104,7 @@ async function perform(action: () => Promise<LearningDraft>) {
   saving.value = true
   error.value = ''
   try { const value = await action(); if (active) emit('updated', value) }
-  catch (e) { if (active) error.value = errorMessage(e) + '；结果不明时先重新读取，发布可按原计划恢复。' }
+  catch (e) { if (active) error.value = errorMessage(e) + '；结果不明时先重新读取，固定文件更新可按原计划恢复。' }
   finally { if (active) saving.value = false }
 }
 function refresh() { return perform(() => getDraft(props.draft.projectId, props.draft.id)) }
@@ -113,6 +113,18 @@ function rebase() { return perform(() => rebaseDraft(props.draft.projectId, prop
 function confirm() {
   const plan = props.draft.plan
   return perform(() => confirmDraft(props.draft.projectId, props.draft.id, plan?.version || props.draft.version, plan?.candidateIds || selectedIds.value))
+}
+function targetFileLabel(path: string) {
+  return ({
+    'project_specification.json': '项目规则文件',
+    'short_term_memory.json': '短期记忆文件',
+    'long_term_memory.json': '长期记忆文件',
+    'user_habits/work.json': '工作习惯文件',
+    'user_habits/thinking.json': '思考习惯文件',
+    'user_habits/specification.json': '规范习惯文件',
+    'user_habits/tooling.json': '工具习惯文件',
+    'user_habits/life.json': '生活习惯文件',
+  } as Record<string, string>)[path] || path
 }
 async function refine() {
   if (busy.value || !feedback.value.trim()) return

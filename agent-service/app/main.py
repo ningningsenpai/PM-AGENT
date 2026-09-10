@@ -14,7 +14,7 @@ from app.core.identifiers import get_snowflake_id_generator
 from app.core.logger import get_logger
 from app.core.security import get_jwt_manager, get_password_manager
 from app.core.trace import TraceMiddleware
-from app.infrastructure.database import get_engine
+from app.infrastructure.database import get_engine, verify_database_revision
 from app.infrastructure.redis import get_redis_provider
 from app.infrastructure.storage import get_object_storage
 from app.input_context.dependencies import get_normalization_service
@@ -35,6 +35,7 @@ async def lifespan(_app: FastAPI):
     try:
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
+        await verify_database_revision(engine)
         await redis_provider.client.ping()
         get_object_storage()
         logger.info("应用启动初始化完成")

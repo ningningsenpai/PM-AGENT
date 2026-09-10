@@ -10,9 +10,11 @@ PM-Agent 在线后端全量迁移至 `agent-service/`，采用 FastAPI 模块化
 
 - Python 是业务表唯一写入者。
 - Alembic 是唯一数据库迁移所有者。
+- 应用启动时校验数据库 Alembic revision；数据库落后或版本未知时拒绝进入就绪状态，并输出中文迁移提示。
 - Agent 与业务模块同进程，但继续通过公开 Service 隔离。
 - 文件解析直接使用 MinIO SDK，不使用预签名 URL 做内部下载。
 - 外部存储和模型调用不占用数据库事务。
+- MySQL 会话固定使用 `+08:00`，业务时间统一按 `Asia/Shanghai` 写入和输出。
 - 保留 `agent-service/` 目录名；延期 Agent 资产统一放入本地留档区。
 - 不迁移历史数据，不建设双写或灰度双运行。
 

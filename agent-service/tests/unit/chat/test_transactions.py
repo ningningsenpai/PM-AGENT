@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
-from fastapi import Depends, FastAPI
-
 from app.infrastructure.database import get_db_session
 from app.infrastructure.storage import get_object_storage
 from app.modules.chat import dependencies
@@ -20,6 +18,7 @@ from app.modules.project.dependencies import get_project_service
 from app.modules.project_file.management.dependencies import get_project_file_service
 from app.modules.report import dependencies as report_dependencies
 from app.modules.report.service import ReportService
+from fastapi import Depends, FastAPI
 from tests.unit.chat.test_persistence import (
     services as services,  # noqa: PLC0414 -- 复用带真实事务的 SQLite 夹具。
 )
@@ -137,7 +136,7 @@ async def test_learning_failure_rolls_back_entries_cursor_and_scope_version(serv
     assert row.learned_message_id == 0
     assert row.active_run_id is None and row.busy_until is None
     scope = await services.context_repo.scope("1:11")
-    assert scope.version == 0
+    assert scope is None
     assert not any("/drafts/" in key for _, key in services.contexts.storage.data)
 
 

@@ -2,12 +2,22 @@
 
 from sqlalchemy import select
 
+from app.modules.project.models import Project
+
 from .._persistence import ChatRepositoryBase
 from ..runs.models import AgentRun
 from .models import AgentConversation, AgentMessage
 
 
 class ConversationRepository(ChatRepositoryBase):
+    async def lock_project(self, user_id, project_id):
+        """锁定项目行，串行分配该项目的默认会话编号。"""
+        return await self.session.scalar(
+            select(Project)
+            .where(Project.id == project_id, Project.owner_user_id == user_id)
+            .with_for_update()
+        )
+
     async def conversation(self, user_id, conversation_id, *, lock=False):
         """按用户限定会话；lock=True 时加行锁并刷新 ORM 状态，供当前事务协调并发修改。"""
         query = select(AgentConversation).where(

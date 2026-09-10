@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from app.modules.chat.conversation.models import AgentMessage
 from app.modules.chat.conversation.schemas import CreateConversation, SendMessage
 from app.modules.chat.learning.schemas import ConfirmDraft
@@ -59,7 +58,7 @@ async def test_learn_creates_durable_preview_and_confirms_without_model(services
     draft = drafts[0]
     request = ConfirmDraft(version=1, candidateIds=[draft["candidates"][0]["id"]])
     result = await services.learning.confirm(1, 11, draft["id"], request)
-    assert result["state"] == "published"
+    assert result["state"] == "applied"
     assert (await services.learning.confirm(1, 11, draft["id"], request))[
         "publications"
     ] == result["publications"]
