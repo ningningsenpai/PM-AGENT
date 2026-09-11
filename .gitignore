@@ -67,3 +67,6 @@ agent-service/tests/project_assistant_flow/output/
 
 # 本地 MinIO 导出与模型解析评估产物，结论文档单独纳入版本管理
 /agent-service/Assessment/
+
+# 本地上下文迁移报告
+/agent-service/context-migration-report.json
