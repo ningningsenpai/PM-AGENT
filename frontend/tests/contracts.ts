@@ -21,6 +21,18 @@ import type { ProjectFileResponse, ProjectFileParseResult } from '@/modules/proj
 import { createConversation, renameConversation } from '@/modules/assistant/api'
 import { mergePendingMessage, shouldSendOnEnter, useConversationMessages } from '@/modules/assistant/conversation-messages'
 import type { ChatMessage } from '@/modules/assistant/types'
+import {
+  readProjectDirectory,
+  rememberPendingProjectDirectory,
+  takePendingProjectDirectory,
+  verifyProjectDirectoryPermission,
+  type ProjectDirectoryHandle,
+  type ProjectFileHandle,
+} from '@/modules/project/project-directory'
+import {
+  projectFileCandidatesFromInput,
+  validateProjectFile,
+} from '@/modules/project/file-upload'
 class MemoryStorage {
   map = new Map<string, string>()
   getItem(key: string) {
@@ -67,6 +79,39 @@ function response(config: any, data: unknown, code = 200) {
     status: 200,
     statusText: 'OK',
     headers: {},
+  }
+}
+
+function localFile(name: string, relativePath = '') {
+  const bytes = new TextEncoder().encode(`测试文件：${name}`)
+  return {
+    name,
+    size: bytes.byteLength,
+    type: 'text/plain',
+    lastModified: 1760000000000,
+    webkitRelativePath: relativePath,
+    arrayBuffer: async () => bytes.buffer,
+  } as File
+}
+
+function fileHandle(name: string): ProjectFileHandle {
+  return {
+    kind: 'file',
+    name,
+    getFile: async () => localFile(name),
+  }
+}
+
+function directoryHandle(
+  name: string,
+  entries: Array<ProjectDirectoryHandle | ProjectFileHandle>,
+): ProjectDirectoryHandle {
+  return {
+    kind: 'directory',
+    name,
+    async *values() {
+      for (const entry of entries) yield entry
+    },
   }
 }
 beforeEach(() => {
@@ -469,6 +514,42 @@ test('无候选文件仍等待上下文更新，确认失败后解除锁定且�
     await parsing.start()
     assert.equal(parsePosts, 1)
   } finally { scope.stop() }
+})
+test('已绑定目录重新扫描时构造相对路径并跳过依赖目录', async () => {
+  const root = directoryHandle('PM-AGENT', [
+    fileHandle('README.md'),
+    directoryHandle('src', [fileHandle('main.ts')]),
+    directoryHandle('node_modules', [fileHandle('ignored.js')]),
+  ])
+
+  const files = await readProjectDirectory(root)
+  assert.deepEqual(
+    files.map((file) => file.relativePath),
+    ['README.md', 'src/main.ts'],
+  )
+  assert.equal(validateProjectFile(files[1], new Set()).valid, true)
+})
+test('目录权限失效时只在用户触发更新后请求恢复', async () => {
+  let requested = 0
+  const handle = directoryHandle('PM-AGENT', [])
+  handle.queryPermission = async () => 'prompt'
+  handle.requestPermission = async () => {
+    requested++
+    return 'granted'
+  }
+
+  assert.equal(await verifyProjectDirectoryPermission(handle, false), false)
+  assert.equal(requested, 0)
+  assert.equal(await verifyProjectDirectoryPermission(handle, true), true)
+  assert.equal(requested, 1)
+})
+test('创建项目的临时目录选择只会被详情页消费一次', () => {
+  const files = projectFileCandidatesFromInput([
+    localFile('README.md', 'PM-AGENT/README.md'),
+  ])
+  rememberPendingProjectDirectory(id, { directoryName: 'PM-AGENT', files })
+  assert.equal(takePendingProjectDirectory(id)?.files?.[0].relativePath, 'README.md')
+  assert.equal(takePendingProjectDirectory(id), undefined)
 })
 
 test('解析结果不确定且后端无记录时以原幂等键补发一次，成功后清除恢复记录', async () => {

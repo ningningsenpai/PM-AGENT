@@ -1,6 +1,7 @@
 import {
   validateProjectFile,
   type PreparedProjectFile,
+  type ProjectFileCandidate,
   type RejectedProjectFile,
 } from '@/modules/project/file-upload'
 import { hashProjectFile } from '@/modules/project/project-update'
@@ -16,26 +17,28 @@ export interface PreparedProjectFileSync {
 }
 
 /** 构建项目目录的完整同步清单，明显拒绝项仅上报元数据，不读取文件内容。 */
-export async function prepareProjectFileSync(files: File[]): Promise<PreparedProjectFileSync> {
+export async function prepareProjectFileSync(
+  files: ProjectFileCandidate[],
+): Promise<PreparedProjectFileSync> {
   const acceptedPaths = new Set<string>()
   const manifestPaths = new Set<string>()
   const items: ProjectFileSyncManifestItem[] = []
   const filesByPath = new Map<string, PreparedProjectFile>()
   const localRejections: RejectedProjectFile[] = []
 
-  for (const file of files) {
-    const validation = validateProjectFile(file, acceptedPaths)
+  for (const input of files) {
+    const validation = validateProjectFile(input, acceptedPaths)
     if (!validation.valid) {
       localRejections.push(validation.rejection)
       if (!manifestPaths.has(validation.rejection.relativePath)) {
-        items.push(toManifestItem(file, validation.rejection.relativePath, null))
+        items.push(toManifestItem(input.file, validation.rejection.relativePath, null))
         manifestPaths.add(validation.rejection.relativePath)
       }
       continue
     }
 
-    const contentHash = await hashProjectFile(file)
-    items.push(toManifestItem(file, validation.candidate.relativePath, contentHash))
+    const contentHash = await hashProjectFile(input.file)
+    items.push(toManifestItem(input.file, validation.candidate.relativePath, contentHash))
     manifestPaths.add(validation.candidate.relativePath)
     filesByPath.set(validation.candidate.relativePath, validation.candidate)
   }

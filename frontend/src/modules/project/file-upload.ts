@@ -93,6 +93,11 @@ const blockedMimeTypes = new Set([
   'application/zip',
 ])
 
+export interface ProjectFileCandidate {
+  file: File
+  relativePath: string
+}
+
 export interface PreparedProjectFile {
   idempotencyKey: string
   relativePath: string
@@ -109,12 +114,20 @@ export type ProjectFileValidationResult =
   | { valid: true; candidate: PreparedProjectFile }
   | { valid: false; rejection: RejectedProjectFile }
 
+export function projectFileCandidatesFromInput(files: File[]): ProjectFileCandidate[] {
+  return files.map((file) => ({ file, relativePath: relativePathFromInput(file) }))
+}
+
+export function isIgnoredProjectDirectory(directoryName: string) {
+  return ignoredDirectoryNames.has(directoryName.toLowerCase())
+}
+
 export function validateProjectFile(
-  file: File,
+  input: ProjectFileCandidate,
   acceptedPaths: Set<string>,
 ): ProjectFileValidationResult {
-  const pathInfo = normalizeFilePath(file)
-  const rejectedReason = getRejectedReason(file, pathInfo.directorySegments)
+  const pathInfo = normalizeFilePath(input.relativePath)
+  const rejectedReason = getRejectedReason(input.file, pathInfo.directorySegments)
   if (rejectedReason) {
     return {
       valid: false,
@@ -134,19 +147,25 @@ export function validateProjectFile(
     candidate: {
       idempotencyKey: uuidv4(),
       relativePath: pathInfo.relativePath,
-      sourceMtimeMs: file.lastModified,
-      file,
+      sourceMtimeMs: input.file.lastModified,
+      file: input.file,
     },
   }
 }
 
-function normalizeFilePath(file: File) {
+function relativePathFromInput(file: File) {
   const rawPath = (file.webkitRelativePath || file.name).replaceAll('\\', '/').normalize('NFC')
   const segments = rawPath.split('/').filter(Boolean)
   const relativeSegments = file.webkitRelativePath && segments.length > 1 ? segments.slice(1) : segments
 
+  return relativeSegments.join('/')
+}
+
+function normalizeFilePath(relativePath: string) {
+  const segments = relativePath.replaceAll('\\', '/').normalize('NFC').split('/').filter(Boolean)
+
   return {
-    relativePath: relativeSegments.join('/'),
+    relativePath: segments.join('/'),
     directorySegments: segments.slice(0, -1).map((segment) => segment.toLowerCase()),
   }
 }

@@ -61,8 +61,10 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDialog, useMessage } from 'naive-ui'
 import { deleteProject, getProjectDetail } from '../api'
+import { deleteProjectDirectoryBinding } from '../project-directory'
 import type { ProjectDetail } from '../types'
 import { useProjectStore } from '../store'
+import { useAuthStore } from '@/stores/auth'
 import ProjectFileUploadCard from '../components/project-file-upload-card.vue'
 import ProjectFileList from '../components/project-file-list.vue'
 import ProjectStatus from '@/shared/components/project-status.vue'
@@ -71,6 +73,7 @@ import { errorMessage, formatDate } from '@/shared/utils/format'
 const id = String(useRoute().params.id)
 const router = useRouter()
 const store = useProjectStore()
+const auth = useAuthStore()
 const dialog = useDialog()
 const message = useMessage()
 const project = ref<ProjectDetail | null>(null)
@@ -106,6 +109,13 @@ function remove() {
     onPositiveClick: async () => {
       try {
         await deleteProject(id)
+        if (auth.user?.id) {
+          try {
+            await deleteProjectDirectoryBinding(auth.user.id, id)
+          } catch {
+            message.warning('项目已删除，但当前浏览器中的文件夹绑定未能清理')
+          }
+        }
         await store.loadProjects(true)
         await router.push('/projects')
       } catch (e) {

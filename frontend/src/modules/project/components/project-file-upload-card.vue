@@ -7,15 +7,22 @@
           <h2>项目文件同步</h2>
           <n-tag :type="uploadStatusType" round size="small">{{ uploadStatusLabel }}</n-tag>
         </div>
-        <p>选择项目文件夹后，后端会统一规划新增、修改、移动和删除，再按计划同步。</p>
+        <p>绑定项目文件夹后，可直接扫描本地变化并按同步计划更新项目文件。</p>
       </div>
       <div class="upload-actions">
         <n-button type="error" secondary :disabled="uploading || disabled" @click="clearProjectFiles">
           清空项目文件
         </n-button>
-        <n-button :disabled="uploading || disabled" @click="openDirectoryPicker">重新选择</n-button>
-        <n-button type="primary" :loading="uploading" :disabled="disabled" @click="openDirectoryPicker">
-          {{ uploading ? '正在同步' : '选择文件夹' }}
+        <n-button :loading="selecting" :disabled="uploading || disabled" @click="reselectDirectory">
+          重新选择
+        </n-button>
+        <n-button
+          type="primary"
+          :loading="uploading"
+          :disabled="disabled || selecting || !selectedDirectoryName"
+          @click="updateProject"
+        >
+          {{ uploading ? uploadActionLabel : '更新项目' }}
         </n-button>
       </div>
       <input
@@ -25,20 +32,33 @@
         multiple
         directory=""
         webkitdirectory=""
-        @change="handleDirectoryChange"
+        @change="handleFallbackDirectoryChange"
       />
     </div>
 
     <n-alert class="filter-alert" type="info" :show-icon="false">
-      选择文件夹内的源码或文档；不支持 ZIP 等压缩包，单文件最大 50MB。删除远端文件前会再次确认。
+      更新项目会直接读取已绑定文件夹，规划新增、修改、移动和删除；不支持 ZIP 等压缩包，单文件最大 50MB。
     </n-alert>
 
+    <div v-if="selectedDirectoryName" class="directory-binding">
+      <div>
+        <span>当前绑定</span>
+        <strong>{{ selectedDirectoryName }}</strong>
+      </div>
+      <span>{{ lastSyncAt ? `上次同步：${formatDate(lastSyncAt)}` : '尚未完成同步' }}</span>
+    </div>
+
     <div v-if="viewState === 'idle'" class="upload-placeholder">
-      <n-empty description="尚未选择项目文件夹">
+      <n-empty description="尚未绑定本地项目文件夹">
         <template #extra>
-          <n-button type="primary" @click="openDirectoryPicker">选择文件夹并上传</n-button>
+          <n-button type="primary" @click="reselectDirectory">绑定项目文件夹</n-button>
         </template>
       </n-empty>
+    </div>
+
+    <div v-else-if="viewState === 'ready'" class="ready-project">
+      <h3>项目文件夹已绑定</h3>
+      <p>点击“更新项目”即可重新扫描当前文件夹，无需再次选择路径。</p>
     </div>
 
     <div v-else-if="viewState === 'empty'" class="empty-project">
@@ -104,7 +124,7 @@
         type="warning"
         title="存在未同步成功的文件"
       >
-        {{ completionSummary }} 共 {{ finalFailures.length }} 个文件失败或未通过校验，可重新选择目录继续同步。
+        {{ completionSummary }} 共 {{ finalFailures.length }} 个文件失败或未通过校验，可点击“更新项目”重试。
       </n-alert>
 
     </template>
@@ -112,8 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { useDialog, useMessage } from 'naive-ui'
 import {
@@ -124,15 +143,34 @@ import {
   updateProjectFilePath,
   uploadProjectFile,
 } from '@/modules/project/api'
-import type { PreparedProjectFile, RejectedProjectFile } from '@/modules/project/file-upload'
+import {
+  projectFileCandidatesFromInput,
+  type PreparedProjectFile,
+  type ProjectFileCandidate,
+  type RejectedProjectFile,
+} from '@/modules/project/file-upload'
 import { prepareProjectFileSync } from '@/modules/project/project-sync'
+import {
+  getProjectDirectoryBinding,
+  isDirectoryPickerCancelled,
+  isProjectDirectoryPickerSupported,
+  markProjectDirectorySynced,
+  pickProjectDirectory,
+  readProjectDirectory,
+  saveProjectDirectoryBinding,
+  takePendingProjectDirectory,
+  verifyProjectDirectoryPermission,
+  type ProjectDirectoryHandle,
+} from '@/modules/project/project-directory'
 import type {
   ProjectFileParseResult,
   ProjectFileSyncPlan,
   ProjectFileSyncRemoteItem,
 } from '@/modules/project/types'
+import { useAuthStore } from '@/stores/auth'
+import { errorMessage, formatDate } from '@/shared/utils/format'
 
-type UploadViewState = 'idle' | 'empty' | 'uploading' | 'success' | 'needs-update'
+type UploadViewState = 'idle' | 'ready' | 'empty' | 'uploading' | 'success' | 'needs-update'
 
 interface UploadFailure {
   relativePath: string
@@ -147,20 +185,29 @@ const emit = defineEmits<{ changed: []; busy: [value: boolean] }>()
 
 const dialog = useDialog()
 const message = useMessage()
+const auth = useAuthStore()
 const directoryInput = ref<HTMLInputElement | null>(null)
 const viewState = ref<UploadViewState>('idle')
 const uploading = ref(false)
+const selecting = ref(false)
+const scanning = ref(false)
 watch(uploading, (value) => emit('busy', value), { flush: 'sync' })
 function guardSync() { if (uploading.value) { message.warning('正在同步文件，请等待操作结束'); return false } }
 onBeforeRouteLeave(guardSync)
 onBeforeRouteUpdate(guardSync)
 const selectedDirectoryName = ref('')
+const directoryHandle = ref<ProjectDirectoryHandle | null>(null)
+const fallbackFiles = ref<ProjectFileCandidate[]>([])
+const lastSyncAt = ref<string | null>(null)
 const totalFileCount = ref(0)
 const processedFileCount = ref(0)
 const succeededFileCount = ref(0)
 const rejectedFiles = ref<RejectedProjectFile[]>([])
 const finalFailures = ref<UploadFailure[]>([])
 const parseResult = ref<ProjectFileParseResult | null>(null)
+const plannedChangeCount = ref(0)
+
+const uploadActionLabel = computed(() => (scanning.value ? '正在扫描' : '正在同步'))
 
 const rejectedReasonSummary = computed(() => {
   const counts = new Map<string, number>()
@@ -183,7 +230,12 @@ const uploadProgressText = computed(() => {
 })
 
 const completionSummary = computed(() => {
-  if (!parseResult.value) return `${succeededFileCount.value} 个项目文件状态已同步。请在下方单独发起文件解析。`
+  if (!parseResult.value) {
+    if (!plannedChangeCount.value && !finalFailures.value.length) {
+      return '本地目录与项目文件一致，无需更新。'
+    }
+    return `${succeededFileCount.value} 个项目文件状态已同步。请在下方单独发起文件解析。`
+  }
   const specificationText = {
     updated: '项目规范已刷新',
     kept: '项目规范保持不变',
@@ -195,7 +247,8 @@ const completionSummary = computed(() => {
 
 const uploadStatusLabel = computed(() => {
   const labels: Record<UploadViewState, string> = {
-    idle: '待选择',
+    idle: '未绑定',
+    ready: '已绑定',
     empty: '内容为空',
     uploading: '同步中',
     success: '已完成',
@@ -211,33 +264,123 @@ const uploadStatusType = computed<'default' | 'info' | 'success' | 'warning'>(()
   return 'default'
 })
 
-function openDirectoryPicker() {
-  if (uploading.value || props.disabled || !directoryInput.value) return
-  directoryInput.value.value = ''
-  directoryInput.value.click()
-}
-
-async function handleDirectoryChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const selectedFiles = Array.from(input.files ?? [])
-  input.value = ''
-  resetUploadView()
-
-  if (!selectedFiles.length) {
-    viewState.value = 'empty'
-    selectedDirectoryName.value = '空文件夹'
+async function initializeDirectory() {
+  const pending = takePendingProjectDirectory(props.projectId)
+  if (pending) {
+    selectedDirectoryName.value = pending.directoryName
+    directoryHandle.value = pending.handle ?? null
+    fallbackFiles.value = pending.files ?? []
+    viewState.value = 'ready'
+    if (pending.handle && auth.user?.id) {
+      try {
+        await saveProjectDirectoryBinding(auth.user.id, props.projectId, pending.handle)
+      } catch {
+        message.warning('本次可以继续同步，但浏览器未能持久保存项目文件夹')
+      }
+    }
+    await updateProject()
     return
   }
 
+  if (!auth.user?.id) return
+  try {
+    const binding = await getProjectDirectoryBinding(auth.user.id, props.projectId)
+    if (!binding) return
+    directoryHandle.value = binding.handle
+    selectedDirectoryName.value = binding.directoryName
+    lastSyncAt.value = binding.lastSyncAt
+    viewState.value = 'ready'
+  } catch {
+    message.warning('未能读取当前浏览器保存的项目文件夹绑定')
+  }
+}
+
+onMounted(() => void initializeDirectory())
+
+async function reselectDirectory() {
+  if (uploading.value || selecting.value || props.disabled) return
+  if (!isProjectDirectoryPickerSupported()) {
+    if (directoryInput.value) {
+      directoryInput.value.value = ''
+      directoryInput.value.click()
+    }
+    return
+  }
+
+  selecting.value = true
+  try {
+    const handle = await pickProjectDirectory(directoryHandle.value ?? undefined)
+    directoryHandle.value = handle
+    fallbackFiles.value = []
+    selectedDirectoryName.value = handle.name
+    lastSyncAt.value = null
+    resetUploadView('ready')
+    if (auth.user?.id) {
+      await saveProjectDirectoryBinding(auth.user.id, props.projectId, handle)
+    }
+    message.success(`已绑定 ${handle.name}，点击“更新项目”开始同步`)
+  } catch (selectionError) {
+    if (!isDirectoryPickerCancelled(selectionError)) {
+      message.error(errorMessage(selectionError))
+    }
+  } finally {
+    selecting.value = false
+  }
+}
+
+function handleFallbackDirectoryChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const selectedFiles = Array.from(input.files ?? [])
+  input.value = ''
+  if (!selectedFiles.length) return
+  fallbackFiles.value = projectFileCandidatesFromInput(selectedFiles)
+  directoryHandle.value = null
   selectedDirectoryName.value = getDirectoryName(selectedFiles[0])
-  totalFileCount.value = selectedFiles.length
+  lastSyncAt.value = null
+  resetUploadView('ready')
+  message.warning('当前浏览器无法持久绑定目录；本页内可直接更新，刷新后需要重新选择')
+}
+
+async function updateProject() {
+  if (uploading.value || selecting.value || props.disabled) return
+  if (!selectedDirectoryName.value) {
+    message.warning('请先重新选择并绑定项目文件夹')
+    return
+  }
+
+  resetUploadView('ready')
   uploading.value = true
   viewState.value = 'uploading'
+  scanning.value = true
 
   try {
+    let selectedFiles = fallbackFiles.value
+    if (directoryHandle.value) {
+      const permitted = await verifyProjectDirectoryPermission(directoryHandle.value, true)
+      if (!permitted) throw new Error('项目文件夹读取权限已失效，请重新授权或重新选择')
+      selectedFiles = await readProjectDirectory(directoryHandle.value)
+    }
+    scanning.value = false
+
+    if (!selectedFiles.length) {
+      viewState.value = 'empty'
+      message.warning('当前文件夹为空；如需删除服务端文件，请使用“清空项目文件”')
+      return
+    }
+
+    totalFileCount.value = selectedFiles.length
     const selection = await prepareProjectFileSync(selectedFiles)
     rejectedFiles.value = selection.localRejections
     const plan = await planProjectFileSync(props.projectId, selection.request)
+    plannedChangeCount.value =
+      plan.modified.length +
+      plan.moved.length +
+      plan.added.length +
+      plan.deleted.length +
+      plan.ambiguous.reduce(
+        (count, item) => count + item.localItems.length + item.remoteItems.length,
+        0,
+      )
     const localIssueCount = recordPlanIssues(plan, selection.localRejections)
     const deletionItems = getDeletionItems(plan)
     totalFileCount.value = countPlanItems(plan) + localIssueCount
@@ -274,16 +417,26 @@ async function handleDirectoryChange(event: Event) {
       error instanceof Error ? error.message : '项目文件同步或上下文刷新失败',
     )
   } finally {
+    scanning.value = false
     uploading.value = false
   }
 
+  const syncSucceeded =
+    !finalFailures.value.length && parseResult.value?.status !== 'partial'
   finishUploadView()
+  if (syncSucceeded && directoryHandle.value && auth.user?.id) {
+    try {
+      const binding = await markProjectDirectorySynced(auth.user.id, props.projectId)
+      lastSyncAt.value = binding?.lastSyncAt ?? lastSyncAt.value
+    } catch {
+      message.warning('文件同步成功，但上次同步时间未能保存到当前浏览器')
+    }
+  }
 }
 
 async function clearProjectFiles() {
   if (uploading.value || props.disabled) return
-  resetUploadView()
-  selectedDirectoryName.value = '项目全部文件'
+  resetUploadView(selectedDirectoryName.value ? 'ready' : 'idle')
   uploading.value = true
   viewState.value = 'uploading'
 
@@ -295,7 +448,7 @@ async function clearProjectFiles() {
     })
     totalFileCount.value = plan.deleted.length
     if (plan.deleted.length && !(await confirmClearProjectFiles(plan))) {
-      resetUploadView()
+      resetUploadView(selectedDirectoryName.value ? 'ready' : 'idle')
       message.info('已取消清空项目文件')
       return
     }
@@ -323,10 +476,16 @@ function finishUploadView() {
   emit('changed')
   if (finalFailures.value.length || parseResult.value?.status === 'partial') {
     viewState.value = 'needs-update'
-    message.warning('存在未同步或未解析成功的文件，可重新选择目录重试')
+    message.warning('存在未同步或未解析成功的文件，可点击“更新项目”重试')
   } else {
     viewState.value = 'success'
-    message.success(parseResult.value ? '项目文件与项目上下文同步完成' : '文件同步完成，可在下方发起解析')
+    message.success(
+      parseResult.value
+        ? '项目文件与项目上下文同步完成'
+        : plannedChangeCount.value
+          ? '文件同步完成，可在下方发起解析'
+          : '项目文件已是最新状态',
+    )
   }
 }
 
@@ -546,15 +705,15 @@ function confirmClearProjectFiles(plan: ProjectFileSyncPlan) {
   })
 }
 
-function resetUploadView() {
-  viewState.value = 'idle'
-  selectedDirectoryName.value = ''
+function resetUploadView(state: UploadViewState = selectedDirectoryName.value ? 'ready' : 'idle') {
+  viewState.value = state
   totalFileCount.value = 0
   processedFileCount.value = 0
   succeededFileCount.value = 0
   rejectedFiles.value = []
   finalFailures.value = []
   parseResult.value = null
+  plannedChangeCount.value = 0
 }
 
 function getDirectoryName(file: File) {
@@ -583,13 +742,15 @@ function getDirectoryName(file: File) {
 }
 
 .upload-head h2,
-.empty-project h3 {
+.empty-project h3,
+.ready-project h3 {
   margin: 0;
   color: var(--pm-text);
 }
 
 .upload-head > div:first-child > p:last-child,
-.empty-project p {
+.empty-project p,
+.ready-project p {
   margin: 8px 0 0;
   color: var(--pm-text-secondary);
   line-height: 1.7;
@@ -618,8 +779,34 @@ function getDirectoryName(file: File) {
   margin-top: 18px;
 }
 
+.directory-binding {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid #d7e4f5;
+  border-radius: 14px;
+  background: #f7faff;
+  color: var(--pm-text-secondary);
+  font-size: 13px;
+}
+
+.directory-binding div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.directory-binding strong {
+  color: var(--pm-text);
+  overflow-wrap: anywhere;
+}
+
 .upload-placeholder,
-.empty-project {
+.empty-project,
+.ready-project {
   margin-top: 20px;
   border: 1px dashed #cbd8eb;
   border-radius: 18px;
@@ -630,9 +817,17 @@ function getDirectoryName(file: File) {
   padding: 42px 24px;
 }
 
-.empty-project {
+.empty-project,
+.ready-project {
   padding: 34px;
+}
+
+.empty-project {
   border-left: 4px solid var(--pm-yellow);
+}
+
+.ready-project {
+  border-left: 4px solid var(--pm-blue);
 }
 
 .upload-metrics {
