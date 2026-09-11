@@ -1,5 +1,7 @@
 import test, { beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { effectScope } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { http, request, RequestError, onUnauthorized } from '@/api/http'
@@ -550,6 +552,16 @@ test('创建项目的临时目录选择只会被详情页消费一次', () => {
   rememberPendingProjectDirectory(id, { directoryName: 'PM-AGENT', files })
   assert.equal(takePendingProjectDirectory(id)?.files?.[0].relativePath, 'README.md')
   assert.equal(takePendingProjectDirectory(id), undefined)
+})
+
+test('删除同步完成后按当前目录文件数展示并只刷新一次列表', () => {
+  const source = readFileSync(
+    resolve('src/modules/project/components/project-file-upload-card.vue'),
+    'utf8',
+  )
+  assert.match(source, /<strong>{{ currentFileCount }}<\/strong>/)
+  assert.match(source, /currentFileCount\.value = selection\.filesByPath\.size/)
+  assert.equal(source.match(/emit\('changed'\)/g)?.length, 1)
 })
 
 test('解析结果不确定且后端无记录时以原幂等键补发一次，成功后清除恢复记录', async () => {

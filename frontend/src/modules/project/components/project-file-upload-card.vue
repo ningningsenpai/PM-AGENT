@@ -69,8 +69,8 @@
     <template v-else>
       <div class="upload-metrics">
         <div>
-          <span>同步总项</span>
-          <strong>{{ totalFileCount }}</strong>
+          <span>目录文件</span>
+          <strong>{{ currentFileCount }}</strong>
         </div>
         <div>
           <span>已处理</span>
@@ -199,6 +199,7 @@ const selectedDirectoryName = ref('')
 const directoryHandle = ref<ProjectDirectoryHandle | null>(null)
 const fallbackFiles = ref<ProjectFileCandidate[]>([])
 const lastSyncAt = ref<string | null>(null)
+const currentFileCount = ref(0)
 const totalFileCount = ref(0)
 const processedFileCount = ref(0)
 const succeededFileCount = ref(0)
@@ -225,7 +226,7 @@ const uploadProgressText = computed(() => {
     const currentFile = Math.min(processedFileCount.value + 1, totalFileCount.value)
     return `正在处理第 ${currentFile} 个文件，共 ${totalFileCount.value} 个`
   }
-  if (viewState.value === 'success') return `${succeededFileCount.value} 个文件已同步`
+  if (viewState.value === 'success') return `当前目录共 ${currentFileCount.value} 个文件`
   return `${finalFailures.value.length} 个文件需要后续更新`
 })
 
@@ -234,7 +235,7 @@ const completionSummary = computed(() => {
     if (!plannedChangeCount.value && !finalFailures.value.length) {
       return '本地目录与项目文件一致，无需更新。'
     }
-    return `${succeededFileCount.value} 个项目文件状态已同步。请在下方单独发起文件解析。`
+    return `本轮 ${plannedChangeCount.value} 项变更已同步，当前目录共 ${currentFileCount.value} 个文件。请在下方单独发起文件解析。`
   }
   const specificationText = {
     updated: '项目规范已刷新',
@@ -370,6 +371,7 @@ async function updateProject() {
 
     totalFileCount.value = selectedFiles.length
     const selection = await prepareProjectFileSync(selectedFiles)
+    currentFileCount.value = selection.filesByPath.size
     rejectedFiles.value = selection.localRejections
     const plan = await planProjectFileSync(props.projectId, selection.request)
     plannedChangeCount.value =
@@ -410,7 +412,6 @@ async function updateProject() {
       recordSkippedDeletions(deletionItems, reason)
     }
 
-    emit('changed')
   } catch (error) {
     recordFailure(
       '项目文件同步',
@@ -707,6 +708,7 @@ function confirmClearProjectFiles(plan: ProjectFileSyncPlan) {
 
 function resetUploadView(state: UploadViewState = selectedDirectoryName.value ? 'ready' : 'idle') {
   viewState.value = state
+  currentFileCount.value = 0
   totalFileCount.value = 0
   processedFileCount.value = 0
   succeededFileCount.value = 0
