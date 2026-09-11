@@ -217,7 +217,7 @@ const rejectedReasonSummary = computed(() => {
 })
 
 const uploadPercentage = computed(() => {
-  if (!totalFileCount.value) return 0
+  if (!totalFileCount.value) return viewState.value === 'success' ? 100 : 0
   return Math.min(100, Math.round((processedFileCount.value / totalFileCount.value) * 100))
 })
 
@@ -424,6 +424,7 @@ async function updateProject() {
 
   const syncSucceeded =
     !finalFailures.value.length && parseResult.value?.status !== 'partial'
+  if (syncSucceeded) settleCompletedFileMetrics()
   finishUploadView()
   if (syncSucceeded && directoryHandle.value && auth.user?.id) {
     try {
@@ -470,6 +471,9 @@ async function clearProjectFiles() {
     uploading.value = false
   }
 
+  const syncSucceeded =
+    !finalFailures.value.length && parseResult.value?.status !== 'partial'
+  if (syncSucceeded) settleCompletedFileMetrics()
   finishUploadView()
 }
 
@@ -488,6 +492,13 @@ function finishUploadView() {
           : '项目文件已是最新状态',
     )
   }
+}
+
+/** 完成态统一展示当前目录文件数，避免已删除项继续占用处理与成功统计。 */
+function settleCompletedFileMetrics() {
+  totalFileCount.value = currentFileCount.value
+  processedFileCount.value = currentFileCount.value
+  succeededFileCount.value = currentFileCount.value
 }
 
 function recordPlanIssues(plan: ProjectFileSyncPlan, localRejections: RejectedProjectFile[]) {

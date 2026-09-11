@@ -561,6 +561,11 @@ test('删除同步完成后按当前目录文件数展示并只刷新一次列�
   )
   assert.match(source, /<strong>{{ currentFileCount }}<\/strong>/)
   assert.match(source, /currentFileCount\.value = selection\.filesByPath\.size/)
+  assert.match(
+    source,
+    /function settleCompletedFileMetrics\(\)[\s\S]*?totalFileCount\.value = currentFileCount\.value[\s\S]*?processedFileCount\.value = currentFileCount\.value[\s\S]*?succeededFileCount\.value = currentFileCount\.value/,
+  )
+  assert.equal(source.match(/if \(syncSucceeded\) settleCompletedFileMetrics\(\)/g)?.length, 2)
   assert.equal(source.match(/emit\('changed'\)/g)?.length, 1)
 })
 
