@@ -1,0 +1,199 @@
+<mxfile host="Electron" agent="Codex" version="26.0.3">
+  <diagram id="layered-retrieval" name="在线问答分层召回">
+    <mxGraphModel dx="1800" dy="1160" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1160" background="#FBF7F0" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;b&gt;在线问答分层召回&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=30;fontColor=#223047;" vertex="1" parent="1">
+          <mxGeometry x="60" y="35" width="1050" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="先用结构化资产缩小范围，再在需要实现细节或行号时回读当前原文" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=15;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="60" y="88" width="1100" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="tag" value="&lt;font face=&quot;Times New Roman&quot;&gt;LAYERED RETRIEVAL · EVIDENCE FIRST&lt;/font&gt;" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#EFE8DE;strokeColor=none;fontFamily=Times New Roman;fontSize=12;fontStyle=1;fontColor=#6E6257;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="48" width="360" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="divider" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DDD3C7;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="60" y="135" width="1670" height="2" as="geometry"/>
+        </mxCell>
+        <mxCell id="query" value="&lt;b&gt;用户问题&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;QUERY&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;保留原始表达&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="190" width="230" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-q" value="01" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#D77D64;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="normalize" value="&lt;b&gt;术语归一化&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;NORMALIZE&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;NFKC · AC · 最长匹配&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="350" y="190" width="250" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-n" value="02" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#668FAD;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="338" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="router" value="&lt;b&gt;来源路由&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;SOURCE ROUTER&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;按分析动作选择数据域&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="660" y="190" width="250" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-r" value="03" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6C9B86;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="648" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-q-n" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="query" target="normalize" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-n-r" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="normalize" target="router" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="asset-map" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="345" width="720" height="420" as="geometry"/>
+        </mxCell>
+        <mxCell id="asset-map-title" value="&lt;b&gt;可解释知识资产&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;RETRIEVAL ASSET MAP&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="75" y="358" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="asset-tier-1" value="第一层 · 全局轻量路由" style="text;html=1;strokeColor=none;fillColor=#FBF7F0;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="90" y="410" width="190" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-index" value="&lt;b&gt;文件身份与路由&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;INDEX&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="450" width="145" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-rules" value="&lt;b&gt;项目规则与约束&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;RULES&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="250" y="450" width="145" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-memory" value="&lt;b&gt;项目阶段与目标&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;MEMORY&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="410" y="450" width="145" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-report" value="&lt;b&gt;已有报告与版本&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;REPORT&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="570" y="450" width="145" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="asset-tier-2" value="第二层 · 文件 Detail 初排" style="text;html=1;strokeColor=none;fillColor=#FBF7F0;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="90" y="545" width="210" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-summary" value="&lt;b&gt;摘要与标题&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="585" width="145" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-symbol" value="&lt;b&gt;符号与事实&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="250" y="585" width="145" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-weight" value="&lt;b&gt;字段加权&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="410" y="585" width="145" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-quota" value="&lt;b&gt;配额与去重&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="570" y="585" width="145" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="asset-tier-3" value="第三层 · 当前原文补证" style="text;html=1;strokeColor=none;fillColor=#FBF7F0;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="90" y="670" width="210" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-file" value="&lt;b&gt;文件 ID&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="705" width="145" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-line" value="&lt;b&gt;真实行号&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="250" y="705" width="145" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-hash" value="&lt;b&gt;内容哈希&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="410" y="705" width="145" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="a-mask" value="&lt;b&gt;敏感脱敏&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="570" y="705" width="145" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="tier-1" value="&lt;b&gt;全局轻量召回&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;LAYER 1&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;Index / 规则 / 记忆 / 报告&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="950" y="180" width="300" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="tier-badge-1" value="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6C9B86;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="938" y="168" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="tier-2" value="&lt;b&gt;文件 Detail 排序&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;LAYER 2&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;候选补全 · 字段权重 · 来源配额&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="950" y="375" width="300" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="tier-badge-2" value="2" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#8B75A5;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="938" y="363" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="enough" value="&lt;b&gt;证据是否足够？&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#806C43&quot; style=&quot;font-size:10px&quot;&gt;EVIDENCE GATE&lt;/font&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=2;fontFamily=SimSun;fontSize=16;fontColor=#493D27;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="555" width="180" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="tier-3" value="&lt;b&gt;精确原文补证&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;LAYER 3 · ON DEMAND&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;项目 / 哈希 / 行号 / 脱敏校验&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="950" y="760" width="300" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="tier-badge-3" value="3" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#D77D64;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="938" y="748" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="context" value="&lt;b&gt;带来源的回答上下文&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;GROUNDED CONTEXT&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;摘要与原文证据分层装配&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="760" width="300" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="answer" value="&lt;b&gt;Agent 回答 / 报告&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;OUTPUT&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;关键结论可回到当前来源&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="925" width="300" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-router-tier1" value="选择来源" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#6C9B86;" edge="1" source="router" target="tier-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-tier1-tier2" value="Top 5 候选" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#8B75A5;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="tier-1" target="tier-2" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-tier2-gate" value="二次排序" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#BD9140;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="tier-2" target="enough" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-gate-tier3" value="需核实实现 / 行号" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#D77D64;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="enough" target="tier-3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-gate-context" value="摘要足够" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#668FAD;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" source="enough" target="context" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-tier3-context" value="精确证据" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#D77D64;" edge="1" source="tier-3" target="context" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-context-answer" value="生成" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#BD9140;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="context" target="answer" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-map-tier1" value="结构化读取" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;dashed=1;dashPattern=5 4;strokeColor=#B9AEA0;exitX=1;exitY=0.25;entryX=0;entryY=0.5;endArrow=open;" edge="1" source="asset-map" target="tier-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="budget" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="810" width="720" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="budget-title" value="&lt;b&gt;上下文预算&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;CONTEXT BUDGET&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="75" y="823" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-top" value="&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;5&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6F675F&quot; style=&quot;font-size:11px&quot;&gt;轻量候选&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.2;fontFamily=SimSun;fontSize=18;fontColor=#223047;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="90" y="885" width="115" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-recall" value="&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;3&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6F675F&quot; style=&quot;font-size:11px&quot;&gt;差异化召回&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.2;fontFamily=SimSun;fontSize=18;fontColor=#223047;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="223" y="885" width="115" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-file" value="&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;2&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6F675F&quot; style=&quot;font-size:11px&quot;&gt;预读文件&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.2;fontFamily=SimSun;fontSize=18;fontColor=#223047;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="356" y="885" width="115" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-kib" value="&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;12 KiB&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6F675F&quot; style=&quot;font-size:11px&quot;&gt;预读原文&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.2;fontFamily=SimSun;fontSize=18;fontColor=#223047;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="489" y="885" width="115" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="b-line" value="&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;200 / 32 KiB&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6F675F&quot; style=&quot;font-size:11px&quot;&gt;单次精确证据&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.2;fontFamily=SimSun;fontSize=18;fontColor=#223047;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="622" y="885" width="115" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-title" value="&lt;b&gt;图例&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=14;fontColor=#3D4650;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1065" width="70" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-0" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="145" y="1071" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-0" value="全局资产" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1065" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-1" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="1071" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-1" value="Detail 初排" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="355" y="1065" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-2" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="495" y="1071" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-2" value="原文补证" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="530" y="1065" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-3" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="670" y="1071" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-3" value="判断与输出" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="705" y="1065" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-note" value="当前在线链路采用可解释词法召回；向量、RRF 与重排属于后续评估方向。" style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#85796E;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="1065" width="610" height="28" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

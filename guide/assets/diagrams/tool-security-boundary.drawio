@@ -1,0 +1,202 @@
+<mxfile host="Electron" agent="Codex" version="26.0.3">
+  <diagram id="tool-security-boundary" name="Agent 工具调用安全边界">
+    <mxGraphModel dx="1800" dy="1080" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1080" background="#FBF7F0" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;b&gt;Agent 工具调用安全边界&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=30;fontColor=#223047;" vertex="1" parent="1">
+          <mxGeometry x="60" y="35" width="1050" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="模型只提出工具意图，所有调用必须穿过后端定义的白名单、参数、权限和输出门禁" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=15;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="60" y="88" width="1100" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="tag" value="&lt;font face=&quot;Times New Roman&quot;&gt;TOOL CALL · TRUST BOUNDARY&lt;/font&gt;" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#EFE8DE;strokeColor=none;fontFamily=Times New Roman;fontSize=12;fontStyle=1;fontColor=#6E6257;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="48" width="360" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="divider" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DDD3C7;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="60" y="135" width="1670" height="2" as="geometry"/>
+        </mxCell>
+        <mxCell id="llm" value="&lt;b&gt;模型工具意图&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;TOOL CALL&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;名称 + JSON 参数&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="390" width="220" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="boundary" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="330" y="175" width="1400" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="boundary-title" value="&lt;b&gt;后端可信执行边界&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;BACKEND TRUST BOUNDARY&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="188" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-1" value="&lt;b&gt;请求级白名单&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;ALLOWLIST&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="370" y="255" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-1-badge" value="01" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#D77D64;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="358" y="243" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-2" value="&lt;b&gt;工具注册表&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;REGISTRY&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="640" y="255" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-2-badge" value="02" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#8B75A5;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="628" y="243" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-3" value="&lt;b&gt;参数结构校验&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PYDANTIC INPUT&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="910" y="255" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-3-badge" value="03" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#668FAD;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="898" y="243" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-4" value="&lt;b&gt;项目权限校验&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PROJECT SCOPE&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="255" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-4-badge" value="04" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6C9B86;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1168" y="243" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-5" value="&lt;b&gt;次数与超时门禁&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;LIMITS&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="255" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-5-badge" value="05" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#BD9140;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1438" y="243" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-10" value="&lt;b&gt;Agent 观察结果&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;OBSERVATION&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="370" y="565" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-10-badge" value="10" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#8B75A5;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="358" y="553" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-9" value="&lt;b&gt;Trace 与调用记录&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;TRACE&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#B9AEA0;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="640" y="565" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-9-badge" value="09" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#B9AEA0;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="628" y="553" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-8" value="&lt;b&gt;结果校验与脱敏&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;OUTPUT GUARD&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="910" y="565" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-8-badge" value="08" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#D77D64;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="898" y="553" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-7" value="&lt;b&gt;结构化业务结果&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;SERVICE RESULT&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="565" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-7-badge" value="07" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#668FAD;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1168" y="553" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-6" value="&lt;b&gt;公开业务 Service&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PUBLIC SERVICE&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="565" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="step-6-badge" value="06" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6C9B86;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1438" y="553" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-llm-step1" value="模型请求" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#BD9140;exitX=1;exitY=0.25;entryX=0;entryY=0.5;" edge="1" source="llm" target="step-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-top-1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-1" target="step-2" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-top-2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-2" target="step-3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-top-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-3" target="step-4" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-top-4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-4" target="step-5" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-turn" value="允许执行" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#6C9B86;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="step-5" target="step-6" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-bottom-6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-6" target="step-7" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-bottom-7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-7" target="step-8" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-bottom-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-8" target="step-9" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-bottom-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="step-9" target="step-10" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-observe-llm" value="tool_call_id 对应结果" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#8B75A5;exitX=0;exitY=0.5;entryX=1;entryY=0.75;" edge="1" source="step-10" target="llm" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="invariants" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="440" y="390" width="1240" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="invariants-title" value="&lt;b&gt;不可突破的执行约束&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;INVARIANTS&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="455" y="403" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="inv-read" value="&lt;b&gt;工具默认只读&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="432" width="260" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="inv-session" value="&lt;b&gt;不接收 SQLAlchemy Session&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="775" y="432" width="260" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="inv-sql" value="&lt;b&gt;不执行模型生成 SQL&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1070" y="432" width="260" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="inv-path" value="&lt;b&gt;不访问任意文件路径&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=12;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1365" y="432" width="260" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="failure" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F9E4E2;strokeColor=#C7655B;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="370" y="710" width="1320" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="failure-title" value="&lt;b&gt;失败统一收敛&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;STRUCTURED FAILURE&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="385" y="723" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="fail-tool" value="&lt;b&gt;未知工具&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#C7655B;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="410" y="760" width="210" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="fail-json" value="&lt;b&gt;非法 JSON&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#C7655B;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="655" y="760" width="210" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="fail-scope" value="&lt;b&gt;越权项目&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#C7655B;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="900" y="760" width="210" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="fail-timeout" value="&lt;b&gt;超时 / 超限&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#C7655B;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1145" y="760" width="210" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="fail-output" value="&lt;b&gt;输出不合法&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#C7655B;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="760" width="210" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="failure-result" value="全部转换为结构化失败结果并写入运行轨迹，不伪装为业务成功" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#C7655B;strokeColor=none;fontFamily=SimSun;fontSize=12;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="758" width="280" height="46" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-title" value="&lt;b&gt;图例&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=14;fontColor=#3D4650;" vertex="1" parent="1">
+          <mxGeometry x="60" y="940" width="70" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-0" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="145" y="946" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-0" value="校验门禁" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="180" y="940" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-1" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="946" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-1" value="工具与观察" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="355" y="940" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-2" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="495" y="946" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-2" value="业务 Service" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="530" y="940" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-3" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="670" y="946" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-3" value="结构化数据" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="705" y="940" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-4" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F9E4E2;strokeColor=#C7655B;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="845" y="946" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-4" value="失败收敛" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="880" y="940" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-note" value="箭头表达一次工具调用的完整往返；模型始终位于后端可信执行边界之外。" style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#85796E;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="940" width="610" height="28" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

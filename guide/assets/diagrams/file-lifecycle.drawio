@@ -1,0 +1,177 @@
+<mxfile host="Electron" agent="Codex" version="26.0.3">
+  <diagram id="file-lifecycle" name="文件同步、解析与索引闭环">
+    <mxGraphModel dx="1800" dy="1170" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1170" background="#FBF7F0" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;b&gt;项目文件同步、解析与索引闭环&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=30;fontColor=#223047;" vertex="1" parent="1">
+          <mxGeometry x="60" y="35" width="1050" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="以内容指纹和文件状态驱动变更分流，最终收敛到同一份当前知识资产" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=15;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="60" y="88" width="1100" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="tag" value="&lt;font face=&quot;Times New Roman&quot;&gt;FILE LIFECYCLE · CONSISTENCY&lt;/font&gt;" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#EFE8DE;strokeColor=none;fontFamily=Times New Roman;fontSize=12;fontStyle=1;fontColor=#6E6257;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="48" width="360" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="divider" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DDD3C7;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="60" y="135" width="1670" height="2" as="geometry"/>
+        </mxCell>
+        <mxCell id="directory" value="&lt;b&gt;选择项目目录&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;LOCAL PROJECT&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;前端读取本地文件树&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="190" width="230" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-1" value="01" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#D77D64;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="fingerprint" value="&lt;b&gt;计算内容指纹&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;SHA-256&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;路径与正文分别比较&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="350" y="190" width="230" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-2" value="02" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#668FAD;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="338" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="plan" value="&lt;b&gt;生成同步计划&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;SYNC PLAN&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;只描述差异，不提前写入&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="640" y="190" width="230" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-3" value="03" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6C9B86;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="628" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="route" value="&lt;b&gt;变化分类&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;CHANGE ROUTER&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;五类状态采用不同处理策略&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="930" y="190" width="260" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-4" value="04" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#BD9140;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="918" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="publish" value="&lt;b&gt;发布当前知识资产&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;CURRENT CONTEXT&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;解析、规则与索引整体收敛&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1470" y="190" width="260" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-5" value="05" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#8B75A5;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1458" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="directory" target="fingerprint" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="fingerprint" target="plan" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="plan" target="route" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-4" value="状态收敛" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;dashed=1;dashPattern=5 4;strokeColor=#B9AEA0;endArrow=open;" edge="1" source="route" target="publish" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="changes" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="345" width="1670" height="310" as="geometry"/>
+        </mxCell>
+        <mxCell id="changes-title" value="&lt;b&gt;变更分流&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;FIVE CHANGE TYPES&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="75" y="358" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="new" value="&lt;b&gt;新增文件&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;NEW&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;font color=&quot;#5F5A54&quot; style=&quot;font-size:13px&quot;&gt;上传原文件&lt;br&gt;→ Uploaded&lt;br&gt;→ 进入解析队列&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.8;fontFamily=SimSun;fontSize=17;fontColor=#39434D;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="90" y="420" width="290" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="changed" value="&lt;b&gt;正文变化&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;CONTENT CHANGED&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;font color=&quot;#5F5A54&quot; style=&quot;font-size:13px&quot;&gt;覆盖对象&lt;br&gt;→ 旧 Detail 失效&lt;br&gt;→ 进入解析队列&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.8;fontFamily=SimSun;fontSize=17;fontColor=#39434D;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="420" width="290" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="moved" value="&lt;b&gt;路径变化&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PATH CHANGED&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;font color=&quot;#5F5A54&quot; style=&quot;font-size:13px&quot;&gt;更新路径&lt;br&gt;→ Detail / 规则失效&lt;br&gt;→ 重新解析&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=1.8;fontFamily=SimSun;fontSize=17;fontColor=#39434D;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="750" y="420" width="290" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="deleted" value="&lt;b&gt;来源删除&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;DELETED&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;font color=&quot;#5F5A54&quot; style=&quot;font-size:13px&quot;&gt;删除对象与 Detail&lt;br&gt;→ 清理规则来源&lt;br&gt;→ 直接刷新索引&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F9E4E2;strokeColor=#C7655B;strokeWidth=1.8;fontFamily=SimSun;fontSize=17;fontColor=#39434D;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="420" width="290" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="same" value="&lt;b&gt;未变化&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;UNCHANGED&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;font color=&quot;#5F5A54&quot; style=&quot;font-size:13px&quot;&gt;保留解析状态&lt;br&gt;→ 跳过模型调用&lt;br&gt;→ 直接刷新索引&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#B9AEA0;strokeWidth=1.8;fontFamily=SimSun;fontSize=17;fontColor=#39434D;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1410" y="420" width="290" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-route-changes" value="执行计划" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#BD9140;exitX=0.5;exitY=1;entryX=0.6;entryY=0;" edge="1" source="route" target="changes" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="parse-queue" value="&lt;b&gt;解析队列&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PARSE QUEUE&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;新增 / 正文 / 路径变化&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="120" y="750" width="260" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="detail-update" value="&lt;b&gt;结构化资产更新&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;DETAIL + RULES&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;事实对账与来源绑定&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="470" y="750" width="280" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="index-rebuild" value="&lt;b&gt;重建全局索引&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;INDEX.JSON&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;仅保留当前有效来源&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="840" y="750" width="280" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="context-ready" value="&lt;b&gt;当前上下文就绪&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;READY&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;供问答、报告与追溯使用&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="750" width="300" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-changes-parse" value="需解析" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#668FAD;exitX=0.28;exitY=1;entryX=0.5;entryY=0;" edge="1" source="changes" target="parse-queue" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-changes-index" value="无需解析" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#B9AEA0;dashed=1;dashPattern=5 4;exitX=0.66;exitY=1;entryX=0.5;entryY=0;" edge="1" source="changes" target="index-rebuild" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-parse-detail" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="parse-queue" target="detail-update" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-detail-index" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="detail-update" target="index-rebuild" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-index-ready" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="index-rebuild" target="context-ready" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-ready-publish" value="版本一致" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#8B75A5;exitX=1;exitY=0.5;entryX=0.5;entryY=1;" edge="1" source="context-ready" target="publish" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1745" y="798"/><mxPoint x="1745" y="320"/><mxPoint x="1600" y="320"/></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="guard" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="930" width="1670" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="guard-title" value="&lt;b&gt;一致性护栏&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;CONSISTENCY GUARDRAILS&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="75" y="943" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="guard-sha" value="&lt;b&gt;SHA-256 内容版本&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="330" y="960" width="245" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="guard-idempotency" value="&lt;b&gt;幂等键防重复&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="605" y="960" width="245" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="guard-lock" value="&lt;b&gt;乐观锁与条件写入&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="960" width="245" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="guard-retry" value="&lt;b&gt;文件级失败与定向重试&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1155" y="960" width="245" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="guard-tx" value="&lt;b&gt;MinIO / LLM 位于事务外&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="960" width="245" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-title" value="&lt;b&gt;图例&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=14;fontColor=#3D4650;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1080" width="70" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-0" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="145" y="1086" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-0" value="新增 / 业务更新" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1080" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-1" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="1086" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-1" value="正文变化" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="355" y="1080" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-2" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="495" y="1086" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-2" value="路径与解析" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="530" y="1080" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-3" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F9E4E2;strokeColor=#C7655B;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="670" y="1086" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-3" value="删除与失效" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="705" y="1080" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-4" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="845" y="1086" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-4" value="知识资产" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="880" y="1080" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-note" value="颜色表达变更语义；所有分支最终汇聚到当前索引，不把部分成功伪装为整批成功。" style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#85796E;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="1080" width="610" height="28" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

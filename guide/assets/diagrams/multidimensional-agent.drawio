@@ -1,0 +1,225 @@
+<mxfile host="Electron" agent="Codex" version="26.0.3">
+  <diagram id="multidimensional-agent" name="多维请求理解与 Agent 执行">
+    <mxGraphModel dx="1800" dy="1170" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1170" background="#FBF7F0" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;b&gt;多维请求理解与 Agent 执行&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=30;fontColor=#223047;" vertex="1" parent="1">
+          <mxGeometry x="60" y="35" width="1050" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="把复合问题拆成受限分析单元，聚合来源后进入有限工具循环" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=15;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="60" y="88" width="1100" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="tag" value="&lt;font face=&quot;Times New Roman&quot;&gt;MULTI-DIMENSION · BOUNDED AGENT&lt;/font&gt;" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#EFE8DE;strokeColor=none;fontFamily=Times New Roman;fontSize=12;fontStyle=1;fontColor=#6E6257;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="48" width="360" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="divider" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DDD3C7;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="60" y="135" width="1670" height="2" as="geometry"/>
+        </mxCell>
+        <mxCell id="input" value="&lt;b&gt;用户复合问题&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;COMPLEX QUERY&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;进度 + 风险 + 约束 + 下一步&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="190" width="240" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-input" value="01" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#D77D64;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="candidate" value="&lt;b&gt;候选请求计划&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;REQUEST PLAN&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;模型仅生成受限候选&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="360" y="190" width="240" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-candidate" value="02" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#8B75A5;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="348" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="validate" value="&lt;b&gt;后端严格校验&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#806C43&quot; style=&quot;font-size:10px&quot;&gt;SCHEMA + DEPENDENCY&lt;/font&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=2;fontFamily=SimSun;fontSize=16;fontColor=#493D27;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="680" y="178" width="190" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="plan" value="&lt;b&gt;执行计划&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;VALID PLAN&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;最多 8 个请求单元&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="970" y="190" width="240" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-plan" value="03" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6C9B86;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="958" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="source-router" value="&lt;b&gt;来源路由&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;SOURCE ROUTER&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;动作决定允许读取的数据域&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=17;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="190" width="240" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-source" value="04" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#668FAD;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1278" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="whitelist" value="&lt;b&gt;工具白名单&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;TOOL WHITELIST&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;仅暴露本轮必要工具&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=16;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="190" width="180" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="badge-tool" value="05" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#8B75A5;strokeColor=#FBF7F0;strokeWidth=4;fontFamily=Times New Roman;fontSize=13;fontStyle=1;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1538" y="178" width="38" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="fallback" value="&lt;b&gt;确定性降级计划&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;FALLBACK&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;结构无效时拒绝未知字段&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#B9AEA0;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=15;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="650" y="340" width="250" height="88" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-input-candidate" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="input" target="candidate" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-candidate-validate" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="candidate" target="validate" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-valid-plan" value="有效" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#6C9B86;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="validate" target="plan" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-invalid-fallback" value="无效" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#C7655B;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="validate" target="fallback" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-fallback-plan" value="受限恢复" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#B9AEA0;exitX=1;exitY=0.5;entryX=0.5;entryY=1;" edge="1" source="fallback" target="plan" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-plan-source" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="plan" target="source-router" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-source-tool" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="source-router" target="whitelist" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="dimensions" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="475" width="1000" height="245" as="geometry"/>
+        </mxCell>
+        <mxCell id="dimensions-title" value="&lt;b&gt;七类分析维度&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;ANALYSIS DIMENSIONS&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="75" y="488" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="dim-progress" value="&lt;b&gt;进度&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PROGRESS&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=1.4;fontFamily=SimSun;fontSize=14;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="545" width="200" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="dim-plan" value="&lt;b&gt;规划&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PLANNING&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=14;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="320" y="545" width="200" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="dim-risk" value="&lt;b&gt;风险&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;RISK&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.4;fontFamily=SimSun;fontSize=14;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="550" y="545" width="200" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="dim-constraint" value="&lt;b&gt;约束核对&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;CONSTRAINT&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=1.4;fontFamily=SimSun;fontSize=14;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="780" y="545" width="200" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="dim-source" value="&lt;b&gt;来源追溯&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;SOURCE TRACE&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.4;fontFamily=SimSun;fontSize=14;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="635" width="270" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="dim-history" value="&lt;b&gt;项目历史&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;HISTORY&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#B9AEA0;strokeWidth=1.4;fontFamily=SimSun;fontSize=14;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="390" y="635" width="270" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="dim-presentation" value="&lt;b&gt;表达方式&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;PRESENTATION&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=1.4;fontFamily=SimSun;fontSize=14;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="690" y="635" width="270" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="sources" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="475" width="620" height="245" as="geometry"/>
+        </mxCell>
+        <mxCell id="sources-title" value="&lt;b&gt;多来源候选&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;SOURCE PROJECTION&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="488" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="src-index" value="&lt;b&gt;Index / Detail&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="545" width="165" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="src-rule" value="&lt;b&gt;项目规则&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="545" width="165" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="src-memory" value="&lt;b&gt;长短期记忆&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1520" y="545" width="165" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="src-report" value="&lt;b&gt;项目报告&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="635" width="165" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="src-change" value="&lt;b&gt;变更日志&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="635" width="165" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="src-file" value="&lt;b&gt;当前原文件&lt;/b&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.4;fontFamily=SimSun;fontSize=13;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1520" y="635" width="165" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-plan-dim" value="拆分请求单元" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;dashed=1;dashPattern=5 4;strokeColor=#6C9B86;exitX=0.5;exitY=1;entryX=0.85;entryY=0;endArrow=open;" edge="1" source="plan" target="dimensions" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1090" y="455"/><mxPoint x="910" y="455"/></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-source-group" value="选择数据域" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;dashed=1;dashPattern=5 4;strokeColor=#668FAD;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=open;" edge="1" source="source-router" target="sources" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="assembly" value="&lt;b&gt;上下文聚合与预算控制&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;CONTEXT ASSEMBLY&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#776D63&quot; style=&quot;font-size:11px&quot;&gt;按依赖顺序装配摘要、规则与证据&lt;/font&gt;" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#F1ECE4;strokeColor=#B9AEA0;strokeWidth=2;shadow=1;fontFamily=SimSun;fontSize=16;fontColor=#2F3744;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="765" width="560" height="78" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-dim-assembly" value="分析目标" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#6C9B86;exitX=0.7;exitY=1;entryX=0.3;entryY=0;" edge="1" source="dimensions" target="assembly" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-sources-assembly" value="来源候选" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#668FAD;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" edge="1" source="sources" target="assembly" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop" value="" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#D8D0C4;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="885" width="1670" height="175" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop-title" value="&lt;b&gt;有限 Agent 执行&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#8A8178&quot; style=&quot;font-size:10px&quot;&gt;BOUNDED EXECUTION LOOP&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=16;fontColor=#384452;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="75" y="898" width="360" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop-context" value="&lt;b&gt;摘要上下文&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;CONTEXT&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=1.4;fontFamily=SimSun;fontSize=15;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="950" width="250" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop-llm" value="&lt;b&gt;模型决策&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;DECIDE&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=1.4;fontFamily=SimSun;fontSize=15;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="420" y="950" width="250" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop-tool" value="&lt;b&gt;受控工具调用&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;ACT&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.4;fontFamily=SimSun;fontSize=15;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="740" y="950" width="250" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop-observe" value="&lt;b&gt;结构化观察&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;OBSERVE&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.4;fontFamily=SimSun;fontSize=15;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="950" width="250" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop-output" value="&lt;b&gt;证据化输出&lt;/b&gt;&lt;br&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#7A6F65&quot; style=&quot;font-size:10px&quot;&gt;ANSWER&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.4;fontFamily=SimSun;fontSize=15;fontColor=#39434D;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="950" width="250" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="limits" value="&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;≤ 5&lt;/font&gt;&lt;/b&gt; 轮决策　·　&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;≤ 8&lt;/font&gt;&lt;/b&gt; 次工具　·　&lt;b&gt;&lt;font face=&quot;Times New Roman&quot;&gt;≤ 3&lt;/font&gt;&lt;/b&gt; 次差异化召回" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#FFFDF9;strokeColor=#B9AEA0;fontFamily=SimSun;fontSize=12;fontColor=#675E56;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="900" width="560" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-assembly-loop" value="进入循环" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;strokeColor=#B9AEA0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="assembly" target="loop-context" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-loop-1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="loop-context" target="loop-llm" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-loop-2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="loop-llm" target="loop-tool" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-loop-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="loop-tool" target="loop-observe" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-loop-4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#465766;strokeWidth=2;endArrow=block;endFill=1;fontFamily=SimSun;fontSize=11;fontColor=#776D63;labelBackgroundColor=#FBF7F0;" edge="1" source="loop-observe" target="loop-output" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop-note" value="未形成最终结论时，将结构化观察回填到下一轮模型决策" style="text;html=1;strokeColor=none;fillColor=#FBF7F0;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#776D63;" vertex="1" parent="1">
+          <mxGeometry x="470" y="1032" width="830" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-title" value="&lt;b&gt;图例&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=14;fontColor=#3D4650;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1090" width="70" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-0" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#E6F0EC;strokeColor=#6C9B86;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="145" y="1096" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-0" value="确定性计划" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1090" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-1" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#E5EEF6;strokeColor=#668FAD;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="1096" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-1" value="来源与上下文" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="355" y="1090" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-2" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#EEE9F4;strokeColor=#8B75A5;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="495" y="1096" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-2" value="工具与编排" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="530" y="1090" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-3" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F8EDD2;strokeColor=#BD9140;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="670" y="1096" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-3" value="模型决策" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="705" y="1090" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-color-4" value="" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#F7E7E1;strokeColor=#D77D64;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="845" y="1096" width="28" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-text-4" value="最终输出" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#665D55;" vertex="1" parent="1">
+          <mxGeometry x="880" y="1090" width="110" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-note" value="请求计划只能使用后端定义的动作、来源和工具；未知结构不会进入执行循环。" style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;whiteSpace=wrap;fontFamily=SimSun;fontSize=12;fontColor=#85796E;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="1090" width="610" height="28" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
