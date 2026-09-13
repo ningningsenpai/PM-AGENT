@@ -70,3 +70,7 @@ agent-service/tests/project_assistant_flow/output/
 
 # 本地上下文迁移报告
 /agent-service/context-migration-report.json
+
+# 本地 Agent 设计草稿与隔离闭环 Demo
+/agent-service/design-docs/
+/agent-service/closed-loop-demo/
