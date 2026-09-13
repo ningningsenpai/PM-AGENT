@@ -1,78 +1,25 @@
-"""项目规范确定性聚合与分区发布回归测试。"""
+"""项目规范批量增量发布回归测试。"""
 
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, Mock
 
-from app.infrastructure.storage import (
-    ObjectStorage,
-    StorageLocation,
-    StorageLocationFactory,
+from app.core.errors import AppException
+from app.infrastructure.storage import StorageLocation, StorageLocationFactory
+from app.project_context.file_detail.schemas import (
+    FileRuleCandidate,
+    FileRuleCandidates,
 )
-from app.project_context.file_detail.schemas import FileRuleCandidate
 from app.project_context.specification.schemas import (
     ProjectSpecificationSectionDocument,
+    effective_section_rules,
 )
-from app.project_context.specification.service import ProjectSpecificationService
-from tests.unit.modules.project_file.analysis.factories import file_detail
-from tests.unit.modules.project_file.factories import (
-    project,
-    project_file,
-    storage_config,
+from app.project_context.specification.service import (
+    FileRuleSyncSource,
+    ProjectSpecificationService,
 )
-
-
-def _written_section(storage: Mock, suffix: str) -> ProjectSpecificationSectionDocument:
-    call = next(
-        item
-        for item in storage.put_bytes.call_args_list
-        if item.args[0].object_key.endswith(suffix)
-    )
-    return ProjectSpecificationSectionDocument.model_validate_json(call.args[1])
-
-
-def _service_with_details(
-    candidates_by_file: list[list[FileRuleCandidate]],
-) -> tuple[ProjectSpecificationService, Mock, SimpleNamespace, list]:
-    files = []
-    details = []
-    for offset, candidates in enumerate(candidates_by_file):
-        file = project_file(
-            file_id=30 + offset,
-            relative_path=f"docs/{offset}.md",
-            file_name=f"{offset}.md",
-        )
-        file.file_type = "doc"
-        file.detail_ref = f"system/file_details/{offset}.json"
-        files.append(file)
-        details.append(
-            file_detail(file).model_copy(
-                update={
-                    "detail_ref": file.detail_ref,
-                    "rule_candidates": candidates,
-                }
-            )
-        )
-    storage = Mock(spec=ObjectStorage)
-    storage.read_versioned.return_value = None
-    storage.exists.return_value = True
-    storage.read_bytes.side_effect = [
-        detail.model_dump_json().encode()
-        for _, detail in sorted(
-            zip(files, details, strict=True),
-            key=lambda item: item[0].relative_path,
-        )
-    ]
-    generator = SimpleNamespace(generate=AsyncMock())
-    service = ProjectSpecificationService(
-        storage,
-        StorageLocationFactory(storage_config()),
-        generator,
-    )
-    return service, storage, generator, files
+from tests.unit.modules.project_file.factories import project, storage_config
 
 
 class _VersionedMemoryStorage:
@@ -109,172 +56,165 @@ class _VersionedMemoryStorage:
         self.objects[self._key(location)] = content, new_etag
         return new_etag
 
-    def exists(self, location: StorageLocation) -> bool:
-        return self._key(location) in self.objects
-
-    def read_bytes(self, location: StorageLocation) -> bytes:
-        return self.objects[self._key(location)][0]
-
-    def put_bytes(
-        self,
-        location: StorageLocation,
-        content: bytes,
-        _content_type: str,
-    ) -> None:
-        current = self.read_versioned(location)
-        self.compare_and_put(location, content, current[1] if current else None)
-
     def remove(self, location: StorageLocation) -> None:
         self.objects.pop(self._key(location), None)
 
 
-class SpecificationDeterministicAggregationTest(IsolatedAsyncioTestCase):
-    async def test_many_candidates_are_not_lost_and_do_not_call_model(self) -> None:
-        candidates = [
-            FileRuleCandidate(
-                category="coding_rule",
-                text=f"候选规则 {index}",
-                confidence="high",
-                evidence=["明确的文档约定"],
-            )
-            for index in range(25)
-        ]
-        service, storage, generator, files = _service_with_details([candidates])
+def _candidates(**sections) -> FileRuleCandidates:
+    values = {
+        "development_approach": [],
+        "technical_constraints": [],
+        "coding_rules": [],
+        "document_rules": [],
+        "risk_rules": [],
+    }
+    values.update(sections)
+    return FileRuleCandidates(**values)
 
-        self.assertEqual("updated", await service.refresh(project(), files))
 
-        generator.generate.assert_not_awaited()
-        section = _written_section(
-            storage, "project_specification/coding_rules.json"
+def _candidate(
+    text: str,
+    confidence: str = "high",
+    evidence: str = "明确的文档约定",
+) -> FileRuleCandidate:
+    return FileRuleCandidate(
+        text=text,
+        confidence=confidence,
+        evidence=[evidence],
+    )
+
+
+def _source(file_id: int, candidates: FileRuleCandidates) -> FileRuleSyncSource:
+    return FileRuleSyncSource(
+        file_id=file_id,
+        detail_id=f"file-{file_id}",
+        detail_ref=f"system/file_details/{file_id}.json",
+        source_path=f"docs/{file_id}.md",
+        source_type="doc",
+        content_hash=f"hash-{file_id}",
+        may_supply_constraints=True,
+        rule_candidates=candidates,
+    )
+
+
+def _read_json(storage: _VersionedMemoryStorage, suffix: str) -> dict:
+    return json.loads(
+        next(
+            content
+            for (_bucket, key), (content, _etag) in storage.objects.items()
+            if key.endswith(suffix)
         )
-        self.assertEqual(25, len(section.rules))
+    )
+
+
+class SpecificationIncrementalBatchTest(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.storage = _VersionedMemoryStorage()
+        self.service = ProjectSpecificationService(
+            self.storage,
+            StorageLocationFactory(storage_config()),
+        )
+
+    async def test_many_candidates_stay_in_one_file_group(self) -> None:
+        candidates = [_candidate(f"候选规则 {index}") for index in range(25)]
+
+        await self.service.sync_file_sources(
+            project(), [_source(30, _candidates(coding_rules=candidates))]
+        )
+
+        section = _read_json(self.storage, "project_specification/coding_rules.json")
+        rules = section["file_rule_groups"]["30"]["rules"]
+        self.assertEqual(25, len(rules))
         self.assertEqual(
             {f"候选规则 {index}" for index in range(25)},
-            {item["rule"] for item in section.rules},
+            {item["rule"] for item in rules},
         )
 
-    async def test_same_rule_merges_sources_and_uses_stronger_confidence(self) -> None:
-        service, storage, generator, files = _service_with_details(
+    async def test_effective_view_merges_same_rule_across_file_groups(self) -> None:
+        await self.service.sync_file_sources(
+            project(),
             [
-                [
-                    FileRuleCandidate(
-                        category="risk_rule",
-                        text="禁止提交 API Key",
-                        confidence="low",
-                        evidence=["安全说明"],
-                    )
-                ],
-                [
-                    FileRuleCandidate(
-                        category="risk_rule",
-                        text="  禁止提交   API Key  ",
-                        confidence="high",
-                        evidence=["开发规范"],
-                    )
-                ],
-            ]
+                _source(
+                    30,
+                    _candidates(
+                        risk_rules=[_candidate("禁止提交 API Key", "low", "安全说明")]
+                    ),
+                ),
+                _source(
+                    31,
+                    _candidates(
+                        risk_rules=[
+                            _candidate("  禁止提交   API Key  ", "high", "开发规范")
+                        ]
+                    ),
+                ),
+            ],
         )
 
-        self.assertEqual("updated", await service.refresh(project(), files))
-
-        generator.generate.assert_not_awaited()
-        rule = _written_section(
-            storage, "project_specification/risk_rules.json"
-        ).rules[0]
-        self.assertEqual("active", rule["status"])
-        self.assertEqual("high", rule["confidence"])
-        self.assertEqual(2, len(rule["source_refs"]))
+        section = ProjectSpecificationSectionDocument.model_validate(
+            _read_json(self.storage, "project_specification/risk_rules.json")
+        )
+        rules = effective_section_rules(section)
+        self.assertEqual(1, len(rules))
+        self.assertEqual("high", rules[0].confidence)
+        self.assertEqual(2, len(rules[0].source_refs))
 
     async def test_low_confidence_rule_waits_for_review(self) -> None:
-        service, storage, _generator, files = _service_with_details(
+        await self.service.sync_file_sources(
+            project(),
             [
-                [
-                    FileRuleCandidate(
-                        category="document_rule",
-                        text="文档可能需要包含变更记录",
-                        confidence="low",
-                        evidence=["措辞不明确"],
-                    )
-                ]
-            ]
+                _source(
+                    30,
+                    _candidates(
+                        document_rules=[
+                            _candidate("文档可能需要包含变更记录", "low", "措辞不明确")
+                        ]
+                    ),
+                )
+            ],
         )
 
-        await service.refresh(project(), files)
-
-        rule = _written_section(
-            storage, "project_specification/document_rules.json"
-        ).rules[0]
+        section = _read_json(self.storage, "project_specification/document_rules.json")
+        rule = section["file_rule_groups"]["30"]["rules"][0]
         self.assertEqual("pending_review", rule["status"])
-        self.assertEqual("文档可能需要包含变更记录", rule["rule"])
 
-    async def test_manifest_does_not_embed_rule_bodies(self) -> None:
-        service, storage, _generator, files = _service_with_details(
+    async def test_manifest_does_not_embed_rule_or_development_stage(self) -> None:
+        await self.service.sync_file_sources(
+            project(),
             [
-                [
-                    FileRuleCandidate(
-                        category="technical_constraint",
-                        text="后端采用 FastAPI",
-                        confidence="high",
-                        evidence=["架构文档"],
-                    )
-                ]
-            ]
+                _source(
+                    30,
+                    _candidates(technical_constraints=[_candidate("后端采用 FastAPI")]),
+                )
+            ],
         )
 
-        await service.refresh(project(), files)
-
-        call = next(
-            item
-            for item in storage.put_bytes.call_args_list
-            if item.args[0].object_key.endswith("system/project_specification.json")
-        )
-        manifest = json.loads(call.args[1])
-        self.assertNotIn("project_specification", manifest)
-        self.assertNotIn("后端采用 FastAPI", call.args[1].decode())
+        manifest = _read_json(self.storage, "system/project_specification.json")
+        serialized = json.dumps(manifest, ensure_ascii=False)
+        self.assertNotIn("后端采用 FastAPI", serialized)
+        self.assertNotIn("development_stage", manifest)
         self.assertEqual(
             1,
             manifest["sections"]["technical_constraints"]["item_count"],
         )
 
-    async def test_manifest_failure_rolls_back_all_written_sections(self) -> None:
-        storage = _VersionedMemoryStorage()
-        locations = StorageLocationFactory(storage_config())
-        service = ProjectSpecificationService(storage, locations)
-        await service.initialize(project())
-        before = dict(storage.objects)
-        file = project_file()
-        file.file_type = "doc"
-        file.detail_ref = "system/file_details/current.json"
-        detail = file_detail(file).model_copy(
-            update={
-                "detail_ref": file.detail_ref,
-                "rule_candidates": [
-                    FileRuleCandidate(
-                        category="coding_rule",
-                        text="必须保留中文注释",
-                        confidence="high",
-                        evidence=["编码规范"],
+    async def test_manifest_failure_rolls_back_changed_sections(self) -> None:
+        await self.service.initialize(project())
+        before = dict(self.storage.objects)
+        self.storage.fail_manifest = True
+
+        with self.assertRaises(AppException):
+            await self.service.sync_file_sources(
+                project(),
+                [
+                    _source(
+                        30,
+                        _candidates(coding_rules=[_candidate("必须保留中文注释")]),
                     )
                 ],
-            }
-        )
-        detail_location = locations.system_file(
-            project().owner_user_id,
-            project().id,
-            "file_details/current.json",
-        )
-        storage.put_bytes(
-            detail_location,
-            detail.model_dump_json().encode(),
-            "application/json",
-        )
-        before = dict(storage.objects)
-        storage.fail_manifest = True
-
-        with self.assertRaises(RuntimeError):
-            await service.refresh(project(), [file])
+            )
 
         self.assertEqual(
             {key: value[0] for key, value in before.items()},
-            {key: value[0] for key, value in storage.objects.items()},
+            {key: value[0] for key, value in self.storage.objects.items()},
         )

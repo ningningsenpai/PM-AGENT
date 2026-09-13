@@ -59,13 +59,13 @@ system/
 
 - 原文件：项目当前真实代码和文档；代码反映实现状态，文档可以表达规划和约束。
 - Index：导航、文件身份、哈希、Detail 引用与系统资产引用，不承载长篇语义正文。
-- Detail：DeepSeek 对单文件的结构化理解，保存摘要、符号、事实、规则候选、原文锚点和解析版本。
+- Detail：DeepSeek 对单文件的结构化理解，保存摘要、符号、事实、五类规则候选、原文锚点和解析版本。`project_facts` 服务长期记忆，`rule_candidates` 服务项目规范，两者不交叉。
 
 ### 3.2 项目规则
 
-规则只来自两类来源：合格权威文档中的明确陈述，以及用户在对话中的明确项目级指令。代码只能用于核对规则是否得到遵守，不作为规则来源。
+规则只来自两类来源：取得规则来源资格的文件 Detail 中的明确候选，以及用户在对话中确认的项目级指令。文件上传时先根据路径和文件名授予资格；模型分析可以用 `may_supply_project_constraints=true` 兜底授予其他文件资格，但 `false` 不撤销已有资格。
 
-`project_specification.json` 是五个分区的清单，仅保存路径、摘要和条目数。正文按发展方式、技术约束、编码规则、文档规则和风险规则拆分，避免单文件无限膨胀。
+`project_specification.json` 是五个分区的清单，仅保存路径、内容哈希和条目数，不包含 `development_stage`。正文按发展方式、技术约束、编码规则、文档规则和风险规则拆分；每个分区用 `file_rule_groups[file_id]` 保存对应 Detail 的完整规则数组，并用 `managed_rules` 隔离人工确认规则。
 
 规则条目示例：
 
@@ -85,6 +85,49 @@ system/
       "detail_ref": "system/file_details/xxx.json"
     }
   ]
+}
+```
+
+规则分区文件按来源保存完整快照：
+
+```json
+{
+  "project_id": 1001,
+  "schema_version": "3.0.0",
+  "section": "coding_rules",
+  "updated_at": "2026-09-13T18:00:00+08:00",
+  "file_rule_groups": {
+    "255": {
+      "file_id": 255,
+      "detail_id": "file-255",
+      "detail_ref": "system/file_details/xxx.json",
+      "source_path": "docs/project-plan.md",
+      "content_hash": "sha256",
+      "updated_at": "2026-09-13T18:00:00+08:00",
+      "rules": [
+        {
+          "id": "稳定规则标识",
+          "scope": "project",
+          "status": "active",
+          "confidence": "high",
+          "rule": "所有 Python 代码注释必须使用简体中文",
+          "source_refs": [
+            {
+              "type": "doc",
+              "path": "docs/project-plan.md",
+              "file_id": 255,
+              "content_hash": "sha256",
+              "detail_ref": "system/file_details/xxx.json"
+            }
+          ],
+          "created_at": "2026-09-13T18:00:00+08:00",
+          "updated_at": "2026-09-13T18:00:00+08:00",
+          "previous_versions": []
+        }
+      ]
+    }
+  },
+  "managed_rules": []
 }
 ```
 
@@ -108,7 +151,7 @@ system/
 → 上传原文件并记录身份与哈希
 → 生成初始 Index
 → 对可解析文件调用 DeepSeek 生成 Detail
-→ 从合格文档候选确定性重建规则分区
+→ 用本轮成功 Detail 按 file_id 增量写入规则分区
 → 对账长期记忆中的项目事实
 → 重建最终 Index
 ```
@@ -120,7 +163,7 @@ system/
 → 更新文件身份与原文件
 → 只解析新增、正文变化或失败重试文件
 → 更新对应 Detail
-→ 对所有当前有效权威文档规则候选做快照对账
+→ 按本轮成功 Detail 的 file_id 覆盖对应五类规则组
 → 对长期事实做来源对账
 → 重建 Index
 ```
@@ -129,14 +172,14 @@ system/
 
 ## 5. 规则更新算法
 
-DeepSeek 只负责每个文档的规则候选提取；跨文件合并由后端确定性执行，不进行第二轮大模型全文总结：
+DeepSeek 只负责单文件 Detail 的规则候选提取；规则文件更新不再调用第二轮模型：
 
-1. 读取全部当前有效且允许提供约束的文档 Detail。
-2. 按规则分区转换候选，规范化正文后生成稳定规则 ID。
-3. 完全相同的正文合并来源引用，保留更高置信度。
+1. 收集本轮解析成功文件的完整 `rule_candidates` 快照。
+2. 对每个文件分别遍历五个规则分区，规范化正文并生成稳定规则 ID。
+3. 直接替换对应分区中的 `file_rule_groups[file_id]`；该文件某分区为空时删除旧组。
 4. 高、中置信度写为 `active`，低置信度写为 `pending_review`。
-5. 文件来源规则按当前快照重建；用户或人工规则原样保留。
-6. 语义内容未变化时不写对象，避免无意义版本增长。
+5. 召回时确定性合并跨文件重复正文和来源引用；`managed_rules` 不受文件重解析影响。
+6. 文件正文、路径变化或删除时先移除其旧规则组；语义内容未变化时不写对象。
 
 五个分区先完成 Schema 校验和正文准备，再写入 MinIO，最后刷新清单。清单刷新失败时，系统按写前原始字节回滚已写分区；并发情况下只有对象仍是本次写入版本才允许回滚，避免覆盖其他写入者。
 

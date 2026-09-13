@@ -17,6 +17,7 @@ from app.project_context.specification.schemas import (
     RULE_SECTION_FILES,
     ProjectSpecificationManifest,
     ProjectSpecificationSectionDocument,
+    effective_section_rules,
 )
 
 from .documents.long_term_memory import LongTermMemoryDocument
@@ -183,40 +184,17 @@ class FixedContextStore:
 
     def document_entries(self, user_id, project_id, path, document):
         if path == PROJECT_SPECIFICATION:
-            stage = document.get("development_stage", {})
-            content = "；".join(
-                str(value)
-                for value in (
-                    stage.get("current_stage"),
-                    stage.get("stage_goal"),
-                    stage.get("next_focus"),
-                )
-                if value
-            )
-            if not content:
-                return []
-            return [
-                EntryView(
-                    id=stable_id(f"specification:{project_id}:development-stage"),
-                    project_id=project_id,
-                    kind="long_memory",
-                    content=content,
-                    attributes={
-                        "key": "development_stage",
-                        "sourceType": "project_specification_manifest",
-                        "targetFile": PROJECT_SPECIFICATION,
-                        "original": stage,
-                    },
-                    status="active",
-                    version=1,
-                ).model_dump(mode="json", by_alias=True)
-            ]
+            return []
         if path in RULE_FILES:
+            section = ProjectSpecificationSectionDocument.model_validate(document)
             return specification_entries(
                 project_id,
                 {
                     "project_specification": {
-                        document["section"]: document.get("rules", [])
+                        section.section: [
+                            rule.model_dump(mode="json")
+                            for rule in effective_section_rules(section)
+                        ]
                     }
                 },
             )
@@ -382,11 +360,14 @@ class FixedContextStore:
                 sections[field_name] = {
                     "path": f"system/{path}",
                     "content_hash": sha256(content).hexdigest(),
-                    "item_count": len(parsed.rules),
+                    "item_count": sum(
+                        len(group.rules) for group in parsed.file_rule_groups.values()
+                    )
+                    + len(parsed.managed_rules),
                 }
             updated = {
                 **manifest,
-                "schema_version": "2.0.0",
+                "schema_version": "3.0.0",
                 "updated_at": shanghai_now().isoformat(),
                 "sections": sections,
             }
@@ -490,7 +471,7 @@ class FixedContextStore:
         section = updated["section"]
         if RULE_SECTION_FILES[section] != path:
             raise AppException(ErrorCode.FILE_STORAGE_ERROR, "规则分区路径不一致")
-        rules = updated.setdefault("rules", [])
+        rules = updated.setdefault("managed_rules", [])
         for change in changes:
             before, after = change.get("before") or {}, change["after"]
             before_attributes = before.get("attributes", {})
@@ -538,7 +519,7 @@ class FixedContextStore:
             }
             rule["constraint" if section == "technical_constraints" else "rule"] = after["content"]
             rules.append(rule)
-        updated["rules"] = rules
+        updated["managed_rules"] = rules
         updated["updated_at"] = shanghai_now().isoformat()
         return ProjectSpecificationSectionDocument.model_validate(updated).model_dump(
             mode="json"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypeVar
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from app.core.identifiers import SnowflakeId
 from app.core.schemas import Schema
@@ -38,6 +38,7 @@ class SpecificationRule(SpecificationSchema):
     scope: str
     status: Literal["active", "conflicted", "deprecated", "pending_review"]
     confidence: Literal["high", "medium", "low"]
+    evidence: list[str] = Field(default_factory=list, max_length=20)
     source_refs: list[SpecificationSourceRef] = Field(default_factory=list)
     created_at: ShanghaiDateTime
     updated_at: ShanghaiDateTime
@@ -68,6 +69,15 @@ class RiskRule(SpecificationRule):
     rule: str
 
 
+_RULE_MODELS = {
+    "development_approach": DevelopmentApproachRule,
+    "technical_constraints": TechnicalConstraintRule,
+    "coding_rules": CodingRule,
+    "document_rules": DocumentRule,
+    "risk_rules": RiskRule,
+}
+
+
 class DevelopmentStage(SpecificationSchema):
     current_stage: str = ""
     stage_goal: str = ""
@@ -95,17 +105,28 @@ class ProjectSpecificationManifest(SpecificationSchema):
     """轻量规则清单；规则正文只存在于五个分区文件。"""
 
     project_id: SnowflakeId
-    schema_version: str = "2.0.0"
+    schema_version: str = "3.0.0"
     updated_at: ShanghaiDateTime
-    development_stage: DevelopmentStage = Field(default_factory=DevelopmentStage)
     sections: SpecificationSectionReferences
 
 
+class FileRuleGroup(SpecificationSchema):
+    """一个详情文件在单个规则分区中的完整规则集合。"""
+
+    file_id: int
+    detail_id: str
+    detail_ref: str
+    source_path: str
+    content_hash: str
+    updated_at: ShanghaiDateTime
+    rules: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class ProjectSpecificationSectionDocument(SpecificationSchema):
-    """单个规则分区的当前快照，不保存累积变更历史。"""
+    """按来源文件分组保存单个规则分区，并隔离人工维护规则。"""
 
     project_id: SnowflakeId
-    schema_version: str = "2.0.0"
+    schema_version: str = "3.0.0"
     section: Literal[
         "development_approach",
         "technical_constraints",
@@ -114,7 +135,62 @@ class ProjectSpecificationSectionDocument(SpecificationSchema):
         "risk_rules",
     ]
     updated_at: ShanghaiDateTime
-    rules: list[dict[str, Any]] = Field(default_factory=list)
+    file_rule_groups: dict[str, FileRuleGroup] = Field(default_factory=dict)
+    managed_rules: list[dict[str, Any]] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_rules(self) -> ProjectSpecificationSectionDocument:
+        model = _RULE_MODELS[self.section]
+        for key, group in self.file_rule_groups.items():
+            if key != str(group.file_id):
+                raise ValueError("规则来源分组键必须与 file_id 一致")
+            for rule in group.rules:
+                model.model_validate(rule)
+        for rule in self.managed_rules:
+            model.model_validate(rule)
+        return self
+
+
+def effective_section_rules(
+    document: ProjectSpecificationSectionDocument,
+) -> list[SpecificationRule]:
+    """合并跨文件重复规则，并让人工维护规则覆盖文件投影。"""
+    model = _RULE_MODELS[document.section]
+    merged: dict[str, SpecificationRule] = {}
+    for key in sorted(document.file_rule_groups, key=lambda value: int(value)):
+        for item in document.file_rule_groups[key].rules:
+            rule = model.model_validate(item)
+            existing = merged.get(rule.id)
+            if existing is None:
+                merged[rule.id] = rule
+                continue
+            references = list(existing.source_refs)
+            references.extend(
+                reference
+                for reference in rule.source_refs
+                if reference not in references
+            )
+            confidence = _stronger_confidence(existing.confidence, rule.confidence)
+            merged[rule.id] = existing.model_copy(
+                update={
+                    "source_refs": references,
+                    "confidence": confidence,
+                    "status": (
+                        "active"
+                        if confidence in {"high", "medium"}
+                        else "pending_review"
+                    ),
+                }
+            )
+    for item in document.managed_rules:
+        rule = model.model_validate(item)
+        merged[rule.id] = rule
+    return [merged[key] for key in sorted(merged)]
+
+
+def _stronger_confidence(left: str, right: str) -> str:
+    order = {"low": 0, "medium": 1, "high": 2}
+    return left if order[left] >= order[right] else right
 
 
 class ProjectSpecificationBody(SpecificationSchema):
@@ -167,7 +243,7 @@ class ProjectSpecificationDocument(SpecificationSchema):
     ignored_items: list[SpecificationIgnoredItem] = Field(default_factory=list)
 
     @classmethod
-    def empty(cls, project_id: int) -> "ProjectSpecificationDocument":
+    def empty(cls, project_id: int) -> ProjectSpecificationDocument:
         return cls(project_id=project_id, updated_at=shanghai_now())
 
 

@@ -48,6 +48,7 @@ def _service(
     storage=None,
     projects=None,
     index=None,
+    specification=None,
     idempotency=None,
 ) -> ProjectFileService:
     project_service = projects or AsyncMock()
@@ -59,6 +60,7 @@ def _service(
         storage or Mock(),
         StorageLocationFactory(storage_config()),
         index or AsyncMock(),
+        specification or AsyncMock(),
         idempotency or AsyncMock(),
         file_config(),
         storage_config(),
@@ -266,7 +268,13 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         repository = _repository(file)
         storage = Mock()
         index = AsyncMock()
-        service = _service(repository, storage=storage, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            index=index,
+            specification=specification,
+        )
         service._projects.advance_published_revision.return_value = 4
 
         result = await service.overwrite(
@@ -288,6 +296,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual(3, file.content_origin_revision)
         self.assertEqual(4, file.last_observed_revision)
         index.write.assert_awaited_once()
+        specification.remove_file_sources.assert_not_awaited()
 
     async def test_overwrite_retries_then_succeeds(self) -> None:
         """验证文件覆盖在临时存储失败后能够重试成功。
@@ -313,7 +322,13 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
             None,
         ]
         index = AsyncMock()
-        service = _service(repository, storage=storage, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            index=index,
+            specification=specification,
+        )
         service._projects.advance_published_revision.return_value = 4
 
         result = await service.overwrite(
@@ -337,6 +352,10 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual(4, file.content_origin_revision)
         self.assertEqual(4, file.last_observed_revision)
         index.write.assert_awaited_once()
+        specification.remove_file_sources.assert_awaited_once_with(
+            service._projects.require_owned.return_value,
+            [file.id],
+        )
 
     async def test_overwrite_keeps_success_when_stale_detail_cleanup_fails(
         self,
@@ -478,7 +497,13 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         repository = _repository(file)
         storage = Mock()
         index = AsyncMock()
-        service = _service(repository, storage=storage, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            index=index,
+            specification=specification,
+        )
         request = UpdateProjectFilePathRequest(
             relative_path="renamed/README.md",
             source_mtime_ms=200,
@@ -506,6 +531,10 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         storage.copy.assert_not_called()
         storage.remove.assert_called_once()
         index.write.assert_awaited_once()
+        specification.remove_file_sources.assert_awaited_once_with(
+            service._projects.require_owned.return_value,
+            [file.id],
+        )
 
     async def test_update_path_preserves_detail_when_path_is_unchanged(self) -> None:
         file = project_file()
@@ -516,7 +545,13 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         repository = _repository(file)
         storage = Mock()
         index = AsyncMock()
-        service = _service(repository, storage=storage, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            index=index,
+            specification=specification,
+        )
         request = UpdateProjectFilePathRequest(
             relative_path=file.relative_path,
             source_mtime_ms=200,
@@ -533,6 +568,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         storage.copy.assert_not_called()
         storage.remove.assert_not_called()
         index.write.assert_awaited_once()
+        specification.remove_file_sources.assert_not_awaited()
 
     async def test_update_path_moves_object_when_file_name_changes(self) -> None:
         """验证文件名变化时复制新对象并删除旧对象。
@@ -550,7 +586,13 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         repository = _repository(file)
         storage = Mock()
         index = AsyncMock()
-        service = _service(repository, storage=storage, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            index=index,
+            specification=specification,
+        )
         request = UpdateProjectFilePathRequest(
             relative_path="docs/GUIDE.md",
             source_mtime_ms=200,
@@ -565,6 +607,10 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         storage.copy.assert_called_once()
         self.assertEqual(2, storage.remove.call_count)
         index.write.assert_awaited_once()
+        specification.remove_file_sources.assert_awaited_once_with(
+            service._projects.require_owned.return_value,
+            [file.id],
+        )
 
     async def test_update_path_rejects_target_conflict(self) -> None:
         """验证目标路径被其他文件占用时拒绝修改。
@@ -753,13 +799,23 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         repository = _repository(project_file())
         storage = Mock()
         index = AsyncMock()
-        service = _service(repository, storage=storage, index=index)
+        specification = AsyncMock()
+        service = _service(
+            repository,
+            storage=storage,
+            index=index,
+            specification=specification,
+        )
 
         await service.delete(1, 10, 30, 0)
 
         storage.remove.assert_called_once()
         repository.delete.assert_awaited_once_with(30)
         index.write.assert_awaited_once()
+        specification.remove_file_sources.assert_awaited_once_with(
+            service._projects.require_owned.return_value,
+            [30],
+        )
 
     async def test_delete_marks_failure_state_when_cleanup_fails(self) -> None:
         """验证文件删除失败后保存 delete_failed 状态。

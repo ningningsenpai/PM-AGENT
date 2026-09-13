@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from app.modules.project_file.models import ProjectFile
-from app.project_context.file_detail.schemas import FileDetail
+from app.project_context.file_detail.schemas import FileDetail, FileRuleCandidates
 
 
 def file_detail(file: ProjectFile) -> FileDetail:
@@ -13,7 +13,7 @@ def file_detail(file: ProjectFile) -> FileDetail:
         id=f"file-{file.id}",
         project_id=file.project_id,
         file_id=file.id,
-        schema_version="2.0.0",
+        schema_version="3.0.0",
         generated_at=generated_at,
         updated_at=generated_at,
         storage_uuid=file.storage_uuid,
@@ -41,4 +41,11 @@ def file_detail(file: ProjectFile) -> FileDetail:
         evidence=[],
         previous_versions=[],
         parser={"strategy": "llm_enhanced"},
+        rule_candidates=FileRuleCandidates(
+            development_approach=[],
+            technical_constraints=[],
+            coding_rules=[],
+            document_rules=[],
+            risk_rules=[],
+        ),
     )

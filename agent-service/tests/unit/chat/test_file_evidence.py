@@ -22,7 +22,7 @@ def service(text):
     file = SimpleNamespace(id=5, business_code="project", status="active", upload_status="success", object_key="PM-AGENT/1/11/project/source.py", file_name="source.py", content_type="text/plain", content_hash=hashlib.sha256(raw).hexdigest(), relative_path="source.py")
     repository = SimpleNamespace(get=AsyncMock(return_value=file), session=SimpleNamespace(commit=AsyncMock()))
     storage = SimpleNamespace(read_bytes=Mock(return_value=raw))
-    value = ProjectFileService(repository, SimpleNamespace(require_owned=AsyncMock()), storage, StorageLocationFactory(SimpleNamespace(bucket="test")), None, None, None, None)
+    value = ProjectFileService(repository, SimpleNamespace(require_owned=AsyncMock()), storage, StorageLocationFactory(SimpleNamespace(bucket="test")), None, None, None, None, None)
     return value, file, storage
 
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
+from datetime import datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, patch
@@ -309,7 +309,8 @@ class RemoveAnalysisVersionMigrationTest(IsolatedAsyncioTestCase):
         ]
 
         self.assertEqual(expected_ref, file.detail_ref)
-        self.assertEqual("2.0.0", detail["schema_version"])
+        self.assertEqual("3.0.0", detail["schema_version"])
+        self.assertEqual([], detail["rule_candidates"]["coding_rules"])
         self.assertNotIn("analysis_version", detail)
         self.assertEqual(expected_ref, detail["detail_ref"])
         self.assertEqual(expected_ref, references[0]["detail_ref"])

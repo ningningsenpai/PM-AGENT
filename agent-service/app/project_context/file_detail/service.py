@@ -183,7 +183,7 @@ class FileSemanticAnalysisService:
             id=f"file-{request.file_id}",
             project_id=request.project_id,
             file_id=request.file_id,
-            schema_version="2.0.0",
+            schema_version="3.0.0",
             generated_at=now,
             updated_at=now,
             storage_uuid=request.storage_uuid,

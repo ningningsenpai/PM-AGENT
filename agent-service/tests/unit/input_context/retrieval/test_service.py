@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
@@ -39,9 +39,26 @@ class FixtureStorage:
         for path in SYSTEM_ROOT.rglob("*"):
             if path.is_file():
                 relative = path.relative_to(SYSTEM_ROOT).as_posix()
+                content = path.read_bytes()
+                if relative.startswith("file_details/"):
+                    detail = json.loads(content)
+                    detail["schema_version"] = "3.0.0"
+                    detail.setdefault("may_supply_project_constraints", False)
+                    detail.setdefault("project_facts", [])
+                    if not isinstance(detail.get("rule_candidates"), dict):
+                        detail["rule_candidates"] = {
+                            "development_approach": [],
+                            "technical_constraints": [],
+                            "coding_rules": [],
+                            "document_rules": [],
+                            "risk_rules": [],
+                        }
+                    content = json.dumps(detail, ensure_ascii=False).encode()
                 self.objects[("pm-agent", f"{OBJECT_PREFIX}system/{relative}")] = (
-                    path.read_bytes()
+                    content
                 )
+
+        self._load_current_specification_fixture()
 
         index = json.loads((SYSTEM_ROOT / "index.json").read_text(encoding="utf-8"))
         for entry in [*index["project"], *index["user"]]:
@@ -49,6 +66,48 @@ class FixtureStorage:
             self.objects[("pm-agent", f"{OBJECT_PREFIX}{entry['minio_path']}")] = (
                 source.read_bytes()
             )
+
+    def _load_current_specification_fixture(self) -> None:
+        """把历史静态样本投影为当前规则清单和五个分区。"""
+        manifest_key = (
+            "pm-agent",
+            f"{OBJECT_PREFIX}system/project_specification.json",
+        )
+        legacy = json.loads(self.objects[manifest_key])
+        sections = {}
+        for section_name in (
+            "development_approach",
+            "technical_constraints",
+            "coding_rules",
+            "document_rules",
+            "risk_rules",
+        ):
+            rules = legacy["project_specification"][section_name]
+            relative_path = f"project_specification/{section_name}.json"
+            section = {
+                "project_id": legacy["project_id"],
+                "schema_version": "3.0.0",
+                "section": section_name,
+                "updated_at": legacy["updated_at"],
+                "file_rule_groups": {},
+                "managed_rules": rules,
+            }
+            content = json.dumps(section, ensure_ascii=False).encode()
+            self.objects[("pm-agent", f"{OBJECT_PREFIX}system/{relative_path}")] = (
+                content
+            )
+            sections[section_name] = {
+                "path": f"system/{relative_path}",
+                "content_hash": hashlib.sha256(content).hexdigest(),
+                "item_count": len(rules),
+            }
+        manifest = {
+            "project_id": legacy["project_id"],
+            "schema_version": "3.0.0",
+            "updated_at": legacy["updated_at"],
+            "sections": sections,
+        }
+        self.objects[manifest_key] = json.dumps(manifest, ensure_ascii=False).encode()
 
     def exists(self, location: StorageLocation) -> bool:
         return (location.bucket, location.object_key) in self.objects
@@ -98,7 +157,7 @@ def _default_normalization_service(
 
 
 class TestInputContextRetrievalService(IsolatedAsyncioTestCase):
-    async def test_retrieves_project_stage_from_specification(self) -> None:
+    async def test_retrieves_project_stage_from_long_term_memory(self) -> None:
         storage = FixtureStorage()
 
         result = await _service(storage).retrieve(
@@ -110,8 +169,11 @@ class TestInputContextRetrievalService(IsolatedAsyncioTestCase):
         self.assertFalse(result.no_evidence)
         self.assertFalse(result.degraded)
         stage_hit = next(
-            hit for hit in result.hits if hit.source_id == "development-stage"
+            hit
+            for hit in result.hits
+            if hit.source_id == "milestone-stage-one-closed-loop"
         )
+        self.assertEqual("long_term_memory", stage_hit.source_type)
         self.assertIn("50%", stage_hit.summary)
 
     async def test_reads_repository_source_for_exact_sql_question(self) -> None:

@@ -52,8 +52,8 @@ def _service(
     project_service = projects or AsyncMock()
     project_service.require_owned.return_value = project()
     specification_service = specification or AsyncMock()
-    if not isinstance(specification_service.refresh.return_value, str):
-        specification_service.refresh.return_value = "updated"
+    if not isinstance(specification_service.sync_file_sources.return_value, str):
+        specification_service.sync_file_sources.return_value = "updated"
     run_service = runs if runs is not None else AsyncMock(spec=RunService)
     run_service.start.return_value = (SimpleNamespace(id=90000000000000001), True)
     return ProjectFileAnalysisService(
@@ -149,10 +149,10 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         )
         self.assertEqual([], ProjectFileAnalysisService._memory_entries(10, detail, {}))
 
-    async def test_code_fact_becomes_observed_memory_but_never_project_constraint(
+    async def test_code_fact_becomes_observed_memory_without_changing_rule_eligibility(
         self,
     ) -> None:
-        """代码可提供当前实现观察，但不因其风格反推项目约束。"""
+        """项目事实只更新长期记忆，不能单独授予规则来源资格。"""
         file = project_file(file_id=31, relative_path="app/risk/service.py")
         file.may_supply_constraints = False
         file.detail_ref = "system/file_details/risk-service.json"
@@ -250,7 +250,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             "模型输出不合法",
         )
         index.write.assert_awaited_once()
-        specification.refresh.assert_awaited_once()
+        specification.sync_file_sources.assert_awaited_once()
         first_request = semantic_analyzer.analyze.await_args_list[0].args[0]
         self.assertEqual(1, first_request.user_id)
         self.assertEqual(30, first_request.file_id)
@@ -292,11 +292,13 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
                     file,
                     may_supply_project_constraints=judged,
                 )
+                specification = AsyncMock()
                 service = _service(
                     repository,
                     storage=storage,
                     content_extractor=content_extractor,
                     semantic_analyzer=semantic_analyzer,
+                    specification=specification,
                 )
 
                 await service.analyze_pending_files(
@@ -311,6 +313,14 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
                         "promote_constraint_source"
                     ],
                 )
+                source = specification.sync_file_sources.await_args.args[1][0]
+                self.assertEqual(stored or judged, source.may_supply_constraints)
+
+    def test_document_source_type_accepts_structured_file_type(self) -> None:
+        file = project_file(file_id=50, relative_path="docs/design.md")
+        detail = file_detail(file).model_copy(update={"file_type": "doc.markdown"})
+
+        self.assertEqual("doc", ProjectFileAnalysisService._rule_source_type(detail))
 
     async def test_analyze_pending_files_records_content_extraction_failure(
         self,
@@ -382,7 +392,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             ErrorCode.FILE_STORAGE_ERROR.message,
         )
         index.write.assert_awaited_once()
-        specification.refresh.assert_awaited_once()
+        specification.sync_file_sources.assert_awaited_once()
 
     async def test_analyze_pending_files_records_semantic_analyzer_exception(
         self,
@@ -516,7 +526,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         )
         repository.list.assert_awaited_once_with(10, include_system=True)
         index.write.assert_awaited_once()
-        specification.refresh.assert_awaited_once()
+        specification.sync_file_sources.assert_awaited_once()
         self.assertEqual("success", result.status)
         self.assertEqual(0, result.candidate_count)
 
@@ -528,7 +538,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         semantic_analyzer = AsyncMock()
         semantic_analyzer.analyze.return_value = _success_result(file)
         specification = AsyncMock()
-        specification.refresh.side_effect = AppException(
+        specification.sync_file_sources.side_effect = AppException(
             ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
         )
         index = AsyncMock()
@@ -554,11 +564,11 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         calls: list[str] = []
         specification = AsyncMock()
 
-        async def refresh(*_args):
+        async def sync_file_sources(*_args):
             calls.append("specification")
             return "kept"
 
-        specification.refresh.side_effect = refresh
+        specification.sync_file_sources.side_effect = sync_file_sources
         index = AsyncMock()
 
         async def write(*_args):

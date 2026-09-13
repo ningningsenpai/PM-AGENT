@@ -37,8 +37,14 @@ class ProjectFileDetailPrompt(str, Enum):
 - `parser`：记录分析策略，不得写入服务端身份字段。
 
 # 规则候选
-`rule_candidates` 只提取文件中明确出现或可由稳定代码约定确认的规则，每项包含：
-- `category`：development_approach、technical_constraint、coding_rule、document_rule、risk_rule 之一；
+`rule_candidates` 只提取文件中明确出现或可由稳定代码约定确认的规则，必须包含以下五个数组：
+- `development_approach`：开发方式；
+- `technical_constraints`：技术约束；
+- `coding_rules`：编码规则；
+- `document_rules`：文档规则；
+- `risk_rules`：风险规则。
+
+五个数组必须全部返回，没有对应规则时返回空数组。每条规则包含：
 - `text`：简洁中文规则；
 - `confidence`：high、medium、low 之一；
 - `evidence`：不含秘密的短证据摘要数组。
@@ -75,14 +81,19 @@ class ProjectFileDetailPrompt(str, Enum):
     "strategy": "llm_enhanced",
     "sampled": false
   },
-  "rule_candidates": [
-    {
-      "category": "technical_constraint",
-      "text": "业务文件统一存储在 MinIO",
-      "confidence": "high",
-      "evidence": ["文档明确规定业务文件使用 MinIO"]
-    }
-  ]
+  "rule_candidates": {
+    "development_approach": [],
+    "technical_constraints": [
+      {
+        "text": "业务文件统一存储在 MinIO",
+        "confidence": "high",
+        "evidence": ["文档明确规定业务文件使用 MinIO"]
+      }
+    ],
+    "coding_rules": [],
+    "document_rules": [],
+    "risk_rules": []
+  }
 }
 """.strip()
 
@@ -91,4 +102,5 @@ class ProjectFileDetailPrompt(str, Enum):
 只输出上述语义 JSON。确保字段完整、类型正确，不包含任何服务端身份字段，也不包含源文件中的原始秘密。
 related_files 必须是对象数组或空数组，不得输出字符串元素。
 may_supply_project_constraints 必须是布尔值；不确定时返回 false。
+rule_candidates 必须包含全部五个规则分区，每个分区都必须是数组。
 """.strip()

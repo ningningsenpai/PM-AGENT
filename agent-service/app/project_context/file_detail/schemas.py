@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.identifiers import SnowflakeId
@@ -13,6 +13,7 @@ __all__ = [
     "FileDetail",
     "FileDetailSemanticOutput",
     "FileRuleCandidate",
+    "FileRuleCandidates",
     "FileSemanticAnalysisRequest",
     "FileSemanticAnalysisResult",
 ]
@@ -52,16 +53,37 @@ class FileRuleCandidate(Schema):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    category: Literal[
-        "development_approach",
-        "technical_constraint",
-        "coding_rule",
-        "document_rule",
-        "risk_rule",
-    ]
     text: str = Field(min_length=1, max_length=1000)
     confidence: Literal["high", "medium", "low"]
     evidence: list[EvidenceText] = Field(default_factory=list, max_length=20)
+
+
+class FileRuleCandidates(Schema):
+    """按五类项目规范分区保存单文件规则候选。"""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    development_approach: list[FileRuleCandidate] = Field(max_length=100)
+    technical_constraints: list[FileRuleCandidate] = Field(max_length=100)
+    coding_rules: list[FileRuleCandidate] = Field(max_length=100)
+    document_rules: list[FileRuleCandidate] = Field(max_length=100)
+    risk_rules: list[FileRuleCandidate] = Field(max_length=100)
+
+    @model_validator(mode="after")
+    def validate_total_rule_count(self) -> FileRuleCandidates:
+        total = sum(
+            len(getattr(self, field))
+            for field in (
+                "development_approach",
+                "technical_constraints",
+                "coding_rules",
+                "document_rules",
+                "risk_rules",
+            )
+        )
+        if total > 100:
+            raise ValueError("单个文件的规则候选总数不能超过 100 条")
+        return self
 
 
 class FileDetailSemanticOutput(Schema):
@@ -85,9 +107,7 @@ class FileDetailSemanticOutput(Schema):
     sensitive_flags: list[Any] = Field(max_length=50)
     evidence: list[Any] = Field(max_length=50)
     parser: dict[str, Any]
-    rule_candidates: list[FileRuleCandidate] = Field(
-        default_factory=list, max_length=100
-    )
+    rule_candidates: FileRuleCandidates
     project_facts: list[dict[str, Any]] = Field(default_factory=list, max_length=40)
 
     @field_validator("related_files", mode="before")
@@ -142,7 +162,7 @@ class FileDetail(Schema):
     evidence: list[Any]
     previous_versions: list[dict[str, Any]]
     parser: dict[str, Any]
-    rule_candidates: list[FileRuleCandidate] = Field(default_factory=list)
+    rule_candidates: FileRuleCandidates
     project_facts: list[dict[str, Any]] = Field(default_factory=list)
 
 

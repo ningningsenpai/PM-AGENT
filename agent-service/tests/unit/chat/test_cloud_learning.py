@@ -238,7 +238,7 @@ async def test_file_refresh_uses_same_manifest_and_preserves_human_correction(se
         1, 11, "project_specification/coding_rules.json"
     )
     assert manifest["sections"]["coding_rules"]["item_count"] == 1
-    assert section["rules"][0]["rule"] == "代码注释统一使用简体中文"
+    assert section["managed_rules"][0]["rule"] == "代码注释统一使用简体中文"
     assert (await services.contexts.changes(1, 11))[0]["reason"] == "用户明确规范"
 
 

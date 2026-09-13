@@ -42,6 +42,7 @@ from app.modules.project_file.management.schemas import (
 from app.modules.project_file.models import ProjectFile
 from app.modules.project_file.repository import ProjectFileRepository
 from app.project_context.index import ProjectIndexService
+from app.project_context.specification import ProjectSpecificationService
 
 logger = get_logger(__name__)
 
@@ -92,6 +93,7 @@ class ProjectFileService:
         storage: ObjectStorage,
         locations: StorageLocationFactory,
         index_service: ProjectIndexService,
+        specification_service: ProjectSpecificationService,
         idempotency: IdempotencyGuard,
         file_config: FileConfig,
         storage_config: StorageConfig,
@@ -101,6 +103,7 @@ class ProjectFileService:
         self._storage = storage
         self._locations = locations
         self._index = index_service
+        self._specification = specification_service
         self._idempotency = idempotency
         self._file_config = file_config
         self._storage_config = storage_config
@@ -374,6 +377,8 @@ class ProjectFileService:
             )
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
+            if content_changed:
+                await self._specification.remove_file_sources(project, [file.id])
             await self._remove_invalidated_detail(
                 project,
                 file.id,
@@ -449,6 +454,8 @@ class ProjectFileService:
             await self._publish_file_mutation(project, file)
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
+            if path_changed:
+                await self._specification.remove_file_sources(project, [file.id])
             await self._remove_invalidated_detail(
                 project,
                 file.id,
@@ -501,6 +508,7 @@ class ProjectFileService:
         await self._publish_file_mutation(project, file)
         await self._repository.session.commit()
         await self._repository.session.refresh(file)
+        await self._specification.remove_file_sources(project, [file.id])
         await self._remove_invalidated_detail(
             project,
             file.id,
@@ -728,6 +736,7 @@ class ProjectFileService:
                     project_id,
                     file_id,
                 )
+        await self._specification.remove_file_sources(project, [file_id])
         await self._rebuild_index(project)
         logger.info(
             "文件删除成功 action=project_file.delete userId=%s projectId=%s fileId=%s",

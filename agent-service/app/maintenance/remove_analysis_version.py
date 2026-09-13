@@ -353,8 +353,34 @@ class RemoveAnalysisVersionMigration:
                 )
             migrated = dict(payload)
             migrated.pop("analysis_version", None)
-        migrated["schema_version"] = "2.0.0"
+        migrated["schema_version"] = "3.0.0"
         migrated["detail_ref"] = new_ref
+        legacy_candidates = migrated.get("rule_candidates")
+        if isinstance(legacy_candidates, list):
+            grouped_candidates = {
+                "development_approach": [],
+                "technical_constraints": [],
+                "coding_rules": [],
+                "document_rules": [],
+                "risk_rules": [],
+            }
+            category_fields = {
+                "development_approach": "development_approach",
+                "technical_constraint": "technical_constraints",
+                "coding_rule": "coding_rules",
+                "document_rule": "document_rules",
+                "risk_rule": "risk_rules",
+            }
+            for candidate in legacy_candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                field = category_fields.get(candidate.get("category"))
+                if field is None:
+                    continue
+                normalized = dict(candidate)
+                normalized.pop("category", None)
+                grouped_candidates[field].append(normalized)
+            migrated["rule_candidates"] = grouped_candidates
 
         expected_identity = {
             "project_id": file.project_id,
@@ -386,7 +412,7 @@ class RemoveAnalysisVersionMigration:
             validated = FileDetail.model_validate(migrated)
         except ValidationError as exception:
             raise MaintenanceMigrationError(
-                f"详情升级到 schema_version=2.0.0 后校验失败：{source_ref}"
+                f"详情升级到 schema_version=3.0.0 后校验失败：{source_ref}"
             ) from exception
         return json.dumps(
             validated.model_dump(mode="json"),

@@ -46,7 +46,7 @@ async def test_explicit_rule_updates_split_minio_file_and_manifest(services):
     manifest, _ = await services.contexts.fixed.read(
         1, 11, "project_specification.json"
     )
-    assert section["rules"][0]["rule"] == message
+    assert section["managed_rules"][0]["rule"] == message
     assert manifest["sections"]["coding_rules"]["item_count"] == 1
     assert manifest["sections"]["coding_rules"]["content_hash"]
 

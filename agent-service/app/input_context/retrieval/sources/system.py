@@ -5,18 +5,25 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.core.errors import AppException
 from app.input_context.retrieval.candidate import RetrievalCandidate
 from app.input_context.retrieval.planning import RetrievalPlan
-from app.input_context.retrieval.schemas import RetrievalEvidence
 from app.input_context.retrieval.snapshot import ProjectSnapshot, ProjectSnapshotReader
 from app.input_context.retrieval.sources.base import RecordCandidateFactory
+from app.project_context.specification.schemas import (
+    RULE_SECTION_FILES,
+    ProjectSpecificationManifest,
+    ProjectSpecificationSectionDocument,
+    effective_section_rules,
+)
 
 _HABIT_FILES = ("work", "thinking", "specification", "tooling", "life")
 
 
 class SpecificationCandidateProvider:
-    """从项目规范生成开发阶段和规则候选。"""
+    """从五个项目规范分区生成规则候选。"""
 
     source_types = frozenset({"project_specification"})
 
@@ -40,58 +47,42 @@ class SpecificationCandidateProvider:
             "项目规范",
             warnings,
         )
-        if not isinstance(data, dict):
-            return []
-        root = data.get("project_specification", data)
-        if not isinstance(root, dict):
+        try:
+            manifest = ProjectSpecificationManifest.model_validate(data)
+        except ValidationError:
+            warnings.append("项目规范清单结构不合法")
             return []
         candidates: list[RetrievalCandidate] = []
-        stage = root.get("development_stage")
-        if isinstance(stage, dict):
-            summary = self._factory.join_text(
-                stage.get("current_stage"),
-                stage.get("stage_goal"),
-                stage.get("completed"),
-                stage.get("next_focus"),
+        for section_name in RULE_SECTION_FILES:
+            reference = getattr(manifest.sections, section_name)
+            section_data = await self._reader.optional_json(
+                snapshot,
+                reference.path,
+                f"项目规范分区 {section_name}",
+                warnings,
             )
-            candidates.append(
-                RetrievalCandidate(
-                    source_type="project_specification",
-                    source_id="development-stage",
-                    title="项目开发阶段",
-                    summary=summary,
-                    high_fields=self._factory.strings(stage.get("current_stage")),
-                    medium_fields=self._factory.strings(stage),
-                    evidence=[RetrievalEvidence(text=summary)],
-                    importance="high",
+            try:
+                section = ProjectSpecificationSectionDocument.model_validate(
+                    section_data
+                )
+            except ValidationError:
+                warnings.append(f"项目规范分区结构不合法：{section_name}")
+                continue
+            if (
+                section.project_id != snapshot.index.project_id
+                or section.section != section_name
+            ):
+                warnings.append(f"项目规范分区身份不一致：{section_name}")
+                continue
+            candidates.extend(
+                self._factory.from_records(
+                    [
+                        rule.model_dump(mode="json")
+                        for rule in effective_section_rules(section)
+                    ],
+                    "project_specification",
                 )
             )
-        sections = data.get("sections")
-        if isinstance(sections, dict):
-            for section_name, reference in sections.items():
-                if not isinstance(reference, dict) or not isinstance(
-                    reference.get("path"), str
-                ):
-                    warnings.append(f"项目规范分区引用无效：{section_name}")
-                    continue
-                section = await self._reader.optional_json(
-                    snapshot,
-                    reference["path"],
-                    f"项目规范分区 {section_name}",
-                    warnings,
-                )
-                if isinstance(section, dict):
-                    candidates.extend(
-                        self._factory.from_records(
-                            section.get("rules", []), "project_specification"
-                        )
-                    )
-        else:
-            for value in root.values():
-                if isinstance(value, list):
-                    candidates.extend(
-                        self._factory.from_records(value, "project_specification")
-                    )
         return candidates
 
 

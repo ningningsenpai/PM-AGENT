@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from typing import Literal
 
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
@@ -14,10 +15,10 @@ from app.infrastructure.storage import (
     StorageLocationFactory,
 )
 from app.llm.telemetry import capture_calls
-from app.modules.chat.runs.service import RunService
-from app.modules.chat.context.fixed_store import FixedContextStore, LONG_MEMORY
+from app.modules.chat.context.fixed_store import LONG_MEMORY, FixedContextStore
 from app.modules.chat.context.migration import stable_id
 from app.modules.chat.context.schemas import EntryView
+from app.modules.chat.runs.service import RunService
 from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.schemas import (
     ProjectFileAnalysisBatchResult,
@@ -29,13 +30,16 @@ from app.project_context.file_detail.extraction import (
     FileContentExtractionService,
 )
 from app.project_context.file_detail.schemas import (
+    FileDetail,
     FileSemanticAnalysisRequest,
     FileSemanticAnalysisResult,
-    FileDetail,
 )
 from app.project_context.file_detail.service import FileSemanticAnalysisService
 from app.project_context.index import ProjectIndexService
-from app.project_context.specification import ProjectSpecificationService
+from app.project_context.specification import (
+    FileRuleSyncSource,
+    ProjectSpecificationService,
+)
 
 logger = get_logger(__name__)
 
@@ -166,8 +170,8 @@ class ProjectFileAnalysisService:
 
         success_count = 0
         failure_count = 0
-        successful_file_ids: set[int] = set()
         successful_details: list[FileDetail] = []
+        successful_rule_sources: list[FileRuleSyncSource] = []
         failures: list[ProjectFileAnalysisFailure] = []
         for file in candidates:
             await self._runs.renew(run_id, user_id)
@@ -219,9 +223,23 @@ class ProjectFileAnalysisService:
             await self._repository.session.commit()
             if result.status == "success":
                 success_count += 1
-                successful_file_ids.add(file.id)
                 if result.detail is not None:
                     successful_details.append(result.detail)
+                    successful_rule_sources.append(
+                        FileRuleSyncSource(
+                            file_id=file.id,
+                            detail_id=result.detail.id,
+                            detail_ref=result.detail.detail_ref,
+                            source_path=result.detail.original_path,
+                            source_type=self._rule_source_type(result.detail),
+                            content_hash=result.detail.content_hash,
+                            may_supply_constraints=(
+                                file.may_supply_constraints
+                                or result.detail.may_supply_project_constraints
+                            ),
+                            rule_candidates=result.detail.rule_candidates,
+                        )
+                    )
                 logger.info(
                     "文件语义分析成功 action=project_file.semantic.analyze "
                     "userId=%s projectId=%s fileId=%s",
@@ -254,10 +272,8 @@ class ProjectFileAnalysisService:
         specification_status = "updated"
         await self._runs.ensure_active(run_id, user_id)
         try:
-            specification_status = await self._specification.refresh(
-                project,
-                files,
-                [file for file in files if file.id in successful_file_ids],
+            specification_status = await self._specification.sync_file_sources(
+                project, successful_rule_sources
             )
         except Exception:
             specification_status = "failed"
@@ -318,6 +334,17 @@ class ProjectFileAnalysisService:
             specification_status=specification_status,
             index_status=index_status,
             memory_status=memory_status,
+        )
+
+    @staticmethod
+    def _rule_source_type(detail: FileDetail) -> Literal["doc", "code"]:
+        file_type = detail.file_type.casefold()
+        return (
+            "doc"
+            if file_type == "doc"
+            or file_type.startswith("doc.")
+            or "document" in file_type
+            else "code"
         )
 
     async def _refresh_long_term_memory(

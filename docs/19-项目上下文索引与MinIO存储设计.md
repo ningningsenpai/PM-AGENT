@@ -13,6 +13,12 @@ PM-AGENT/{userId}/{projectId}/
 └── system/
     ├── index.json
     ├── project_specification.json
+    ├── project_specification/
+    │   ├── development_approach.json
+    │   ├── technical_constraints.json
+    │   ├── coding_rules.json
+    │   ├── document_rules.json
+    │   └── risk_rules.json
     ├── long_term_memory.json
     ├── short_term_memory.json
     ├── update_journal.jsonl
@@ -46,7 +52,8 @@ PM-AGENT/user_context/{userId}/context/
 | 项目文件状态、路径、当前详情引用 | MySQL `pm_project_file` | 数据库事务与乐观锁 |
 | 原始项目文件 | MinIO `project/`、`user/` | 上传、覆盖、移动或删除流程 |
 | 文件语义详情 | MinIO `system/file_details/` | 按内容和路径快照写新对象，MySQL 指向当前详情 |
-| 项目规范 | MinIO `system/project_specification.json` | 读取当前内容、稳定合并后覆盖同一对象键 |
+| 项目规范清单 | MinIO `system/project_specification.json` | 保存五个分区的固定路径、内容哈希和条目数 |
+| 项目规范正文 | MinIO `system/project_specification/*.json` | 文件规则按 `file_id` 增量替换，人工规则单独维护 |
 | 长期记忆 | MinIO `system/long_term_memory.json` | 用户确认或显式晋升后覆盖同一对象键 |
 | 短期记忆 | MinIO `system/short_term_memory.json` | 用户确认、纠正或过期整理后覆盖同一对象键 |
 | 用户习惯 | MinIO `system/user_habits/*.json` | 按分类覆盖同一对象键 |
@@ -94,7 +101,7 @@ system/file_details/a1b2c3d4e5f67890-{contentHash}-{pathHash}.json
 
 详情对象键包含稳定存储标识、完整内容哈希和路径哈希。分析结果先写详情快照，再以文件 ID、项目 ID、内容哈希和乐观锁版本条件更新数据库引用。内容或路径在分析期间变化时，旧详情只能成为未引用对象，不能覆盖当前详情。
 
-规则候选保存在文件详情中，不创建临时规则文件。项目规范刷新只读取当前有效详情，由服务端补充稳定的 `file_id`、`content_hash` 和 `detail_ref` 来源引用。
+规则候选在文件详情中固定为 `development_approach`、`technical_constraints`、`coding_rules`、`document_rules` 和 `risk_rules` 五个数组。`project_facts` 保持独立，只供长期记忆对账。项目规范同步只消费本轮成功详情，由服务端补充稳定的 `file_id`、`content_hash` 和 `detail_ref` 来源引用。
 
 ## 6. 固定文件更新规则
 
@@ -115,10 +122,11 @@ MinIO 对象存储没有跨文件事务。一个操作更新多个目标文件�
 2. 读取原文件、调用模型并写入新的 `file_details` 对象；
 3. 以内容哈希和乐观锁条件回填 MySQL 当前详情引用；
 4. 结束数据库读取事务；
-5. 读取并稳定合并当前 `project_specification.json`；
-6. 条件覆盖同一路径的项目规范；
-7. 从 MySQL 全量重建并覆盖 `index.json`；
-8. 把已完成变更写入 `update_journal.jsonl`。
+5. 读取五个规则分区，按本轮成功详情的 `file_id` 替换对应规则组；
+6. 条件写入发生变化的规则分区，并刷新 `project_specification.json` 清单；
+7. 从 `project_facts` 增量对账 `long_term_memory.json`；
+8. 从 MySQL 全量重建并覆盖 `index.json`；
+9. 把已完成变更写入 `update_journal.jsonl`。
 
 项目规范刷新失败时保留原规范；索引仍应准确反映文件处理结果，并通过批次响应暴露规范失败。索引发布失败时不得把整批报告为成功。
 
@@ -126,7 +134,7 @@ MinIO 对象存储没有跨文件事务。一个操作更新多个目标文件�
 
 显式学习不改变本文件的目录结构。模型从用户消息中提取候选，用户确认后由后端把内容合并到以下目标之一：
 
-- `project_specification.json`
+- `project_specification/{section}.json` 的 `managed_rules`
 - `short_term_memory.json`
 - `long_term_memory.json`
 - `user_habits/{category}.json`

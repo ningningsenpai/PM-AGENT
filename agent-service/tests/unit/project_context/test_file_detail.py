@@ -21,6 +21,7 @@ from app.project_context.file_detail.schemas import (
     FileDetail,
     FileDetailSemanticOutput,
     FileRuleCandidate,
+    FileRuleCandidates,
     FileSemanticAnalysisRequest,
 )
 from app.project_context.file_detail.service import FileSemanticAnalysisService
@@ -70,14 +71,19 @@ def _semantic() -> FileDetailSemanticOutput:
         sensitive_flags=[],
         evidence=[],
         parser={"strategy": "llm_enhanced"},
-        rule_candidates=[
-            FileRuleCandidate(
-                category="technical_constraint",
-                text="后端使用 FastAPI",
-                confidence="high",
-                evidence=["文档明确声明后端技术栈"],
-            )
-        ],
+        rule_candidates=FileRuleCandidates(
+            development_approach=[],
+            technical_constraints=[
+                FileRuleCandidate(
+                    text="后端使用 FastAPI",
+                    confidence="high",
+                    evidence=["文档明确声明后端技术栈"],
+                )
+            ],
+            coding_rules=[],
+            document_rules=[],
+            risk_rules=[],
+        ),
     )
 
 
@@ -229,12 +235,12 @@ class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
         assert result.detail is not None
         self.assertEqual(30, result.detail.file_id)
         self.assertEqual("file-30", result.detail.id)
-        self.assertEqual("2.0.0", result.detail.schema_version)
+        self.assertEqual("3.0.0", result.detail.schema_version)
         self.assertEqual("hash", result.detail.content_hash)
         self.assertTrue(result.detail.may_supply_project_constraints)
         self.assertEqual(
             "后端使用 FastAPI",
-            result.detail.rule_candidates[0].text,
+            result.detail.rule_candidates.technical_constraints[0].text,
         )
         generated_type = generator.generate.await_args.args[1]
         self.assertIs(FileDetailSemanticOutput, generated_type)
@@ -248,6 +254,27 @@ class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
         detail = FileDetail.model_validate(payload)
 
         self.assertFalse(detail.may_supply_project_constraints)
+
+    def test_rule_candidates_requires_all_five_sections(self) -> None:
+        payload = _semantic().model_dump()
+        payload["rule_candidates"].pop("risk_rules")
+
+        with self.assertRaises(ValidationError):
+            FileDetailSemanticOutput.model_validate(payload)
+
+    def test_rule_candidates_rejects_more_than_one_hundred_items(self) -> None:
+        payload = _semantic().model_dump()
+        payload["rule_candidates"]["coding_rules"] = [
+            {
+                "text": f"编码规则 {index}",
+                "confidence": "high",
+                "evidence": [],
+            }
+            for index in range(100)
+        ]
+
+        with self.assertRaises(ValidationError):
+            FileDetailSemanticOutput.model_validate(payload)
 
     async def test_analyze_returns_safe_output_failure_reason(self) -> None:
         message = "模型结构化输出达到 token 上限（max_tokens=4096），结果不完整"

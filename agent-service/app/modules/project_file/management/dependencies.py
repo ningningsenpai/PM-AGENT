@@ -20,6 +20,7 @@ from app.modules.project.service import ProjectService
 from app.modules.project_file.management.service import ProjectFileService
 from app.modules.project_file.repository import ProjectFileRepository
 from app.project_context.index import ProjectIndexService
+from app.project_context.specification import ProjectSpecificationService
 
 
 def get_project_file_service(
@@ -37,6 +38,7 @@ def get_project_file_service(
         storage,
         locations,
         ProjectIndexService(storage, locations),
+        ProjectSpecificationService(storage, locations),
         idempotency,
         settings.file,
         settings.storage,
