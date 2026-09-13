@@ -10,7 +10,7 @@
     <RequestError :message="error" retry @retry="load" />
     <n-tabs v-model:value="tab" type="line"
       ><n-tab name="chat">项目问答</n-tab
-      ><n-tab name="context">学习内容管理</n-tab></n-tabs
+      ><n-tab name="context">项目上下文</n-tab></n-tabs
     >
     <div v-show="tab === 'chat'" class="assistant-grid">
       <aside class="surface conversation-list">

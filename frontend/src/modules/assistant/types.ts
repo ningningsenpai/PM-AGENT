@@ -2,7 +2,6 @@ export interface Conversation {
   id: string
   projectId: string
   title: string
-  learnedMessageId: string
   activeRunId: string | null
   createdAt: string
 }
@@ -57,7 +56,7 @@ export interface UpdateEntry {
   aliases?: string[]
   canonical?: string
 }
-export type OperationKind = 'chat' | 'learn' | 'learn_refine' | 'development' | 'risk'
+export type OperationKind = 'chat' | 'learn_refine' | 'development' | 'risk'
 export interface PendingOperation {
   key: string
   kind: OperationKind
@@ -83,7 +82,12 @@ export interface LearningProposal {
   conditions: string[]
   relatedEntryIds: string[]
   coexistReason: string | null
-  targetFile: 'project_specification.json' | 'short_term_memory.json' | 'long_term_memory.json'
+  targetFile: 'project_specification/development_approach.json'
+    | 'project_specification/technical_constraints.json'
+    | 'project_specification/coding_rules.json'
+    | 'project_specification/document_rules.json'
+    | 'project_specification/risk_rules.json'
+    | 'short_term_memory.json' | 'long_term_memory.json'
     | 'user_habits/work.json' | 'user_habits/thinking.json'
     | 'user_habits/specification.json' | 'user_habits/tooling.json' | 'user_habits/life.json'
   targetSection: 'development_approach' | 'technical_constraints' | 'coding_rules'

@@ -1,6 +1,6 @@
 <template>
   <n-drawer :show="show" :width="780" :mask-closable="!busy" :close-on-esc="!busy" @update:show="emit('update:show', $event)">
-    <n-drawer-content title="核对学习结果" :closable="!busy">
+    <n-drawer-content title="核对待确认内容" :closable="!busy">
       <div class="review-intro">
         <n-space align="center"><n-tag :type="draft.state === 'applied' ? 'success' : 'info'">{{ draftStates[draft.state] }}</n-tag><span class="muted">草稿版本 {{ draft.version }}</span></n-space>
         <p>{{ draftSummary(draft) }}</p>
@@ -25,7 +25,7 @@
       <n-empty v-if="!candidates.length" description="本轮没有提取到可复用内容" />
       <article v-for="(candidate, index) in candidates" :key="candidate.id" class="review-candidate">
         <div class="candidate-head">
-          <n-checkbox :checked="selectedIds.includes(candidate.id)" :disabled="!editable || busy" @update:checked="toggle(candidate.id, $event)">{{ entryKinds[candidate.proposal.kind] }} · {{ candidate.proposal.scope === 'user' ? '个人通用' : '当前项目' }}</n-checkbox>
+          <n-checkbox :checked="selectedIds.includes(candidate.id)" :disabled="!editable || busy" @update:checked="toggle(candidate.id, $event)">{{ entryKinds[candidate.proposal.kind] }} · 当前项目</n-checkbox>
           <n-tag v-if="candidate.proposal.invalidate" size="small" type="warning">失效原条目</n-tag>
           <n-tag v-else size="small">{{ candidate.proposal.replacesEntryId ? '修改已有内容' : '新增内容' }}</n-tag>
         </div>

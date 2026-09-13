@@ -1,6 +1,6 @@
 <template>
   <section v-if="drafts.length || loading || error" class="learning-results">
-    <div class="results-head"><h3>学习结果</h3><n-button text size="small" :loading="loading" @click="load">刷新结果</n-button></div>
+    <div class="results-head"><h3>待确认内容</h3><n-button text size="small" :loading="loading" @click="load">刷新</n-button></div>
     <RequestError :message="error" />
     <article v-for="draft in drafts" :key="draft.id" class="learning-result">
       <div class="result-heading"><n-tag size="small" :type="draft.state === 'applied' ? 'success' : 'info'">{{ draftStates[draft.state] }}</n-tag><small>{{ formatDate(draft.createdAt) }}</small></div>
@@ -50,10 +50,14 @@ function updated(draft: LearningDraft) {
   emit('changed')
 }
 watch(() => props.operation.run.value, async run => {
-  if (!run || !['learn', 'learn_refine'].includes(run.operation) || run.status === 'running') return
+  if (!run || run.status === 'running') return
+  const contextUpdate = run.result.contextUpdate as Record<string, unknown> | undefined
+  const pendingFromChat = run.operation === 'chat'
+    && ['pending_confirmation', 'applied_and_pending'].includes(String(contextUpdate?.status || ''))
+  if (run.operation !== 'learn_refine' && !pendingFromChat) return
   await load()
-  if (active && run.operation === 'learn' && run.status === 'success') {
-    const found = drafts.value.find(d => d.id === run.result.draftId)
+  if (active && pendingFromChat && run.status === 'success') {
+    const found = drafts.value.find(d => d.id === contextUpdate?.draftId)
     if (found) open(found)
   }
 })

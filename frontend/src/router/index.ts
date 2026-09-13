@@ -53,8 +53,8 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'projects/:id/tasks',
         name: 'task-board',
-        component: () => import('@/modules/task/pages/TaskBoardPage.vue'),
-        meta: { section: 'tasks' },
+        component: feature,
+        meta: { section: 'tasks', title: '任务看板' },
       },
       {
         path: 'projects/:id/assistant',

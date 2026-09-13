@@ -201,7 +201,7 @@ function generate() {
   if (operation.busy.value || operation.unresolved.value) return
   dialog.info({
     title: '生成' + labels[generateKind.value],
-    content: '将读取当前项目资料和已学习内容，并调用模型生成一份新报告。',
+    content: '将读取当前项目资料和已记录上下文，并调用模型生成一份新报告。',
     positiveText: '开始生成',
     negativeText: '取消',
     onPositiveClick: () => {

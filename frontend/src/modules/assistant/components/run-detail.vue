@@ -29,19 +29,11 @@
         <dd>{{ operationLabel }}</dd>
       </dl>
       <n-alert v-if="snapshotFailures.length" type="warning"
-        >这是旧版学习记录的快照发布状态。新版正式内容请在学习结果或内容管理中核对。
+        >部分上下文文件未能发布，请在待确认内容或内容管理中核对。
         <p v-for="(item, index) in snapshotFailures" :key="index">
           {{ item }}
         </p></n-alert
       >
-      <p
-        v-if="run.operation === 'learn' && run.status === 'success'"
-        class="muted"
-      >
-        处理消息 {{ run.result.processedMessages ?? '—' }} 条。
-        <template v-if="run.result.draftId">提取候选 {{ run.result.candidateCount ?? '—' }} 条，请在学习结果中核对后发布。</template>
-        <template v-else>历史学习结果可在内容管理中核对。</template>
-      </p>
       <details v-if="toolCalls.length" open>
         <summary>工具调用与来源（{{ toolCalls.length }}）</summary>
         <details v-for="(tool, index) in toolCalls" :key="index">
@@ -74,7 +66,7 @@ const toolCalls = computed(() =>
 )
 const operationLabel = computed(
   () =>
-    ({ chat: '项目问答', learn: '提取学习草稿', learn_refine: '定向反馈整理', report: '报告生成' })[
+    ({ chat: '项目问答', learn_refine: '待确认上下文整理', report: '报告生成' })[
       props.run?.operation || ''
     ] || props.run?.operation,
 )

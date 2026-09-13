@@ -56,20 +56,20 @@ export function executeOperation(
   realMode()
   if (kind === 'learn_refine') {
     const { draftId, ...data } = payload
-    if (typeof draftId !== 'string') throw new Error('请先选择学习草稿')
+    if (typeof draftId !== 'string') throw new Error('请先选择待确认上下文')
     return request<Run>({ url: `/api/v1/agent/learning-drafts/${draftId}/refine`,
       method: 'post', params: { projectId }, data,
       headers: { 'X-Idempotency-Key': key }, timeout: 20 * 60 * 1000 })
   }
-  const conversationOperation = kind === 'chat' || kind === 'learn'
+  const conversationOperation = kind === 'chat'
   if (conversationOperation && !conversationId) throw new Error('请先选择会话')
   return request<Run>({
     url: conversationOperation
-      ? `/api/v1/agent/conversations/${conversationId}/${kind === 'chat' ? 'messages' : 'learn'}`
+      ? `/api/v1/agent/conversations/${conversationId}/messages`
       : `/api/v1/projects/${projectId}/reports`,
     method: 'post',
     data:
-      kind === 'learn' ? undefined : conversationOperation ? payload : { kind },
+      conversationOperation ? payload : { kind },
     headers: { 'X-Idempotency-Key': key },
     timeout: 20 * 60 * 1000,
   })

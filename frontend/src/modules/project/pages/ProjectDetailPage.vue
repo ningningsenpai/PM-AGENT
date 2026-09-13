@@ -29,7 +29,7 @@
           ><RouterLink :to="`/projects/${id}/reports`"
             >报告中心 <span>开发与风险报告 →</span></RouterLink
           ><RouterLink :to="`/projects/${id}/knowledge`"
-            >知识库 <span>项目资料与学习内容 →</span></RouterLink
+            >知识库 <span>项目资料与上下文 →</span></RouterLink
           >
         </div>
         <n-alert

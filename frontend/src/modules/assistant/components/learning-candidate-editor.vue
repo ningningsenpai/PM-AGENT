@@ -6,8 +6,8 @@
         <n-form-item label="适用范围"><n-select v-model:value="proposal.scope" :options="scopeOptions" @update:value="syncTarget" /></n-form-item>
       </div>
       <div class="two-columns">
-        <n-form-item label="生效文件"><n-select v-model:value="proposal.targetFile" :options="targetFileOptions" /></n-form-item>
-        <n-form-item v-if="proposal.targetFile === 'project_specification.json'" label="规则分区"><n-select v-model:value="proposal.targetSection" clearable :options="sectionOptions" /></n-form-item>
+        <n-form-item label="生效文件"><n-select v-model:value="proposal.targetFile" :options="targetFileOptions" @update:value="syncSectionFromTarget" /></n-form-item>
+        <n-form-item v-if="isProjectSpecification" label="规则分区"><n-select v-model:value="proposal.targetSection" :options="sectionOptions" @update:value="syncTargetFromSection" /></n-form-item>
       </div>
       <n-form-item label="主题"><n-input v-model:value="proposal.key" :maxlength="200" /></n-form-item>
       <n-form-item label="内容"><n-input v-model:value="proposal.content" type="textarea" :maxlength="4000" :autosize="{ minRows: 2, maxRows: 8 }" /></n-form-item>
@@ -42,9 +42,24 @@ const proposal = computed(() => model.value.proposal)
 const kindOptions = Object.entries(entryKinds).map(([value, label]) => ({ value, label }))
 const scopeOptions = computed(() => [{ label: '当前项目', value: 'project' },
   ...(['habit', 'term'].includes(proposal.value.kind) ? [{ label: '个人偏好（当前项目习惯文件）', value: 'user' }] : [])])
+const sectionFiles = {
+  development_approach: 'project_specification/development_approach.json',
+  technical_constraints: 'project_specification/technical_constraints.json',
+  coding_rules: 'project_specification/coding_rules.json',
+  document_rules: 'project_specification/document_rules.json',
+  risk_rules: 'project_specification/risk_rules.json',
+} as const
+const isProjectSpecification = computed(() => proposal.value.kind === 'project_rule'
+  || (proposal.value.kind === 'term' && proposal.value.scope === 'project'))
 const targetFileOptions = computed(() => {
-  if (proposal.value.kind === 'project_rule' || (proposal.value.kind === 'term' && proposal.value.scope === 'project')) {
-    return [{ label: '项目规则文件', value: 'project_specification.json' }]
+  if (proposal.value.kind === 'project_rule') {
+    return sectionOptions.map(item => ({
+      label: `${item.label}文件`,
+      value: sectionFiles[item.value as keyof typeof sectionFiles],
+    }))
+  }
+  if (proposal.value.kind === 'term' && proposal.value.scope === 'project') {
+    return [{ label: '编码规则文件', value: sectionFiles.coding_rules }]
   }
   if (proposal.value.kind === 'short_memory') return [{ label: '短期记忆文件', value: 'short_term_memory.json' }]
   if (proposal.value.kind === 'long_memory') return [{ label: '长期记忆文件', value: 'long_term_memory.json' }]
@@ -80,8 +95,12 @@ function validateScope() {
   proposal.value.invalidate = false
 }
 function syncTarget() {
-  if (proposal.value.kind === 'project_rule' || (proposal.value.kind === 'term' && proposal.value.scope === 'project')) {
-    proposal.value.targetFile = 'project_specification.json'
+  if (proposal.value.kind === 'project_rule') {
+    proposal.value.targetSection ||= 'coding_rules'
+    syncTargetFromSection()
+  } else if (proposal.value.kind === 'term' && proposal.value.scope === 'project') {
+    proposal.value.targetSection = 'coding_rules'
+    proposal.value.targetFile = sectionFiles.coding_rules
   } else if (proposal.value.kind === 'short_memory') {
     proposal.value.targetFile = 'short_term_memory.json'
   } else if (proposal.value.kind === 'long_memory') {
@@ -91,7 +110,16 @@ function syncTarget() {
   } else if (!proposal.value.targetFile.startsWith('user_habits/')) {
     proposal.value.targetFile = 'user_habits/work.json'
   }
-  if (proposal.value.targetFile !== 'project_specification.json') proposal.value.targetSection = null
+  if (!proposal.value.targetFile.startsWith('project_specification/')) proposal.value.targetSection = null
+}
+function syncTargetFromSection() {
+  const section = proposal.value.targetSection || 'coding_rules'
+  proposal.value.targetFile = sectionFiles[section]
+}
+function syncSectionFromTarget() {
+  if (!proposal.value.targetFile.startsWith('project_specification/')) return
+  proposal.value.targetSection = (Object.entries(sectionFiles)
+    .find(([, path]) => path === proposal.value.targetFile)?.[0] || 'coding_rules') as keyof typeof sectionFiles
 }
 </script>
 <style scoped>

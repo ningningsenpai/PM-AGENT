@@ -36,7 +36,7 @@
         <span class="stage-pill">项目助手 · 真实业务闭环</span>
         <h1>把项目状态变成可追踪的执行线索</h1>
         <p>
-          从项目文件出发，完成资料同步、项目问答、显式学习与报告生成，让结论保留可核对的来源。
+          从项目文件出发，完成资料同步、项目问答、上下文沉淀与报告生成，让结论保留可核对的来源。
         </p>
         <div class="hero-actions">
           <RouterLink class="primary-cta" :to="primaryEntry">进入工作台</RouterLink>
@@ -61,7 +61,7 @@
           <div class="project-card">
             <span class="project-strip"></span>
             <h3>PM-AGENT 平台 MVP</h3>
-            <p>文件、问答、学习与报告形成业务闭环。</p>
+            <p>文件、问答、上下文与报告形成业务闭环。</p>
             <div class="progress-track"><span></span></div>
             <b>72%</b>
           </div>
@@ -110,7 +110,7 @@ const values = [
   { title: '项目全局视图', description: '查看真实项目初始化状态，集中管理文件与报告。', color: 'blue' },
   { title: '文件同步与解析', description: '按同步计划处理新增、修改与删除，查看解析结果和失败原因。', color: 'green' },
   { title: '风险报告', description: '依据项目资料生成风险分析，保留来源；风险处置流程暂未开放。', color: 'yellow' },
-  { title: 'Agent 洞察', description: '基于资料问答，通过显式学习沉淀你确认的项目内容。', color: 'yellow' },
+  { title: 'Agent 洞察', description: '基于资料问答，并自动识别需要沉淀的项目上下文。', color: 'yellow' },
   { title: 'Trace 可追溯', description: '记录 Agent 分析输入、工具调用和输出结论，便于复盘。', color: 'blue' },
 ]
 </script>

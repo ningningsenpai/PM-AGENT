@@ -11,13 +11,6 @@
           </div>
           <small class="muted">会话记录自动保存 · 普通问答</small>
         </div>
-        <n-button
-          secondary
-          type="success"
-          :disabled="locked || !messages.some((m) => m.role === 'user')"
-          @click="learn"
-          >学习本会话</n-button
-        >
       </header>
       <div ref="messageViewport" class="messages" @scroll="onMessageScroll">
         <RequestError :message="error" retry @retry="load" />
@@ -88,7 +81,7 @@
           @keydown="onComposerKeydown"
         />
         <div class="composer-foot">
-          <small>Enter 发送 · Shift + Enter 换行<br />回答请核对来源，学习需手动确认。</small
+          <small>Enter 发送 · Shift + Enter 换行<br />回答请核对来源；明确规则会自动记录，模糊内容会请求确认。</small
           ><n-button
             type="primary"
             :loading="operation.busy.value"
@@ -104,13 +97,7 @@
       <div class="assistant-note">
         <h4>本轮能力</h4>
         <p>读取项目资料、查询上下文、生成建议。任务变更和审批执行暂未开放。</p>
-        <p>
-          学习游标：{{
-            conversation.learnedMessageId === '0'
-              ? '尚未学习'
-              : conversation.learnedMessageId
-          }}
-        </p>
+        <p>规则、记忆与项目偏好由对话多维分析自动识别。</p>
       </div>
     </aside>
     <n-modal v-model:show="showRename" preset="card" title="修改会话名称" style="width: 460px" :closable="!renaming" :mask-closable="!renaming" :close-on-esc="!renaming">
@@ -125,7 +112,6 @@
 </template>
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onScopeDispose, ref, watch } from 'vue'
-import { useDialog } from 'naive-ui'
 import { CreateOutline } from '@vicons/ionicons5'
 import { renameConversation } from '../api'
 import { shouldSendOnEnter, useConversationMessages } from '../conversation-messages'
@@ -144,7 +130,6 @@ const props = defineProps<{
 const emit = defineEmits<{ changed: []; busy: [value: boolean]; renamed: [conversation: Conversation] }>()
 const chat = useConversationMessages(props.projectId, props.conversation.id, () => emit('changed'))
 const { operation, messages, visibleMessages, loading, error, load } = chat
-const dialog = useDialog()
 const draft = ref('')
 const messageViewport = ref<HTMLElement | null>(null)
 const stickToBottom = ref(true)
@@ -230,17 +215,6 @@ async function rename() {
   } finally {
     if (active) renaming.value = false
   }
-}
-function learn() {
-  if (locked.value) return
-  dialog.info({
-    title: '学习本会话',
-    content:
-      '从新消息中提取习惯、项目规则、词条和记忆，先展示待确认结果。此操作会调用模型；查看并确认发布后才用于后续问答。',
-    positiveText: '提取待确认内容',
-    negativeText: '取消',
-    onPositiveClick: () => operation.start('learn'),
-  })
 }
 </script>
 <style scoped>
