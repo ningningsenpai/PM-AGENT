@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
@@ -130,6 +131,13 @@ class ProjectIndexService:
             system=ProjectIndexSystemReferences(
                 index="system/index.json",
                 project_specification="system/project_specification.json",
+                project_specification_sections={
+                    "development_approach": "system/project_specification/development_approach.json",
+                    "technical_constraints": "system/project_specification/technical_constraints.json",
+                    "coding_rules": "system/project_specification/coding_rules.json",
+                    "document_rules": "system/project_specification/document_rules.json",
+                    "risk_rules": "system/project_specification/risk_rules.json",
+                },
                 long_term_memory="system/long_term_memory.json",
                 short_term_memory="system/short_term_memory.json",
                 user_habits="system/user_habits/",

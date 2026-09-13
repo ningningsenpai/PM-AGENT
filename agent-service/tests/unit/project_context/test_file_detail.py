@@ -18,11 +18,14 @@ from app.llm.structured import (
 from app.llm.telemetry import capture_calls
 from app.project_context.file_detail.extraction import ExtractedFileContent
 from app.project_context.file_detail.schemas import (
+    FileDetail,
     FileDetailSemanticOutput,
     FileRuleCandidate,
     FileSemanticAnalysisRequest,
 )
 from app.project_context.file_detail.service import FileSemanticAnalysisService
+from tests.unit.modules.project_file.analysis.factories import file_detail
+from tests.unit.modules.project_file.factories import project_file
 
 
 def _request() -> FileSemanticAnalysisRequest:
@@ -56,6 +59,7 @@ def _semantic() -> FileDetailSemanticOutput:
         file_type="doc",
         language="markdown",
         importance="high",
+        may_supply_project_constraints=True,
         summary="项目约束说明",
         keywords=["FastAPI"],
         role="说明后端约束",
@@ -178,6 +182,13 @@ class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
         with self.assertRaises(ValidationError):
             FileDetailSemanticOutput.model_validate(payload)
 
+    def test_semantic_output_requires_constraint_source_judgment(self) -> None:
+        payload = _semantic().model_dump()
+        payload.pop("may_supply_project_constraints")
+
+        with self.assertRaises(ValidationError):
+            FileDetailSemanticOutput.model_validate(payload)
+
     async def test_analyze_rejects_source_over_limit_before_model_call(
         self,
     ) -> None:
@@ -220,12 +231,23 @@ class FileSemanticAnalysisServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("file-30", result.detail.id)
         self.assertEqual("2.0.0", result.detail.schema_version)
         self.assertEqual("hash", result.detail.content_hash)
+        self.assertTrue(result.detail.may_supply_project_constraints)
         self.assertEqual(
             "后端使用 FastAPI",
             result.detail.rule_candidates[0].text,
         )
         generated_type = generator.generate.await_args.args[1]
         self.assertIs(FileDetailSemanticOutput, generated_type)
+        prompt = generator.generate.await_args.args[0]
+        self.assertIn("may_supply_project_constraints", prompt)
+
+    def test_old_detail_defaults_constraint_source_judgment_to_false(self) -> None:
+        payload = file_detail(project_file()).model_dump()
+        payload.pop("may_supply_project_constraints")
+
+        detail = FileDetail.model_validate(payload)
+
+        self.assertFalse(detail.may_supply_project_constraints)
 
     async def test_analyze_returns_safe_output_failure_reason(self) -> None:
         message = "模型结构化输出达到 token 上限（max_tokens=4096），结果不完整"

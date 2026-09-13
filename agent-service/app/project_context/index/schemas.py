@@ -68,6 +68,7 @@ class ProjectIndexUploadFailure(ProjectIndexSchema):
 class ProjectIndexSystemReferences(ProjectIndexSchema):
     index: str
     project_specification: str
+    project_specification_sections: dict[str, str] = Field(default_factory=dict)
     long_term_memory: str
     short_term_memory: str
     user_habits: str

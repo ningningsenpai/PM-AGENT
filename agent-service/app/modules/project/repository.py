@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.project.domain import ProjectRecordStatus
@@ -70,6 +70,27 @@ class ProjectRepository:
         )
         result = await self.session.execute(statement)
         return result.rowcount == 1
+
+    async def advance_published_revision(self, project_id: int) -> int | None:
+        """仅在没有未发布修订时原子推进项目发布修订。"""
+        statement = (
+            update(Project)
+            .where(
+                Project.id == project_id,
+                Project.revision == Project.published_revision,
+            )
+            .values(
+                revision=Project.revision + 1,
+                published_revision=Project.published_revision + 1,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        result = await self.session.execute(statement)
+        if result.rowcount != 1:
+            return None
+        return await self.session.scalar(
+            select(Project.published_revision).where(Project.id == project_id)
+        )
 
     async def add(self, project: Project) -> Project:
         self.session.add(project)

@@ -6,12 +6,13 @@ import asyncio
 import json
 from time import perf_counter
 
+from pydantic import ValidationError
+
 from app.agents.tools.registry import ToolRegistry
 from app.agents.tools.schemas import ToolExecutionContext, ToolExecutionResult
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.llm.contracts import LLMToolCall
-from pydantic import ValidationError
 
 logger = get_logger(__name__)
 
@@ -26,8 +27,18 @@ class ToolExecutor:
         self,
         call: LLMToolCall,
         context: ToolExecutionContext,
+        *,
+        allowed_tools: set[str] | None = None,
     ) -> ToolExecutionResult:
         started_at = perf_counter()
+        if allowed_tools is not None and call.name not in allowed_tools:
+            return self._failed(
+                call,
+                {},
+                ErrorCode.TOOL_NOT_REGISTERED,
+                f"当前请求未开放工具：{call.name}",
+                started_at,
+            )
         tool = self._registry.get(call.name)
         if tool is None:
             return self._failed(
@@ -41,9 +52,9 @@ class ToolExecutor:
         try:
             raw_arguments = json.loads(call.arguments_json or "{}")
             if not isinstance(raw_arguments, dict):
-                raise ValueError("工具参数必须是 JSON 对象")
+                raise TypeError("工具参数必须是 JSON 对象")
             arguments = tool.input_model.model_validate(raw_arguments)
-        except (json.JSONDecodeError, ValidationError, ValueError):
+        except (json.JSONDecodeError, TypeError, ValidationError, ValueError):
             return self._failed(
                 call,
                 {},

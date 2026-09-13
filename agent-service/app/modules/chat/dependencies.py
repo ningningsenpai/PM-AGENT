@@ -13,11 +13,13 @@ from app.modules.project.dependencies import get_project_service
 from app.modules.project.service import ProjectService
 
 from .context.repository import ContextRepository
+from .context.automatic_update import AutomaticContextUpdateService
 from .context.service import ContextService
 from .conversation.repository import ConversationRepository
 from .conversation.service import ConversationService
 from .learning.repository import LearningDraftRepository
 from .learning.service import LearningService
+from .request_understanding.service import RequestUnderstandingService
 from .runs.repository import RunRepository
 from .runs.service import RunService
 
@@ -64,8 +66,16 @@ def get_conversation_service(
     projects: Projects,
     runs: Annotated[RunService, Depends(get_run_service)],
     contexts: Annotated[ContextService, Depends(get_context_service)],
+    drafts: Annotated[LearningDraftRepository, Depends(get_learning_draft_repository)],
 ) -> ConversationService:
-    return ConversationService(repo, projects, runs, contexts)
+    return ConversationService(
+        repo,
+        projects,
+        runs,
+        contexts,
+        RequestUnderstandingService(get_structured_generator(1200)),
+        AutomaticContextUpdateService(contexts, drafts),
+    )
 
 
 def get_learning_service(

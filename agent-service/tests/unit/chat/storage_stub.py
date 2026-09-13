@@ -44,6 +44,9 @@ class MemoryStorage:
     def put_bytes(self, location, content, content_type):
         self.data[(location.bucket, location.object_key)] = content
 
+    def remove(self, location):
+        self.data.pop((location.bucket, location.object_key), None)
+
     def list_prefix(self, location):
         from app.infrastructure.storage import StorageLocation
 

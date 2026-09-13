@@ -1,11 +1,12 @@
-"""项目规范生成与对象存储服务。"""
+"""项目规范的确定性聚合与拆分文件发布。"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-from collections import deque
+import re
 from collections.abc import Iterable
+from hashlib import sha256
 from typing import Any, Literal
 
 from pydantic import ValidationError
@@ -13,58 +14,68 @@ from pydantic import ValidationError
 from app.core.errors import AppException, ErrorCode
 from app.core.logger import get_logger
 from app.core.time import shanghai_now
-from app.infrastructure.storage import ObjectStorage, StorageLocationFactory
-from app.llm.prompts.project_context import ProjectSpecificationPrompt
-from app.llm.structured import StructuredJsonGenerator, StructuredOutputTruncatedError
+from app.infrastructure.storage import (
+    ObjectStorage,
+    StorageLocation,
+    StorageLocationFactory,
+)
 from app.project_context.file_detail.schemas import FileDetail
 from app.project_context.file_detail.sensitive_content import (
     SensitiveContentBlockedError,
     sanitize_sensitive_content,
 )
-from app.project_context.specification.model_output import normalize_specification_json
-from app.project_context.specification.schemas import (
-    ProjectSpecificationDocument,
-    SpecificationSourceRef,
-    merge_specifications,
-)
+from app.project_context.specification.schemas import (CodingRule, DevelopmentApproachRule, DevelopmentStage,
+                                                       DocumentRule, ProjectSpecificationBody,
+                                                       ProjectSpecificationDocument, ProjectSpecificationManifest,
+                                                       ProjectSpecificationSectionDocument, RULE_SECTION_FILES,
+                                                       RiskRule, SpecificationSectionReference,
+                                                       SpecificationSectionReferences, SpecificationSourceRef,
+                                                       TechnicalConstraintRule)
 
 logger = get_logger(__name__)
 
 SpecificationRefreshStatus = Literal["updated", "kept"]
 
+_CATEGORY_FIELDS = {
+    "development_approach": "development_approach",
+    "technical_constraint": "technical_constraints",
+    "coding_rule": "coding_rules",
+    "document_rule": "document_rules",
+    "risk_rule": "risk_rules",
+}
+_RULE_MODELS = {
+    "development_approach": (DevelopmentApproachRule, "rule"),
+    "technical_constraints": (TechnicalConstraintRule, "constraint"),
+    "coding_rules": (CodingRule, "rule"),
+    "document_rules": (DocumentRule, "rule"),
+    "risk_rules": (RiskRule, "rule"),
+}
+
 
 class ProjectSpecificationService:
-    """分批聚合全部有效详情规则候选，合并完成后发布项目规范。"""
-
-    _MAX_BATCH_CANDIDATES = 12
-    _MAX_BATCH_SOURCE_CHARS = 12000
-
-    _RULE_FIELDS = (
-        "development_approach",
-        "technical_constraints",
-        "coding_rules",
-        "document_rules",
-        "risk_rules",
-    )
+    """把权威文档详情中的规则候选确定性聚合为五个规则快照。"""
 
     def __init__(
         self,
         storage: ObjectStorage,
         locations: StorageLocationFactory,
-        generator: StructuredJsonGenerator | None = None,
+        generator=None,
     ) -> None:
         self._storage = storage
         self._locations = locations
-        self._generator = generator
+        # 保留构造参数兼容性；规则二次聚合不再调用模型。
+        self._legacy_generator = generator
 
     async def initialize(self, project) -> SpecificationRefreshStatus:
-        """不调用模型，为新项目写入合法空规范。"""
+        """不调用模型，为新项目写入一个清单和五个合法空分区。"""
         location = self._location(project)
         existing, etag = await self._load_existing_versioned(location, project.id)
         if existing is not None:
             return "kept"
         await self._write(
-            location, ProjectSpecificationDocument.empty(project.id), etag
+            location,
+            ProjectSpecificationDocument.empty(project.id),
+            etag,
         )
         return "updated"
 
@@ -72,49 +83,45 @@ class ProjectSpecificationService:
         self,
         project,
         files: Iterable[Any],
+        source_files: Iterable[Any] | None = None,
     ) -> SpecificationRefreshStatus:
+        """仅在权威文档变化或旧来源失效时，全量重建文件规则快照。"""
         current_files = list(files)
+        changed_sources = current_files if source_files is None else list(source_files)
         location = self._location(project)
         existing, etag = await self._load_existing_versioned(location, project.id)
         inventory = self._build_inventory(current_files)
-        sources = await self._load_rule_sources(project, current_files)
-        stale_rule_keys = self._stale_rule_keys(existing, inventory)
-        if not sources and not stale_rule_keys:
-            if existing is None:
-                await self._write(
-                    location, ProjectSpecificationDocument.empty(project.id), etag
-                )
-                return "updated"
+        has_changed_constraint_source = any(
+            self._is_current_project_file(file) and self._may_supply_constraints(file)
+            for file in changed_sources
+        )
+        has_stale_source = self._has_stale_file_rule(existing, inventory)
+        if (
+            existing is not None
+            and not has_changed_constraint_source
+            and not has_stale_source
+        ):
             return "kept"
-        if self._generator is None:
-            raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED)
 
         try:
-            generated = await self._generate_batches(
-                project, existing, sources, inventory
-            )
-            document = merge_specifications(existing, generated)
-            document = self._mark_unreconciled_rules(
-                document,
-                stale_rule_keys,
-                generated,
-                sources,
-                inventory,
-            )
-            document = self._enrich_source_refs(document, inventory)
+            # 只重读现有详情，不重新解析源文件。
+            sources = await self._load_rule_sources(project, current_files)
+            document = self._build_document(project, existing, sources)
+            if existing is not None and self._same_body(existing, document):
+                return "kept"
             await self._write(location, document, etag)
             return "updated"
-        except (ValidationError, ValueError) as exception:
+        except AppException:
+            raise
+        except (ValidationError, ValueError, TypeError) as exception:
             logger.warning(
-                "项目规范模型输出无效 action=project.specification.refresh projectId=%s",
+                "项目规范候选聚合失败 action=project.specification.refresh "
+                "projectId=%s",
                 project.id,
             )
             raise AppException(
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
             ) from exception
-
-        except AppException:
-            raise
         except Exception as exception:
             logger.exception(
                 "项目规范构建失败 action=project.specification.refresh projectId=%s",
@@ -124,178 +131,188 @@ class ProjectSpecificationService:
                 ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
             ) from exception
 
-    async def _generate_batches(
+    async def current(self, project) -> ProjectSpecificationDocument:
+        """读取当前兼容规范快照。"""
+        existing, _etag = await self._load_existing_versioned(
+            self._location(project), project.id
+        )
+        return existing or ProjectSpecificationDocument.empty(project.id)
+
+    def _build_document(
         self,
         project,
         existing: ProjectSpecificationDocument | None,
         sources: list[dict[str, Any]],
-        inventory: list[dict[str, Any]],
     ) -> ProjectSpecificationDocument:
-        """仅合并完整批次；截断时二分候选，最小批次仍失败则保留旧规范。"""
-        assert self._generator is not None
-        pending = deque(self._batch_sources(sources) or [[]])
-        generated: ProjectSpecificationDocument | None = None
-        completed = 0
-        while pending:
-            batch = pending.popleft()
-            candidate_count = sum(len(item["rule_candidates"]) for item in batch)
-            current = (
-                merge_specifications(existing, generated)
-                if generated is not None
-                else existing
+        now = shanghai_now()
+        preserved = self._preserved_rules(existing)
+        generated: dict[str, dict[str, dict[str, Any]]] = {
+            field: {} for field in RULE_SECTION_FILES
+        }
+        existing_by_id = {
+            rule.id: rule
+            for field in RULE_SECTION_FILES
+            for rule in (
+                getattr(existing.project_specification, field) if existing else []
             )
-            logger.info(
-                "开始生成项目规范批次 action=project.specification.batch "
-                "projectId=%s batch=%s candidateCount=%s remainingBatches=%s",
-                project.id,
-                completed + 1,
-                candidate_count,
-                len(pending),
-            )
-            try:
-                result = await self._generator.generate(
-                    self._build_prompt(project, current, batch, inventory),
-                    ProjectSpecificationDocument,
-                    normalize_json=normalize_specification_json,
-                )
-            except StructuredOutputTruncatedError:
-                if candidate_count <= 1:
-                    raise
-                smaller_batches = self._batch_sources(
-                    batch, max_candidates=(candidate_count + 1) // 2
-                )
-                pending.extendleft(reversed(smaller_batches))
-                logger.warning(
-                    "项目规范批次输出被截断，拆分后重试 "
-                    "action=project.specification.batch projectId=%s "
-                    "candidateCount=%s splitCount=%s",
-                    project.id,
-                    candidate_count,
-                    len(smaller_batches),
-                )
-                continue
-            if result.project_id != project.id:
-                raise ValueError("项目规范中的项目 ID 与当前项目不一致")
-            generated = merge_specifications(generated, result)
-            completed += 1
-        assert generated is not None
-        return generated
-
-    def _batch_sources(
-        self,
-        sources: list[dict[str, Any]],
-        *,
-        max_candidates: int = _MAX_BATCH_CANDIDATES,
-    ) -> list[list[dict[str, Any]]]:
-        """按候选数量和文本长度分批，单个大文件也可拆分，不丢弃候选。"""
-        batches: list[list[dict[str, Any]]] = []
-        batch: list[dict[str, Any]] = []
-        count = size = 0
+        }
         for source in sources:
-            if not source["rule_candidates"]:
-                size_of_source = len(json.dumps(source, ensure_ascii=False))
-                if batch and size + size_of_source > self._MAX_BATCH_SOURCE_CHARS:
-                    batches.append(batch)
-                    batch = []
-                    count = size = 0
-                batch.append({**source, "rule_candidates": []})
-                size += size_of_source
+            source_ref = SpecificationSourceRef.model_validate(source["source_ref"])
             for candidate in source["rule_candidates"]:
-                entry = {**source, "rule_candidates": [candidate]}
-                entry_size = len(json.dumps(entry, ensure_ascii=False))
-                if batch and (
-                    count >= max_candidates
-                    or size + entry_size > self._MAX_BATCH_SOURCE_CHARS
-                ):
-                    batches.append(batch)
-                    batch = []
-                    count = size = 0
-                if batch and batch[-1]["source_ref"] == source["source_ref"]:
-                    batch[-1]["rule_candidates"].append(candidate)
-                else:
-                    batch.append(entry)
-                count += 1
-                size += entry_size
-        if batch:
-            batches.append(batch)
-        return batches
+                field = _CATEGORY_FIELDS[candidate["category"]]
+                try:
+                    sanitized = sanitize_sensitive_content(candidate["text"])
+                except SensitiveContentBlockedError:
+                    logger.warning(
+                        "规则候选包含私钥材料，已跳过 "
+                        "action=project.specification.candidate projectId=%s",
+                        project.id,
+                    )
+                    continue
+                text = self._normalize_text(sanitized.text)
+                rule_id = self._rule_id(field, text)
+                accumulated = generated[field].get(rule_id)
+                if accumulated is None:
+                    previous = existing_by_id.get(rule_id)
+                    accumulated = {
+                        "id": rule_id,
+                        "text": text,
+                        "confidence": candidate["confidence"],
+                        "source_refs": [],
+                        "created_at": previous.created_at if previous else now,
+                    }
+                    generated[field][rule_id] = accumulated
+                if source_ref not in accumulated["source_refs"]:
+                    accumulated["source_refs"].append(source_ref)
+                accumulated["confidence"] = self._stronger_confidence(
+                    accumulated["confidence"], candidate["confidence"]
+                )
 
-    def _location(self, project):
-        return self._locations.system_file(
-            project.owner_user_id,
-            project.id,
-            "project_specification.json",
+        body_values: dict[str, list[Any]] = {}
+        for field, (model, text_field) in _RULE_MODELS.items():
+            values = list(preserved[field])
+            body_values[field] = values
+            preserved_ids = {rule.id for rule in values}
+            for rule_id, value in sorted(generated[field].items()):
+                if rule_id in preserved_ids:
+                    continue
+                rule = model.model_validate(
+                    {
+                        "id": rule_id,
+                        text_field: value["text"],
+                        "scope": "project",
+                        "status": (
+                            "active"
+                            if value["confidence"] in {"high", "medium"}
+                            else "pending_review"
+                        ),
+                        "confidence": value["confidence"],
+                        "source_refs": [
+                            item.model_dump(mode="json")
+                            for item in value["source_refs"]
+                        ],
+                        "created_at": value["created_at"],
+                        "updated_at": now,
+                        "previous_versions": [],
+                    }
+                )
+                body_values[field].append(rule)
+
+        return ProjectSpecificationDocument(
+            project_id=project.id,
+            schema_version="2.0.0",
+            updated_at=now,
+            project_specification=ProjectSpecificationBody(
+                development_stage=self._development_stage(sources),
+                **body_values,
+            ),
+            changes=[],
+            ignored_items=[],
         )
 
-    async def _load_existing(
-        self,
-        location,
-        project_id: int,
-    ) -> ProjectSpecificationDocument | None:
+    @staticmethod
+    def _preserved_rules(
+        existing: ProjectSpecificationDocument | None,
+    ) -> dict[str, list[Any]]:
         """
-        从云端读取 project_specification.json 文件，并验证项目 ID 是否一致。
-        如果文件不存在，则返回 None。
-        如果存在则加载并且验证文件归属
+        从已有规则文档里挑出刷新时要原样保留的规则
+            - human_edited 为真：人工修改过；
+            - 有 learning_entry_id：关联了学习记录；
+            - 来源引用中包含 conversation 或 project_rule：来自会话或其他项目规则。
         """
-        document, _etag = await self._load_existing_versioned(location, project_id)
-        return document
+        result: dict[str, list[Any]] = {field: [] for field in RULE_SECTION_FILES}
+        if existing is None:
+            return result
+        for field in RULE_SECTION_FILES:
+            result[field] = [
+                rule
+                for rule in getattr(existing.project_specification, field)
+                if rule.human_edited
+                or rule.learning_entry_id is not None
+                or any(
+                    ref.type in {"conversation", "project_rule"}
+                    for ref in rule.source_refs
+                )
+            ]
+        return result
 
-    async def _load_existing_versioned(self, location, project_id):
-        """同一次读取中取得规范正文和 ETag，供条件发布使用。"""
-        if getattr(type(self._storage), "read_versioned", None) is not None:
-            stored = await asyncio.to_thread(self._storage.read_versioned, location)
-            if stored is None:
-                return None, None
-            document_bytes, etag = stored
-        else:
-            exists = await asyncio.to_thread(self._storage.exists, location)
-            if not exists:
-                return None, None
-            document_bytes = await asyncio.to_thread(self._storage.read_bytes, location)
-            etag = None
-        try:
-            document = ProjectSpecificationDocument.model_validate_json(document_bytes)
-        except ValidationError as exception:
-            raise AppException(
-                ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
-            ) from exception
-        if document.project_id != project_id:
-            raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED)
-        return document, etag
+    @staticmethod
+    def _development_stage(sources: list[dict[str, Any]]) -> DevelopmentStage:
+        completed: list[str] = []
+        in_progress: list[str] = []
+        next_focus: list[str] = []
+        for source in sources:
+            for fact in source["project_facts"]:
+                if fact.get("evidence_verified") is not True:
+                    continue
+                statement = str(fact.get("statement") or "").strip()
+                if not statement:
+                    continue
+                kind = str(fact.get("kind") or "").lower()
+                if any(word in kind for word in ("completed", "done", "finished")):
+                    completed.append(statement)
+                elif any(word in kind for word in ("progress", "current", "ongoing")):
+                    in_progress.append(statement)
+                elif any(word in kind for word in ("next", "goal", "planned")):
+                    next_focus.append(statement)
+        completed = list(dict.fromkeys(completed))[:30]
+        in_progress = list(dict.fromkeys(in_progress))[:10]
+        next_focus = list(dict.fromkeys(next_focus))[:20]
+        return DevelopmentStage(
+            current_stage="；".join(in_progress),
+            stage_goal=next_focus[0] if next_focus else "",
+            completed=completed,
+            next_focus=next_focus,
+        )
 
-    async def _write(
-        self, location, document: ProjectSpecificationDocument, etag: str | None
-    ) -> None:
-        document_bytes = json.dumps(
-            document.model_dump(mode="json"),
-            ensure_ascii=False,
-            indent=2,
-        ).encode("utf-8")
-        if getattr(type(self._storage), "compare_and_put", None) is not None:
-            await asyncio.to_thread(
-                self._storage.compare_and_put,
-                location,
-                document_bytes,
-                etag,
-            )
-        else:
-            await asyncio.to_thread(
-                self._storage.put_bytes,
-                location,
-                document_bytes,
-                "application/json",
-            )
+    @staticmethod
+    def _same_body(
+        existing: ProjectSpecificationDocument,
+        generated: ProjectSpecificationDocument,
+    ) -> bool:
+        def comparable(document: ProjectSpecificationDocument) -> dict:
+            body = document.project_specification.model_dump(mode="json")
+            for field in RULE_SECTION_FILES:
+                for rule in body[field]:
+                    rule.pop("updated_at", None)
+                    rule.pop("created_at", None)
+            return body
+
+        return comparable(existing) == comparable(generated)
 
     async def _load_rule_sources(
         self,
         project,
         files: Iterable[Any],
     ) -> list[dict[str, Any]]:
+        """从符合条件的文件中读取已有的解析详情"""
         sources: list[dict[str, Any]] = []
         eligible = [
             file
             for file in files
-            if self._is_current_project_file(file) and file.detail_ref
+            if self._is_current_project_file(file)
+            and file.detail_ref
+            and self._may_supply_constraints(file)
         ]
         for file in sorted(eligible, key=lambda item: item.relative_path):
             location = self._locations.system_file(
@@ -316,7 +333,8 @@ class ProjectSpecificationService:
                 detail = FileDetail.model_validate_json(detail_bytes)
             except ValidationError:
                 logger.warning(
-                    "文件详情格式无效，跳过规则候选 action=project.specification.source "
+                    "文件详情格式无效，跳过规则候选 "
+                    "action=project.specification.source "
                     "projectId=%s fileId=%s",
                     project.id,
                     file.id,
@@ -327,7 +345,6 @@ class ProjectSpecificationService:
             sources.append(
                 {
                     "source_ref": self._inventory_item(file),
-                    "summary": detail.summary,
                     "project_facts": detail.project_facts,
                     "rule_candidates": [
                         candidate.model_dump(mode="json")
@@ -337,165 +354,32 @@ class ProjectSpecificationService:
             )
         return sources
 
-    def _build_prompt(
-        self,
-        project,
-        existing: ProjectSpecificationDocument | None,
-        sources: list[dict[str, Any]],
-        inventory: list[dict[str, Any]],
-    ) -> str:
-        existing_json = (
-            existing.model_dump_json(indent=2) if existing is not None else "null"
-        )
-        source_json = json.dumps(sources, ensure_ascii=False, indent=2)
-        source_meta = json.dumps(
-            {
-                "project_id": str(project.id),
-                "project_name": project.project_name,
-                "source_selection": "全部当前有效文件详情中的结构化规则候选",
-                "source_inventory_is_complete": True,
-                "rule_candidates_are_partial": True,
-                "current_sources": inventory,
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-        prompt = (
-            f"{ProjectSpecificationPrompt.PROJECT_SPECIFICATION.value}"
-            f"\n\n# 实际输入\nexisting_specification_json：\n{existing_json}"
-            f"\n\nnew_content（结构化规则候选）：\n{source_json}"
-            f"\n\nsource_meta：\n{source_meta}"
-            "\n\n# 最终约束\n"
-            f'project_id 必须为十进制字符串 "{project.id}"。'
-            "规则引用文件时必须原样复制候选中的 file_id、path、"
-            "content_hash 和 detail_ref；"
-            "不得仅因某个文件没有规则候选就删除旧规则；"
-            "只有旧规则引用的文件不在完整 current_sources 中时，"
-            "才可基于来源删除将其标记为 deprecated 或 pending_review。"
-            "本次 new_content 只包含一批规则候选；所有批次共享完整文件清单。"
-            "只返回本批新增或需要修改的规则、变更和忽略项，不要重写整份旧规范。"
-            "已存在的同一规则必须复用原 ID；更新条目须保留原有来源和历史。"
-            "没有变化的规则数组返回 []，development_stage 没有新证据时省略。"
-            "project_facts 是阶段、能力和日期等事实，须保留已完成与计划中的区别，只用于 development_stage，不升级为项目规范规则。"
-            "不得把当前批次没有提供某条候选视为规则被删除。"
-            "每条规则和变更说明使用简洁中文，不复制候选全文或旧 changes。"
-        )
-        try:
-            return sanitize_sensitive_content(prompt).text
-        except SensitiveContentBlockedError as exception:
-            raise AppException(
-                ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED,
-                "项目规范来源包含禁止发送至模型的私钥内容",
-            ) from exception
-
-    def _build_inventory(self, files: Iterable[Any]) -> list[dict[str, Any]]:
-        """
-        构建项目文件清单。
-        根据给定的文件列表，过滤并构建当前项目的文件清单。
-        """
-        return [
-            self._inventory_item(file)
-            for file in sorted(files, key=lambda item: item.relative_path)
-            if self._is_current_project_file(file)
-        ]
-
-    @staticmethod
-    def _is_current_project_file(file: Any) -> bool:
-        """判断文件是否属于当前项目的有效文件"""
-        return (
-            file.business_code == "project"
-            and file.status == "active"
-            and file.upload_status == "success"
-        )
-
-    @staticmethod
-    def _inventory_item(file: Any) -> dict[str, Any]:
-        """构建详情文件的文件元信息"""
-        file_type = "doc" if file.file_type == "doc" else "code"
-        return {
-            "type": file_type,
-            "file_id": file.id,
-            "path": file.relative_path,
-            "content_hash": file.content_hash,
-            "detail_ref": file.detail_ref or "",
-        }
-
-    @staticmethod
-    def _matches_file(detail: FileDetail, file: Any) -> bool:
-        return (
-            detail.file_id == file.id
-            and detail.content_hash == file.content_hash
-            and detail.detail_ref == file.detail_ref
-        )
-
-    def _enrich_source_refs(
-        self,
-        document: ProjectSpecificationDocument,
-        inventory: list[dict[str, Any]],
-    ) -> ProjectSpecificationDocument:
-        """补全或修正规范规则里的文件来源引用"""
-        by_id = {item["file_id"]: item for item in inventory}
-        by_path = {item["path"]: item for item in inventory}
-
-        def enrich(ref: SpecificationSourceRef) -> SpecificationSourceRef:
-            source = by_id.get(ref.file_id) if ref.file_id is not None else None
-            source = source or by_path.get(ref.path)
-            if source is None or ref.type not in {"doc", "code"}:
-                return ref
-            return ref.model_copy(
-                update={
-                    "type": source["type"],
-                    "path": source["path"],
-                    "file_id": source["file_id"],
-                    "content_hash": source["content_hash"],
-                    "detail_ref": source["detail_ref"],
-                }
-            )
-
-        body = document.project_specification
-        updates: dict[str, Any] = {}
-        for field_name in self._RULE_FIELDS:
-            rules = getattr(body, field_name)
-            updates[field_name] = [
-                rule.model_copy(
-                    update={"source_refs": [enrich(ref) for ref in rule.source_refs]}
-                )
-                for rule in rules
-            ]
-        return document.model_copy(
-            update={"project_specification": body.model_copy(update=updates)}
-        )
-
-    def _requires_reconciliation(
+    def _has_stale_file_rule(
         self,
         existing: ProjectSpecificationDocument | None,
         inventory: list[dict[str, Any]],
     ) -> bool:
-        return bool(self._stale_rule_keys(existing, inventory))
-
-    def _stale_rule_keys(
-        self,
-        existing: ProjectSpecificationDocument | None,
-        inventory: list[dict[str, Any]],
-    ) -> set[tuple[str, str]]:
-        """分析现有项目规范中，哪些规则引用的源文件已经删除、移动、修改或更换了详情版本。"""
+        """
+        判断现有规则里引用的文件来源，是否已经失效或发生变化，从而决定是否需要刷新项目规则。
+            - 如果还没有现有规则文档，返回 True，表示需要构建。
+            - 如果引用的文件在当前文件清单里找不到，返回 True。
+            - 如果引用中的文件 ID、路径、内容哈希或详情引用与当前文件不一致，返回 True。
+            - 都匹配则返回 False。
+        """
         if existing is None:
-            return set()
+            return True
         by_id = {item["file_id"]: item for item in inventory}
         by_path = {item["path"]: item for item in inventory}
-        stale: set[tuple[str, str]] = set()
-        body = existing.project_specification
-        for field_name in self._RULE_FIELDS:
-            for rule in getattr(body, field_name):
+        for field in RULE_SECTION_FILES:
+            for rule in getattr(existing.project_specification, field):
                 for ref in rule.source_refs:
                     if ref.type not in {"doc", "code"}:
                         continue
                     source = by_id.get(ref.file_id) if ref.file_id is not None else None
                     source = source or by_path.get(ref.path)
                     if source is None or self._source_ref_changed(ref, source):
-                        stale.add((field_name, rule.id))
-                        break
-        return stale
+                        return True
+        return False
 
     @staticmethod
     def _source_ref_changed(
@@ -509,68 +393,275 @@ class ProjectSpecificationService:
             or ref.detail_ref != source["detail_ref"]
         )
 
-    def _mark_unreconciled_rules(
-        self,
-        document: ProjectSpecificationDocument,
-        stale_rule_keys: set[tuple[str, str]],
-        generated: ProjectSpecificationDocument,
-        sources: list[dict[str, Any]],
-        inventory: list[dict[str, Any]],
-    ) -> ProjectSpecificationDocument:
-        """检查合并后的项目规范，将来源已经失效且本轮没有被重新确认的规则标记为 pending_review"""
-        generated_keys = {
-            (field_name, rule.id)
-            for field_name in self._RULE_FIELDS
-            for rule in getattr(generated.project_specification, field_name)
+    def _build_inventory(self, files: Iterable[Any]) -> list[dict[str, Any]]:
+        return [
+            self._inventory_item(file)
+            for file in sorted(files, key=lambda item: item.relative_path)
+            if self._is_current_project_file(file)
+        ]
+
+    @staticmethod
+    def _inventory_item(file: Any) -> dict[str, Any]:
+        return {
+            "type": (
+                "doc"
+                if ProjectSpecificationService._may_supply_constraints(file)
+                else "code"
+            ),
+            "file_id": file.id,
+            "path": file.relative_path,
+            "content_hash": file.content_hash,
+            "detail_ref": file.detail_ref or "",
         }
-        candidate_sources = {
-            (
-                item["source_ref"]["file_id"],
-                item["source_ref"]["content_hash"],
-                item["source_ref"]["detail_ref"],
-            )
-            for item in sources
-        }
-        body = document.project_specification
-        updates: dict[str, Any] = {}
-        for field_name in self._RULE_FIELDS:
-            updated_rules = []
-            for rule in getattr(body, field_name):
-                key = (field_name, rule.id)
-                unresolved_source = self._has_unresolved_source(rule, inventory)
-                confirmed = key in generated_keys and any(
-                    (ref.file_id, ref.content_hash, ref.detail_ref) in candidate_sources
-                    for ref in rule.source_refs
-                    if ref.type in {"doc", "code"}
-                )
-                needs_review = unresolved_source or (
-                    key in stale_rule_keys and not confirmed
-                )
-                if needs_review and rule.status == "active":
-                    rule = rule.model_copy(
-                        update={
-                            "status": "pending_review",
-                            "updated_at": shanghai_now(),
-                        }
-                    )
-                updated_rules.append(rule)
-            updates[field_name] = updated_rules
-        return document.model_copy(
-            update={"project_specification": body.model_copy(update=updates)}
+
+    @staticmethod
+    def _is_current_project_file(file: Any) -> bool:
+        return (
+            file.business_code == "project"
+            and file.status == "active"
+            and file.upload_status == "success"
         )
 
-    def _has_unresolved_source(
+    @staticmethod
+    def _may_supply_constraints(file: Any) -> bool:
+        """
+        项目约束的来源判断函数，may_supply_constraints 标记为资格标记
+        若是这个字段意外失效则根据元信息做一些兜底措施
+        """
+        configured = getattr(file, "may_supply_constraints", None)
+        if configured is not None:
+            return bool(configured)
+        path = str(getattr(file, "relative_path", "")).lower()
+        extension = str(getattr(file, "extension", "") or "").lower()
+        return (
+            getattr(file, "file_type", None) == "doc"
+            or extension in {"md", "markdown", "rst", "adoc"}
+            or path.startswith("docs/")
+            or path.rsplit("/", 1)[-1]
+            in {"readme", "readme.md", "architecture.md", "design.md"}
+        )
+
+    @staticmethod
+    def _matches_file(detail: FileDetail, file: Any) -> bool:
+        return (
+            detail.file_id == file.id
+            and detail.content_hash == file.content_hash
+            and detail.detail_ref == file.detail_ref
+        )
+
+    def _location(self, project) -> StorageLocation:
+        return self._locations.system_file(
+            project.owner_user_id,
+            project.id,
+            "project_specification.json",
+        )
+
+    async def _load_existing_versioned(
         self,
-        rule: Any,
-        inventory: list[dict[str, Any]],
-    ) -> bool:
-        by_id = {item["file_id"]: item for item in inventory}
-        by_path = {item["path"]: item for item in inventory}
-        for ref in rule.source_refs:
-            if ref.type not in {"doc", "code"}:
-                continue
-            source = by_id.get(ref.file_id) if ref.file_id is not None else None
-            source = source or by_path.get(ref.path)
-            if source is None or self._source_ref_changed(ref, source):
-                return True
-        return False
+        location: StorageLocation,
+        project_id: int,
+    ) -> tuple[ProjectSpecificationDocument | None, str | None]:
+        """从存储中读取并校验项目规范文档，返回 (文档, ETag)。"""
+        stored = await asyncio.to_thread(self._storage.read_versioned, location)
+        if stored is None:
+            return None, None
+        document_bytes, etag = stored
+        try:
+            raw = json.loads(document_bytes)
+            if "project_specification" in raw:
+                document = ProjectSpecificationDocument.model_validate(raw)
+            else:
+                document = await self._read_split_document(
+                    location,
+                    project_id,
+                    ProjectSpecificationManifest.model_validate(raw),
+                )
+        except (
+            ValidationError,
+            ValueError,
+            json.JSONDecodeError,
+            AppException,
+        ) as exception:
+            raise AppException(
+                ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED
+            ) from exception
+        if document.project_id != project_id:
+            raise AppException(ErrorCode.PROJECT_SPECIFICATION_BUILD_FAILED)
+        return document, etag
+
+    async def _read_split_document(
+        self,
+        location: StorageLocation,
+        project_id: int,
+        manifest: ProjectSpecificationManifest,
+    ) -> ProjectSpecificationDocument:
+        values: dict[str, list[Any]] = {}
+        for field, (model, _text_field) in _RULE_MODELS.items():
+            reference = getattr(manifest.sections, field)
+            section_location = self._related_location(
+                location,
+                reference.path.removeprefix("system/"),
+            )
+            section_bytes = await asyncio.to_thread(
+                self._storage.read_bytes,
+                section_location,
+            )
+            if sha256(section_bytes).hexdigest() != reference.content_hash:
+                raise ValueError("规则分区内容摘要与清单不一致")
+            section = ProjectSpecificationSectionDocument.model_validate_json(
+                section_bytes
+            )
+            if section.project_id != project_id or section.section != field:
+                raise ValueError("规则分区归属不一致")
+            if len(section.rules) != reference.item_count:
+                raise ValueError("规则分区条目数与清单不一致")
+            values[field] = [model.model_validate(item) for item in section.rules]
+        return ProjectSpecificationDocument(
+            project_id=project_id,
+            schema_version="2.0.0",
+            updated_at=manifest.updated_at,
+            project_specification=ProjectSpecificationBody(
+                development_stage=manifest.development_stage,
+                **values,
+            ),
+        )
+
+    async def _write(
+        self,
+        location: StorageLocation,
+        document: ProjectSpecificationDocument,
+        etag: str | None,
+    ) -> None:
+        references: dict[str, SpecificationSectionReference] = {}
+        body = document.project_specification
+        prepared_sections: list[tuple[StorageLocation, bytes]] = []
+        for field, relative_path in RULE_SECTION_FILES.items():
+            rules = getattr(body, field)
+            section = ProjectSpecificationSectionDocument(
+                project_id=document.project_id,
+                section=field,
+                updated_at=document.updated_at,
+                rules=[item.model_dump(mode="json") for item in rules],
+            )
+            section_bytes = json.dumps(
+                section.model_dump(mode="json"),
+                ensure_ascii=False,
+                indent=2,
+            ).encode("utf-8")
+            section_location = self._related_location(location, relative_path)
+            prepared_sections.append((section_location, section_bytes))
+            references[field] = SpecificationSectionReference(
+                path=f"system/{relative_path}",
+                content_hash=sha256(section_bytes).hexdigest(),
+                item_count=len(rules),
+            )
+        manifest = ProjectSpecificationManifest(
+            project_id=document.project_id,
+            updated_at=document.updated_at,
+            development_stage=body.development_stage,
+            sections=SpecificationSectionReferences(**references),
+        )
+        manifest_bytes = json.dumps(
+            manifest.model_dump(mode="json"),
+            ensure_ascii=False,
+            indent=2,
+        ).encode("utf-8")
+        if getattr(type(self._storage), "read_versioned", None) is not None:
+            backups = [
+                await asyncio.to_thread(self._storage.read_versioned, item_location)
+                for item_location, _content in prepared_sections
+            ]
+            written: list[tuple[StorageLocation, bytes, tuple[bytes, str] | None]] = []
+            try:
+                for (section_location, section_bytes), backup in zip(
+                    prepared_sections,
+                    backups,
+                    strict=True,
+                ):
+                    await asyncio.to_thread(
+                        self._storage.compare_and_put,
+                        section_location,
+                        section_bytes,
+                        backup[1] if backup is not None else None,
+                    )
+                    written.append((section_location, section_bytes, backup))
+                await asyncio.to_thread(
+                    self._storage.compare_and_put,
+                    location,
+                    manifest_bytes,
+                    etag,
+                )
+            except Exception:
+                await self._rollback_sections(written)
+                raise
+            return
+        for section_location, section_bytes in prepared_sections:
+            await asyncio.to_thread(
+                self._storage.put_bytes,
+                section_location,
+                section_bytes,
+                "application/json",
+            )
+        await asyncio.to_thread(
+            self._storage.put_bytes,
+            location,
+            manifest_bytes,
+            "application/json",
+        )
+
+    async def _rollback_sections(
+        self,
+        written: list[
+            tuple[StorageLocation, bytes, tuple[bytes, str] | None]
+        ],
+    ) -> None:
+        """仅在对象仍是本轮写入版本时回滚，避免覆盖并发更新。"""
+        for location, written_bytes, backup in reversed(written):
+            try:
+                current = await asyncio.to_thread(
+                    self._storage.read_versioned,
+                    location,
+                )
+                if current is None or current[0] != written_bytes:
+                    continue
+                if backup is None:
+                    await asyncio.to_thread(self._storage.remove, location)
+                    continue
+                await asyncio.to_thread(
+                    self._storage.compare_and_put,
+                    location,
+                    backup[0],
+                    current[1],
+                )
+            except Exception:
+                logger.exception(
+                    "规则分区回滚失败 action=project.specification.rollback "
+                    "objectKey=%s",
+                    location.object_key,
+                )
+
+    @staticmethod
+    def _related_location(
+        manifest_location: StorageLocation,
+        relative_path: str,
+    ) -> StorageLocation:
+        prefix = manifest_location.object_key.rsplit("system/", 1)[0]
+        return StorageLocation(
+            manifest_location.bucket,
+            f"{prefix}system/{relative_path}",
+        )
+
+    @staticmethod
+    def _normalize_text(value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip()
+
+    @classmethod
+    def _rule_id(cls, field: str, text: str) -> str:
+        normalized = re.sub(r"[^0-9a-z\u3400-\u9fff]+", "", text.casefold())
+        digest = sha256(f"{field}:{normalized}".encode()).hexdigest()[:24]
+        return f"file-{field}-{digest}"
+
+    @staticmethod
+    def _stronger_confidence(left: str, right: str) -> str:
+        order = {"low": 0, "medium": 1, "high": 2}
+        return left if order[left] >= order[right] else right

@@ -1,4 +1,4 @@
-"""显式学习的模型候选输出，不等同于已确认的上下文。"""
+"""待确认上下文候选输出，不等同于已生效的固定文件内容。"""
 
 from typing import Literal
 
@@ -10,7 +10,11 @@ from app.core.time import ShanghaiDateTime
 from ..context.schemas import EntryKind
 
 LearningTargetFile = Literal[
-    "project_specification.json",
+    "project_specification/development_approach.json",
+    "project_specification/technical_constraints.json",
+    "project_specification/coding_rules.json",
+    "project_specification/document_rules.json",
+    "project_specification/risk_rules.json",
     "short_term_memory.json",
     "long_term_memory.json",
     "user_habits/work.json",
@@ -51,6 +55,8 @@ class LearnedCandidate(Schema):
 
     @model_validator(mode="after")
     def validate_scope(self):
+        # 兼容读取旧草稿的 user 值，但所有新编辑和确认统一收敛到当前项目。
+        self.scope = "project"
         if self.scope == "user" and self.kind not in ("term", "habit"):
             raise ValueError("项目记忆不能写入用户通用范围")
         if self.kind == "term" and (not self.canonical or not self.aliases):
@@ -58,14 +64,18 @@ class LearnedCandidate(Schema):
         expected = {
             "short_memory": "short_term_memory.json",
             "long_memory": "long_term_memory.json",
-            "project_rule": "project_specification.json",
         }.get(self.kind)
+        if self.kind == "project_rule":
+            self.target_section = self.target_section or "coding_rules"
+            expected = f"project_specification/{self.target_section}.json"
         if self.kind == "term":
             expected = (
                 "user_habits/specification.json"
                 if self.scope == "user"
-                else "project_specification.json"
+                else "project_specification/coding_rules.json"
             )
+            if self.scope == "project":
+                self.target_section = "coding_rules"
         if self.kind == "habit" and self.target_file is None:
             expected = "user_habits/work.json"
         if self.target_file is None:
@@ -76,7 +86,7 @@ class LearnedCandidate(Schema):
             raise ValueError("用户习惯必须写入用户习惯固定文件")
         if (
             self.target_section is not None
-            and self.target_file != "project_specification.json"
+            and not self.target_file.startswith("project_specification/")
         ):
             raise ValueError("只有项目规范候选可以指定规范分区")
         return self

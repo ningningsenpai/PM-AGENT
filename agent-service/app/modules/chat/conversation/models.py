@@ -32,7 +32,6 @@ class AgentConversation(TimestampMixin, Base):
         BigInteger, ForeignKey("pm_project.id", ondelete="CASCADE")
     )
     title: Mapped[str] = mapped_column(String(128))
-    learned_message_id: Mapped[int] = mapped_column(BigInteger, default=0)
     active_run_id: Mapped[int | None] = mapped_column(BigInteger)
     busy_until: Mapped[datetime | None] = mapped_column(DateTime)
 

@@ -41,6 +41,7 @@ class ProjectFileAnalysisBatchResult(AnalysisResponseSchema):
     failures: list[ProjectFileAnalysisFailure] = Field(default_factory=list)
     specification_status: Literal["updated", "kept", "failed"]
     index_status: Literal["updated", "failed"]
+    memory_status: Literal["updated", "kept", "failed"] = "kept"
 
 
 class ProjectFileParseRecovery(AnalysisResponseSchema):

@@ -112,7 +112,7 @@ def build_entries(draft, selected):
                 "before": before,
                 "after": entry,
                 "version": entry["version"],
-                "reason": "用户确认学习草稿",
+                "reason": "用户确认上下文候选",
                 "sourceMessageId": entry["sourceMessageId"],
             }
         )

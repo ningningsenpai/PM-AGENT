@@ -1,4 +1,4 @@
-"""显式学习草稿仓储；仅负责 MySQL 读写。"""
+"""待确认上下文草稿仓储；仅负责 MySQL 读写。"""
 
 from sqlalchemy import select
 

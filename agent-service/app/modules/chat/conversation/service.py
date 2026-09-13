@@ -16,13 +16,23 @@ from app.streaming.payloads import AgentChatRequest
 
 
 class ConversationService:
-    def __init__(self, repository, projects, runs, contexts):
+    def __init__(
+        self,
+        repository,
+        projects,
+        runs,
+        contexts,
+        request_understanding=None,
+        context_updates=None,
+    ):
         self.repo, self.projects, self.runs, self.contexts = (
             repository,
             projects,
             runs,
             contexts,
         )
+        self.request_understanding = request_understanding
+        self.context_updates = context_updates
 
     async def owned(self, user_id, conversation_id):
         row = await self.repo.conversation(user_id, conversation_id)
@@ -51,7 +61,6 @@ class ConversationService:
                 user_id=user_id,
                 project_id=request.project_id,
                 title=title,
-                learned_message_id=0,
             )
         )
         view = ConversationView.model_validate(row)
@@ -104,6 +113,9 @@ class ConversationService:
         run_id, project_id = run.id, conversation.project_id
         try:
             content = sanitize_sensitive_content(request.content).text
+            # 请求理解本身也是一次模型调用，必须和回答阶段进入同一运行轨迹。
+            with capture_calls(events):
+                request_plan = await self._understand_request(content)
             previous = await self.repo.messages(conversation_id)
             # 仅保留完整问答组，不拆开 assistant.tool_calls 与 tool 结果。
             history = []
@@ -123,16 +135,37 @@ class ConversationService:
             )
             message_id = user_message.id
             await self.repo.session.commit()
+            context_update = await self._apply_context_updates(
+                user_id=user_id,
+                project_id=project_id,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                content=content,
+                request_plan=request_plan,
+            )
             internal = AgentChatRequest(
                 trace_id=trace_id,
                 conversation_id=conversation_id,
                 messages=[{"role": "user", "content": content}],
-                context={"project_id": project_id, "context_total_usage": 0},
+                context={
+                    "project_id": project_id,
+                    "context_total_usage": 0,
+                    "request_plan": (
+                        request_plan.model_dump(mode="json")
+                        if request_plan is not None
+                        else None
+                    ),
+                    "context_update_result": context_update,
+                },
                 user={"user_id": user_id, "user_name": "当前用户"},
             )
             with capture_calls(events):
                 answer = await agent.chat(
-                    internal, user_id, history=history, protocol_out=protocol
+                    internal,
+                    user_id,
+                    history=history,
+                    protocol_out=protocol,
+                    run_id=run_id,
                 )
             assistant_message = await self.repo.add(
                 AgentMessage(
@@ -160,6 +193,12 @@ class ConversationService:
                     "usage": answer.usage.model_dump(mode="json")
                     if answer.usage
                     else None,
+                    "requestPlan": (
+                        request_plan.model_dump(mode="json")
+                        if request_plan is not None
+                        else None
+                    ),
+                    "contextUpdate": context_update,
                 },
             )
         except asyncio.CancelledError:
@@ -176,3 +215,49 @@ class ConversationService:
                 else f"问答失败：{type(exc).__name__}"
             )
             return await self.runs.finish(run_id, user_id, events, error=error)
+
+    async def _apply_context_updates(
+        self,
+        *,
+        user_id: int,
+        project_id: int,
+        conversation_id: int,
+        message_id: int,
+        content: str,
+        request_plan,
+    ) -> dict:
+        if self.context_updates is None:
+            return {"status": "no_change", "targets": [], "draftId": None}
+        try:
+            return await self.context_updates.apply(
+                user_id=user_id,
+                project_id=project_id,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                message=content,
+                plan=request_plan,
+            )
+        except AppException as exception:
+            await self.repo.session.rollback()
+            logging.getLogger(__name__).warning(
+                "隐式上下文更新未生效 projectId=%s messageId=%s error=%s",
+                project_id,
+                message_id,
+                exception.message,
+            )
+            return {
+                "status": "failed",
+                "targets": [],
+                "draftId": None,
+                "error": exception.message,
+            }
+
+    async def _understand_request(self, content: str):
+        """兼容旧同步分类器，并优先执行正式的结构化请求理解。"""
+
+        if self.request_understanding is None:
+            return None
+        enhanced = getattr(self.request_understanding, "analyze_with_model", None)
+        if enhanced is not None:
+            return await enhanced(content)
+        return self.request_understanding.analyze(content)

@@ -59,6 +59,12 @@ class ConversationContext(BaseModel):
         description="当前迭代ID轮次对应的总token消耗数量，用于统计上下文长度从而进行上下文压缩或者切分"
     )
     task_id: int | None = Field(None, description="当前任务 ID")
+    request_plan: dict[str, Any] | None = Field(
+        None, description="后端生成的当前轮多维请求计划"
+    )
+    context_update_result: dict[str, Any] | None = Field(
+        None, description="当前轮写入 MinIO 固定文件的真实结果"
+    )
 
 
 class UserContext(BaseModel):

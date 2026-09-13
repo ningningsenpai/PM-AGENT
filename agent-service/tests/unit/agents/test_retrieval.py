@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 from app.agents.retrieval import AgentInputContextGateway
 from app.agents.tools import ToolExecutionContext
 from app.core.errors import AppException, ErrorCode
-from app.input_context import RetrievalQuery, RetrievalResult
+from app.input_context import RetrievalHit, RetrievalQuery, RetrievalResult
 
 
 def _context() -> ToolExecutionContext:
@@ -76,11 +76,93 @@ class TestAgentInputContextGateway(IsolatedAsyncioTestCase):
             trace_id="trace-1",
         )
 
-    async def test_persistent_context_requests_source_after_ownership_check(self):
+    async def test_fixed_context_cannot_replace_gated_retrieval_hits(self) -> None:
         projects = SimpleNamespace(get_owned=AsyncMock())
-        contexts = SimpleNamespace(list_entries=AsyncMock(return_value=[]))
+        contexts = SimpleNamespace(
+            list_entries=AsyncMock(
+                return_value=[
+                    {
+                        "id": "legacy-rule",
+                        "kind": "project_rule",
+                        "content": "旧固定文件规则",
+                        "status": "active",
+                        "version": 1,
+                    }
+                ]
+            )
+        )
+        gated_hit = RetrievalHit(
+            source_type="source_file",
+            source_id="301",
+            title="app/current.py",
+            summary="统一证据门禁确认的当前实现",
+            score=2.5,
+        )
+        retrieval = SimpleNamespace(
+            retrieve=AsyncMock(
+                return_value=RetrievalResult(
+                    query="当前规则",
+                    hits=[gated_hit],
+                    no_evidence=False,
+                )
+            )
+        )
+        gateway = AgentInputContextGateway(projects, retrieval, contexts=contexts)
+        request = RetrievalQuery(query="当前规则", focus="specification", limit=1)
+
+        result = await gateway.retrieve(_context(), request)
+
+        self.assertEqual([gated_hit], result.hits)
+        retrieval.retrieve.assert_awaited_once_with(
+            user_id=1,
+            project_id=10,
+            request=request,
+            trace_id="trace-1",
+        )
+        contexts.list_entries.assert_not_awaited()
+
+    async def test_prepare_only_loads_active_presentation_preferences(self) -> None:
+        projects = SimpleNamespace(get_owned=AsyncMock())
+        contexts = SimpleNamespace(
+            list_entries=AsyncMock(
+                return_value=[
+                    {
+                        "id": "legacy-rule",
+                        "kind": "project_rule",
+                        "content": "旧固定文件规则",
+                        "status": "active",
+                        "version": 1,
+                    },
+                    {
+                        "id": "expired-memory",
+                        "kind": "long_memory",
+                        "content": "已经失效的项目结论",
+                        "status": "invalid",
+                        "version": 3,
+                    },
+                    {
+                        "id": "active-habit",
+                        "kind": "habit",
+                        "content": "请使用简洁表格",
+                        "conditions": ["项目进度问答"],
+                        "status": "active",
+                        "version": 2,
+                        "attributes": {"sourceRefs": ["不应进入表达偏好"]},
+                    },
+                    {
+                        "id": "invalid-habit",
+                        "kind": "habit",
+                        "content": "已经失效的表达习惯",
+                        "status": "invalid",
+                        "version": 4,
+                    },
+                ]
+            )
+        )
         prepared = SimpleNamespace(
-            retrieval=RetrievalResult(query="文档原日期", no_evidence=True)
+            retrieval=RetrievalResult(query="文档原日期", no_evidence=True),
+            learned_entries=[],
+            learned_terms=["旧固定词条"],
         )
         input_context = SimpleNamespace(prepare=AsyncMock(return_value=prepared))
         gateway = AgentInputContextGateway(
@@ -94,8 +176,23 @@ class TestAgentInputContextGateway(IsolatedAsyncioTestCase):
             project_id=10,
             raw_query="文档原日期",
             trace_id="trace-1",
-            include_source=True,
         )
+        contexts.list_entries.assert_awaited_once_with(1, 10, kind="habit")
+        self.assertEqual([], prepared.retrieval.hits)
+        self.assertTrue(prepared.retrieval.no_evidence)
+        self.assertEqual(
+            [
+                {
+                    "id": "active-habit",
+                    "kind": "habit",
+                    "content": "请使用简洁表格",
+                    "conditions": ["项目进度问答"],
+                    "version": 2,
+                }
+            ],
+            prepared.learned_entries,
+        )
+        self.assertEqual([], prepared.learned_terms)
         projects.get_owned.side_effect = AppException(ErrorCode.PROJECT_NOT_FOUND)
         with self.assertRaises(AppException):
             await gateway.prepare(_context(), "文档原日期")

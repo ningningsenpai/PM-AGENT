@@ -26,7 +26,9 @@ def project():
         id=10,
         owner_user_id=1,
         project_name="PM-Agent",
-        created_at=datetime(2026, 7, 27, 9, 0, 0),
+        revision=0,
+        published_revision=0,
+        created_at=datetime(2026, 7, 27, 9, 0, 0),  # noqa: DTZ001 -- 模拟 MySQL 无时区字段。
     )
 
 
@@ -40,7 +42,15 @@ def project_file(
     status: str = "active",
     upload_status: str = "success",
     lock_version: int = 0,
+    content_origin_revision: int = 0,
+    last_observed_revision: int = 0,
+    may_supply_constraints: bool | None = None,
 ) -> ProjectFile:
+    if may_supply_constraints is None:
+        normalized_path = relative_path.lower().replace("\\", "/")
+        may_supply_constraints = normalized_path.startswith("docs/") or file_name.lower().startswith(
+            "readme"
+        )
     file = ProjectFile(
         id=file_id,
         project_id=10,
@@ -74,7 +84,10 @@ def project_file(
         last_error_message=None,
         last_failed_at=None,
         lock_version=lock_version,
+        content_origin_revision=content_origin_revision,
+        last_observed_revision=last_observed_revision,
+        may_supply_constraints=may_supply_constraints,
     )
-    file.created_at = datetime(2026, 7, 27, 9, 0, 0)
-    file.updated_at = datetime(2026, 7, 27, 9, 0, 0)
+    file.created_at = datetime(2026, 7, 27, 9, 0, 0)  # noqa: DTZ001 -- 模拟数据库字段。
+    file.updated_at = datetime(2026, 7, 27, 9, 0, 0)  # noqa: DTZ001 -- 模拟数据库字段。
     return file

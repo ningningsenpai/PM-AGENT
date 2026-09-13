@@ -5,13 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -67,6 +68,10 @@ class ProjectFile(TimestampMixin, Base):
         CheckConstraint(
             "parse_attempts >= 0",
             name="ck_project_file_parse_attempts",
+        ),
+        CheckConstraint(
+            "content_origin_revision >= 0 AND last_observed_revision >= 0",
+            name="ck_project_file_revision_nonnegative",
         ),
         Index(
             "idx_project_file_content",
@@ -135,3 +140,12 @@ class ProjectFile(TimestampMixin, Base):
     last_error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     last_failed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     lock_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    content_origin_revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    last_observed_revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    may_supply_constraints: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
-from dataclasses import dataclass
 import mimetypes
 import re
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 from app.core.config import FileConfig

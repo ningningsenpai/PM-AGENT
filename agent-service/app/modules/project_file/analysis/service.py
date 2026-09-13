@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 
 from app.core.errors import AppException, ErrorCode
@@ -14,6 +15,9 @@ from app.infrastructure.storage import (
 )
 from app.llm.telemetry import capture_calls
 from app.modules.chat.runs.service import RunService
+from app.modules.chat.context.fixed_store import FixedContextStore, LONG_MEMORY
+from app.modules.chat.context.migration import stable_id
+from app.modules.chat.context.schemas import EntryView
 from app.modules.project.service import ProjectService
 from app.modules.project_file.analysis.schemas import (
     ProjectFileAnalysisBatchResult,
@@ -27,6 +31,7 @@ from app.project_context.file_detail.extraction import (
 from app.project_context.file_detail.schemas import (
     FileSemanticAnalysisRequest,
     FileSemanticAnalysisResult,
+    FileDetail,
 )
 from app.project_context.file_detail.service import FileSemanticAnalysisService
 from app.project_context.index import ProjectIndexService
@@ -161,6 +166,8 @@ class ProjectFileAnalysisService:
 
         success_count = 0
         failure_count = 0
+        successful_file_ids: set[int] = set()
+        successful_details: list[FileDetail] = []
         failures: list[ProjectFileAnalysisFailure] = []
         for file in candidates:
             await self._runs.renew(run_id, user_id)
@@ -182,6 +189,10 @@ class ProjectFileAnalysisService:
                     file.content_hash,
                     file.lock_version,
                     result.detail,
+                    promote_constraint_source=(
+                        result.detail.may_supply_project_constraints
+                        and not file.may_supply_constraints
+                    ),
                 )
             else:
                 updated = await self._repository.record_analysis_failure(
@@ -208,6 +219,9 @@ class ProjectFileAnalysisService:
             await self._repository.session.commit()
             if result.status == "success":
                 success_count += 1
+                successful_file_ids.add(file.id)
+                if result.detail is not None:
+                    successful_details.append(result.detail)
                 logger.info(
                     "文件语义分析成功 action=project_file.semantic.analyze "
                     "userId=%s projectId=%s fileId=%s",
@@ -240,12 +254,29 @@ class ProjectFileAnalysisService:
         specification_status = "updated"
         await self._runs.ensure_active(run_id, user_id)
         try:
-            specification_status = await self._specification.refresh(project, files)
+            specification_status = await self._specification.refresh(
+                project,
+                files,
+                [file for file in files if file.id in successful_file_ids],
+            )
         except Exception:
             specification_status = "failed"
             logger.exception(
                 "项目规范刷新失败，保留原有规范 "
                 "action=project_file.analysis.batch "
+                "userId=%s projectId=%s",
+                user_id,
+                project_id,
+            )
+        memory_status = "kept"
+        try:
+            memory_status = await self._refresh_long_term_memory(
+                project, successful_details
+            )
+        except Exception:
+            memory_status = "failed"
+            logger.exception(
+                "长期记忆刷新失败，保留原文件 action=project_file.memory.refresh "
                 "userId=%s projectId=%s",
                 user_id,
                 project_id,
@@ -267,6 +298,7 @@ class ProjectFileAnalysisService:
             if failure_count
             or specification_status == "failed"
             or index_status == "failed"
+            or memory_status == "failed"
             else "success"
         )
         logger.info(
@@ -285,7 +317,127 @@ class ProjectFileAnalysisService:
             failures=failures,
             specification_status=specification_status,
             index_status=index_status,
+            memory_status=memory_status,
         )
+
+    async def _refresh_long_term_memory(
+        self,
+        project,
+        details: list[FileDetail],
+    ) -> str:
+        """只替换本轮成功文件提供的项目事实，保留对话形成的长期记忆。"""
+        if not details:
+            return "kept"
+        location = self._locations.system_file(
+            project.owner_user_id, project.id, LONG_MEMORY
+        )
+        store = FixedContextStore(self._storage, location.bucket)
+        document, etag = await store.read(
+            project.owner_user_id, project.id, LONG_MEMORY
+        )
+        current = store.document_entries(
+            project.owner_user_id, project.id, LONG_MEMORY, document
+        )
+        by_file: dict[int, list[dict]] = {}
+        for entry in current:
+            file_id = entry.get("attributes", {}).get("sourceFileId")
+            if file_id is not None:
+                by_file.setdefault(int(file_id), []).append(entry)
+
+        changes: list[dict] = []
+        for detail in details:
+            old_entries = by_file.get(detail.file_id, [])
+            old_by_id = {entry["id"]: entry for entry in old_entries}
+            desired = self._memory_entries(project.id, detail, old_by_id)
+            desired_by_id = {entry["id"]: entry for entry in desired}
+            for entry_id in old_by_id.keys() - desired_by_id.keys():
+                changes.append(
+                    {
+                        "entryId": entry_id,
+                        "delete": True,
+                        "reason": "来源文件重新分析后不再包含该项目事实",
+                        "version": old_by_id[entry_id]["version"] + 1,
+                    }
+                )
+            for entry_id, entry in desired_by_id.items():
+                before = old_by_id.get(entry_id)
+                if before is not None and self._same_memory_entry(before, entry):
+                    continue
+                changes.append(
+                    {
+                        "entryId": entry_id,
+                        "before": before or {},
+                        "after": entry,
+                        "version": entry["version"],
+                        "reason": "项目文件语义分析同步长期记忆",
+                    }
+                )
+        if not changes:
+            return "kept"
+        await store.apply(
+            project.owner_user_id,
+            project.id,
+            LONG_MEMORY,
+            changes,
+            etag,
+        )
+        return "updated"
+
+    @staticmethod
+    def _memory_entries(project_id: int, detail: FileDetail, old_by_id: dict) -> list[dict]:
+        entries: list[dict] = []
+        for fact in detail.project_facts:
+            statement = str(fact.get("statement") or "").strip()
+            quote = str(fact.get("source_quote") or "").strip()
+            if not statement or not quote or fact.get("evidence_verified") is not True:
+                continue
+            kind = str(fact.get("kind") or "project_observation")[:64]
+            entry_id = stable_id(
+                f"project-fact:{project_id}:{detail.file_id}:{kind}:{statement}"
+            )
+            previous = old_by_id.get(entry_id)
+            entry = EntryView(
+                id=entry_id,
+                project_id=project_id,
+                kind="long_memory",
+                content=statement,
+                attributes={
+                    "key": f"project_fact.{kind}.{hashlib.sha256(statement.encode()).hexdigest()[:16]}",
+                    "sourceType": "file_detail",
+                    "sourceFileId": detail.file_id,
+                    "sourcePath": detail.original_path,
+                    "contentHash": detail.content_hash,
+                    "detailRef": detail.detail_ref,
+                    "factKind": kind,
+                    "state": ProjectFileAnalysisService._fact_state(kind),
+                    "sourceQuote": quote,
+                    "sourceRange": fact.get("source_range") or {},
+                },
+                status="active",
+                version=(previous or {}).get("version", 0) + 1,
+                source_message_id=None,
+                expires_at=None,
+            ).model_dump(mode="json", by_alias=True)
+            entries.append(entry)
+        return entries
+
+    @staticmethod
+    def _same_memory_entry(before: dict, after: dict) -> bool:
+        return all(
+            before.get(field) == after.get(field)
+            for field in ("content", "status", "conditions", "expiresAt", "attributes")
+        )
+
+    @staticmethod
+    def _fact_state(kind: str) -> str:
+        normalized = kind.lower()
+        if any(word in normalized for word in ("completed", "done", "finished")):
+            return "observed_complete"
+        if any(word in normalized for word in ("progress", "in_progress", "developing")):
+            return "in_progress"
+        if any(word in normalized for word in ("planned", "todo", "expected")):
+            return "planned"
+        return "observed"
 
     async def _analyze_file(
         self,

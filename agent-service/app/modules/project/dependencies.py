@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,9 +23,11 @@ from app.project_context.specification import ProjectSpecificationService
 
 
 def get_project_service(
-    session: AsyncSession = Depends(get_db_session),
-    storage: ObjectStorage = Depends(get_object_storage),
-    id_generator: SnowflakeIdGenerator = Depends(get_snowflake_id_generator),
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    id_generator: Annotated[
+        SnowflakeIdGenerator, Depends(get_snowflake_id_generator)
+    ],
 ) -> ProjectService:
     """构造请求级项目 Service，供项目 API 和 Agent 工具共同复用。"""
     locations = StorageLocationFactory(get_settings().storage)

@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from pydantic import Field, StringConstraints, field_serializer
+from pydantic import Field, StringConstraints
 
 from app.core.identifiers import SnowflakeId
 from app.core.schemas import Schema
@@ -30,13 +30,8 @@ class ConversationView(Schema):
     id: SnowflakeId
     project_id: SnowflakeId
     title: str
-    learned_message_id: int = Field(ge=0)
     active_run_id: SnowflakeId | None
     created_at: ShanghaiDateTime
-
-    @field_serializer("learned_message_id")
-    def serialize_cursor(self, value):
-        return str(value)
 
 
 class MessageView(Schema):

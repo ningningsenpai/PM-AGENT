@@ -1,7 +1,7 @@
 """Agent 工具注册和执行测试。"""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock
@@ -22,7 +22,7 @@ def _context() -> ToolExecutionContext:
 
 
 def _project_response() -> ProjectResponse:
-    now = datetime(2026, 8, 3, 10, 0, 0)
+    now = datetime(2026, 8, 3, 10, 0, 0, tzinfo=UTC)
     return ProjectResponse(
         id=10,
         project_name="PM-Agent",
@@ -76,3 +76,22 @@ class TestToolExecutor(IsolatedAsyncioTestCase):
 
         self.assertEqual(result.status, "failed")
         self.assertEqual(result.error_code, "TOOL_NOT_REGISTERED")
+
+    async def test_rejects_registered_tool_outside_current_request_allowlist(self) -> None:
+        projects = SimpleNamespace(get_owned=AsyncMock(return_value=_project_response()))
+        registry = ToolRegistry([GetCurrentProjectTool(projects)])
+
+        result = await ToolExecutor(registry).execute(
+            LLMToolCall(
+                id="call-1",
+                name="get_current_project",
+                arguments_json="{}",
+            ),
+            _context(),
+            allowed_tools={"retrieve_project_context"},
+        )
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.error_code, "TOOL_NOT_REGISTERED")
+        self.assertIn("当前请求未开放工具", result.error_message)
+        projects.get_owned.assert_not_awaited()

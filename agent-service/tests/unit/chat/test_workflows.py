@@ -5,9 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from app.modules.chat.conversation.models import AgentMessage
+
 from app.modules.chat.conversation.schemas import CreateConversation, SendMessage
-from app.modules.chat.learning.schemas import ConfirmDraft
 from app.modules.chat.learning.service import new_id
 from app.modules.report.repository import ReportRepository
 from app.modules.report.schemas import GenerateReport, ReportDraft
@@ -24,49 +23,6 @@ pytestmark = pytest.mark.anyio
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
-
-
-async def test_learn_creates_durable_preview_and_confirms_without_model(services):
-    conversation = await services.conversations.create(
-        1, CreateConversation(projectId="11")
-    )
-    await services.conversation_repo.add(
-        AgentMessage(
-            id=100,
-            conversation_id=conversation.id,
-            role="user",
-            content="请记住，我偏好简洁中文",
-            run_id=1,
-            protocol=[],
-        )
-    )
-    await services.session.commit()
-    output = candidate(
-        "请记住，我偏好简洁中文", kind="habit", scope="user", key="回答风格"
-    )
-    services.learning.generator = SimpleNamespace(
-        generate=AsyncMock(return_value=output)
-    )
-    first = await services.learning.learn(1, conversation.id, "learn-one", "trace")
-    assert first["status"] == "success" and first["result"]["processedMessages"] == 1
-    assert first["result"]["candidateCount"] == 1
-    assert await services.contexts.list_entries(1, 11) == []
-    drafts = await services.learning.list(1, 11, conversation.id)
-    assert len(drafts) == 1 and drafts[0]["state"] == "pending"
-    same = await services.learning.learn(1, conversation.id, "learn-one", "trace")
-    assert same["runId"] == first["runId"]
-    draft = drafts[0]
-    request = ConfirmDraft(version=1, candidateIds=[draft["candidates"][0]["id"]])
-    result = await services.learning.confirm(1, 11, draft["id"], request)
-    assert result["state"] == "applied"
-    assert (await services.learning.confirm(1, 11, draft["id"], request))[
-        "publications"
-    ] == result["publications"]
-    assert len(await services.contexts.list_entries(1, 11)) == 1
-    assert await services.context_repo.entries(1, 11) == []
-    second = await services.learning.learn(1, conversation.id, "learn-two", "trace")
-    assert second["status"] == "success" and second["result"]["processedMessages"] == 0
-    services.learning.generator.generate.assert_awaited_once()
 
 
 async def test_unconfirmed_draft_preserves_active_memory(services):

@@ -17,6 +17,7 @@ class ToolExecutionContext:
     conversation_id: int
     project_id: int | None
     iteration_id: int | None = None
+    run_id: int | None = None
 
 
 class ToolExecutionResult(BaseModel):

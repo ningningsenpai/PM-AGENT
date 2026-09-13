@@ -1,11 +1,11 @@
 """项目文件领域状态与纯计算。"""
 from __future__ import annotations
 
+import mimetypes
+import unicodedata
 from dataclasses import dataclass
 from hashlib import sha256
-import mimetypes
 from pathlib import PurePosixPath
-import unicodedata
 
 from app.core.config import FileConfig
 from app.core.errors import AppException, ErrorCode

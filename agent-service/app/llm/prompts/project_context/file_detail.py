@@ -26,6 +26,10 @@ class ProjectFileDetailPrompt(str, Enum):
 - `file_type`：doc、code、config、test 或 other。
 - `language`：语言或格式。
 - `importance`：high、medium 或 low。
+- `may_supply_project_constraints`：布尔值，按以下规则判断：
+  - 文件内容明确声明项目级或模块级技术约束、开发方式、编码规范、文档规范或风险规范时返回 `true`；
+  - 仅包含实现代码、测试、运行记录、当前事实、示例，或无法确定时返回 `false`；
+  - 不得仅根据文件名或目录判断。
 - `summary`、`role`：中文简洁说明。
 - `content_slices`：高价值内容切片摘要，不得复制敏感值。
 - `related_files`：对象数组，每项使用 `{"path":"内容中出现的文件路径","relation":"关系说明"}`；不得使用路径字符串数组。只记录能从内容确认的路径关系，不能确认时返回 `[]`，不要复制示例路径。
@@ -46,6 +50,7 @@ class ProjectFileDetailPrompt(str, Enum):
   "file_type": "doc",
   "language": "markdown",
   "importance": "medium",
+  "may_supply_project_constraints": true,
   "summary": "后端模块说明文档",
   "keywords": ["FastAPI", "MinIO"],
   "role": "说明后端模块的启动和存储约定",
@@ -85,4 +90,5 @@ class ProjectFileDetailPrompt(str, Enum):
 # 最终检查
 只输出上述语义 JSON。确保字段完整、类型正确，不包含任何服务端身份字段，也不包含源文件中的原始秘密。
 related_files 必须是对象数组或空数组，不得输出字符串元素。
+may_supply_project_constraints 必须是布尔值；不确定时返回 false。
 """.strip()

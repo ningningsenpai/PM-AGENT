@@ -306,6 +306,7 @@ class ProjectIndexServiceTest(IsolatedAsyncioTestCase):
             [
                 "index",
                 "project_specification",
+                "project_specification_sections",
                 "long_term_memory",
                 "short_term_memory",
                 "user_habits",

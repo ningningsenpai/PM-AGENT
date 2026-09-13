@@ -1,4 +1,4 @@
-"""用户显式触发的会话增量学习接口。"""
+"""对话自动识别产生的待确认上下文更新接口。"""
 
 from typing import Annotated
 
@@ -16,20 +16,6 @@ router = APIRouter(prefix="/api/v1/agent", tags=["项目助手闭环"])
 Principal = Annotated[AuthPrincipal, Depends(require_principal)]
 RequestKey = Annotated[str | None, Header(alias="X-Idempotency-Key")]
 ProjectId = Annotated[SnowflakeId, Query(alias="projectId")]
-
-
-@router.post("/conversations/{conversation_id}/learn")
-async def learn(
-    conversation_id: SnowflakeId,
-    principal: Principal,
-    idempotency_key: RequestKey = None,
-    service=Depends(get_learning_service),
-):
-    return success(
-        await service.learn(
-            principal.user_id, conversation_id, idempotency_key, get_trace_id()
-        )
-    )
 
 
 @router.get("/learning-drafts")

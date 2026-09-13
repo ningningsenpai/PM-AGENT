@@ -52,6 +52,7 @@ def _service(
 ) -> ProjectFileService:
     project_service = projects or AsyncMock()
     project_service.require_owned.return_value = project()
+    project_service.advance_published_revision.return_value = 1
     return ProjectFileService(
         repository,
         project_service,
@@ -110,6 +111,8 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertEqual("active", result.status)
         self.assertEqual("success", result.upload_status)
         self.assertEqual("active", file.status)
+        self.assertEqual(1, file.content_origin_revision)
+        self.assertEqual(1, file.last_observed_revision)
         idempotency.claim.assert_awaited_once_with(
             1,
             "file:upload:10:private/README.md",
@@ -247,7 +250,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         @Return: 仍为 active 的 ProjectFileResponse。
         @SideEffect: 声明更新状态、提交元数据并重建索引，不写入 MinIO。
         """
-        file = project_file()
+        file = project_file(content_origin_revision=3, last_observed_revision=3)
         file.detail_ref = "system/file_details/readme.json"
         file.parse_attempts = 2
         file.module = "docs"
@@ -264,6 +267,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         storage = Mock()
         index = AsyncMock()
         service = _service(repository, storage=storage, index=index)
+        service._projects.advance_published_revision.return_value = 4
 
         result = await service.overwrite(
             1,
@@ -281,6 +285,8 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         storage.put_bytes.assert_not_called()
         self.assertEqual("system/file_details/readme.json", file.detail_ref)
         self.assertEqual("项目说明", file.summary)
+        self.assertEqual(3, file.content_origin_revision)
+        self.assertEqual(4, file.last_observed_revision)
         index.write.assert_awaited_once()
 
     async def test_overwrite_retries_then_succeeds(self) -> None:
@@ -297,7 +303,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         @Return: 内容和上传状态已更新的 ProjectFileResponse。
         @SideEffect: 第一次 MinIO 写入失败后重试，最终提交状态并重建索引。
         """
-        file = project_file()
+        file = project_file(content_origin_revision=3, last_observed_revision=3)
         file.detail_ref = "system/file_details/readme.json"
         file.summary = "旧说明"
         repository = _repository(file)
@@ -308,6 +314,7 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         ]
         index = AsyncMock()
         service = _service(repository, storage=storage, index=index)
+        service._projects.advance_published_revision.return_value = 4
 
         result = await service.overwrite(
             1,
@@ -327,6 +334,8 @@ class ProjectFileServiceTest(IsolatedAsyncioTestCase):
         self.assertIsNone(file.detail_ref)
         storage.remove.assert_called_once()
         self.assertIsNone(file.last_error_code)
+        self.assertEqual(4, file.content_origin_revision)
+        self.assertEqual(4, file.last_observed_revision)
         index.write.assert_awaited_once()
 
     async def test_overwrite_keeps_success_when_stale_detail_cleanup_fails(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from functools import lru_cache
-
 from app.input_context.normalization import (
     NormalizationService,
     create_default_normalization_service,

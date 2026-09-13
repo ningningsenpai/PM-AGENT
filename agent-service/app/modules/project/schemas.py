@@ -36,8 +36,15 @@ class ProjectResponse(ProjectSchema):
     project_name: str
     status: str
     record_status: str = ProjectRecordStatus.ENABLED.value
+    revision: int = 0
+    published_revision: int = 0
     created_at: ShanghaiDateTime
     updated_at: ShanghaiDateTime
+
+    @field_validator("revision", "published_revision", mode="before")
+    @classmethod
+    def normalize_revision(cls, value: int | None) -> int:
+        return 0 if value is None else value
 
 
 def to_response(project) -> ProjectResponse:

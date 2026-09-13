@@ -26,7 +26,7 @@ def test_file_detail_output_budget_must_be_positive(monkeypatch, value):
         Settings()
 
 
-def test_analysis_and_specification_use_dedicated_output_budget(monkeypatch):
+def test_analysis_uses_dedicated_output_budget_and_rules_are_deterministic(monkeypatch):
     monkeypatch.setenv("PM_AGENT_FILE_DETAIL_LLM_ENABLED", "true")
     monkeypatch.setenv("PM_AGENT_FILE_DETAIL_MAX_OUTPUT_TOKENS", "24576")
     monkeypatch.setenv("DEEPSEEK_RESERVED_OUTPUT_TOKENS", "4096")
@@ -42,4 +42,4 @@ def test_analysis_and_specification_use_dedicated_output_budget(monkeypatch):
 
     generator = service._semantic_analyzer.generator
     assert generator._max_tokens == 24576
-    assert service._specification._generator is generator
+    assert not hasattr(service._specification, "_generator")

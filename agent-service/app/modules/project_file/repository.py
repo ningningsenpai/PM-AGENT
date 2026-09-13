@@ -131,7 +131,25 @@ class ProjectFileRepository:
         content_hash: str,
         expected_lock_version: int,
         detail,
+        *,
+        promote_constraint_source: bool = False,
     ) -> bool:
+        values = {
+            "parse_attempts": ProjectFile.parse_attempts + 1,
+            "detail_ref": detail.detail_ref,
+            "module": detail.module,
+            "kind": detail.kind,
+            "file_type": detail.file_type,
+            "language": detail.language,
+            "importance": detail.importance,
+            "summary": detail.summary,
+            "keywords": detail.keywords,
+            "last_error_code": None,
+            "last_error_message": None,
+            "last_failed_at": None,
+        }
+        if promote_constraint_source:
+            values["may_supply_constraints"] = True
         statement = (
             update(ProjectFile)
             .where(
@@ -140,20 +158,7 @@ class ProjectFileRepository:
                 ProjectFile.content_hash == content_hash,
                 ProjectFile.lock_version == expected_lock_version,
             )
-            .values(
-                parse_attempts=ProjectFile.parse_attempts + 1,
-                detail_ref=detail.detail_ref,
-                module=detail.module,
-                kind=detail.kind,
-                file_type=detail.file_type,
-                language=detail.language,
-                importance=detail.importance,
-                summary=detail.summary,
-                keywords=detail.keywords,
-                last_error_code=None,
-                last_error_message=None,
-                last_failed_at=None,
-            )
+            .values(**values)
         )
         result = await self.session.execute(statement)
         return result.rowcount == 1

@@ -78,6 +78,46 @@ class ProjectFileRepositoryTest(IsolatedAsyncioTestCase):
         self.assertIn("pm_project_file.lock_version =", sql)
         self.assertIn(4, compiled.params.values())
         self.assertNotIn("lock_version", sql.split(" WHERE ", maxsplit=1)[0])
+        self.assertNotIn(
+            "may_supply_constraints",
+            sql.split(" WHERE ", maxsplit=1)[0],
+        )
+
+    async def test_analysis_success_can_promote_constraint_source(self) -> None:
+        session = SimpleNamespace(
+            execute=AsyncMock(return_value=SimpleNamespace(rowcount=1))
+        )
+        repository = ProjectFileRepository(session)
+        detail = SimpleNamespace(
+            detail_ref="system/file_details/detail.json",
+            module="backend",
+            kind="source",
+            file_type="code",
+            language="python",
+            importance="high",
+            summary="后端入口",
+            keywords=["FastAPI"],
+        )
+
+        await repository.record_analysis_success(
+            10,
+            30,
+            "content-hash",
+            4,
+            detail,
+            promote_constraint_source=True,
+        )
+
+        statement = session.execute.await_args.args[0]
+        compiled = statement.compile()
+        set_clause = str(compiled).split(" WHERE ", maxsplit=1)[0]
+        self.assertIn("may_supply_constraints", set_clause)
+        self.assertTrue(
+            any(
+                key.startswith("may_supply_constraints") and value is True
+                for key, value in compiled.params.items()
+            )
+        )
 
     async def test_analysis_failure_preserves_detail_and_uses_cas(self) -> None:
         session = SimpleNamespace(

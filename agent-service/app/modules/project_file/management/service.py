@@ -45,6 +45,30 @@ from app.project_context.index import ProjectIndexService
 
 logger = get_logger(__name__)
 
+_CONSTRAINT_DOCUMENT_EXTENSIONS = {"md", "mdx", "rst", "txt", "docx", "pdf"}
+_CONSTRAINT_PATH_MARKERS = (
+    "readme",
+    "docs/",
+    "doc/",
+    "design/",
+    "adr/",
+    "rfc/",
+    "spec",
+    "requirement",
+    "规范",
+    "设计",
+    "需求",
+)
+
+
+def may_supply_project_constraints(relative_path: str, extension: str | None) -> bool:
+    """仅把显式文档路径标记为项目约束候选来源。"""
+    normalized_path = relative_path.replace("\\", "/").lower()
+    normalized_extension = (extension or "").lstrip(".").lower()
+    return normalized_extension in _CONSTRAINT_DOCUMENT_EXTENSIONS and any(
+        marker in normalized_path for marker in _CONSTRAINT_PATH_MARKERS
+    )
+
 
 class ProjectFileService:
     MAX_UPLOAD_ATTEMPTS = 3
@@ -153,6 +177,11 @@ class ProjectFileService:
             upload_attempts=1,
             parse_attempts=0,
             lock_version=0,
+            content_origin_revision=0,
+            last_observed_revision=0,
+            may_supply_constraints=may_supply_project_constraints(
+                metadata.relative_path, metadata.extension
+            ),
         )
         try:
             await self._repository.add(file)
@@ -209,6 +238,7 @@ class ProjectFileService:
         )
         file.status = ProjectFileStatus.ACTIVE.value
         file.upload_status = ProjectFileUploadStatus.SUCCESS.value
+        await self._publish_file_mutation(project, file, content_changed=True)
         await self._repository.session.commit()
         await self._repository.session.refresh(file)
         logger.info(
@@ -268,6 +298,7 @@ class ProjectFileService:
         if not upload_required:
             self._apply_content_metadata(file, metadata)
             file.status = ProjectFileStatus.ACTIVE.value
+            await self._publish_file_mutation(project, file)
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
             await self._rebuild_index(project)
@@ -336,6 +367,11 @@ class ProjectFileService:
             file.last_error_code = None
             file.last_error_message = None
             file.last_failed_at = None
+            await self._publish_file_mutation(
+                project,
+                file,
+                content_changed=content_changed,
+            )
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
             await self._remove_invalidated_detail(
@@ -410,6 +446,7 @@ class ProjectFileService:
             self._apply_path_metadata(file, metadata)
             stale_detail_ref = self._invalidate_analysis(file) if path_changed else None
             file.status = ProjectFileStatus.ACTIVE.value
+            await self._publish_file_mutation(project, file)
             await self._repository.session.commit()
             await self._repository.session.refresh(file)
             await self._remove_invalidated_detail(
@@ -461,6 +498,7 @@ class ProjectFileService:
             target.object_key,
         )
         file.status = ProjectFileStatus.ACTIVE.value
+        await self._publish_file_mutation(project, file)
         await self._repository.session.commit()
         await self._repository.session.refresh(file)
         await self._remove_invalidated_detail(
@@ -663,6 +701,7 @@ class ProjectFileService:
         try:
             await asyncio.to_thread(self._storage.remove, self._location_of(file))
             await self._repository.delete(file.id)
+            await self._publish_file_mutation(project)
             await self._repository.session.commit()
         except Exception:
             logger.exception(
@@ -755,6 +794,9 @@ class ProjectFileService:
         file.source_mtime_ms = metadata.source_mtime_ms
         file.quick_fingerprint = metadata.quick_fingerprint
         file.content_hash = metadata.content_hash
+        file.may_supply_constraints = may_supply_project_constraints(
+            file.relative_path, metadata.extension
+        )
 
     @staticmethod
     def _invalidate_analysis(file: ProjectFile) -> str | None:
@@ -811,9 +853,27 @@ class ProjectFileService:
         from hashlib import sha256
 
         file.quick_fingerprint = sha256(raw).hexdigest()
+        file.may_supply_constraints = may_supply_project_constraints(
+            metadata.relative_path, metadata.extension
+        )
 
     def _location_of(self, file: ProjectFile) -> StorageLocation:
         return StorageLocation(self._storage_config.bucket, file.object_key)
+
+    async def _publish_file_mutation(
+        self,
+        project,
+        file: ProjectFile | None = None,
+        *,
+        content_changed: bool = False,
+    ) -> int:
+        """把文件真相变化与项目修订推进放在同一个数据库事务中。"""
+        revision = await self._projects.advance_published_revision(project)
+        if file is not None:
+            file.last_observed_revision = revision
+            if content_changed or (file.content_origin_revision or 0) <= 0:
+                file.content_origin_revision = revision
+        return revision
 
     async def _rebuild_index(self, project) -> None:
         logger.debug(

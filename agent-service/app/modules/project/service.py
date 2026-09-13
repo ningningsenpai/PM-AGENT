@@ -171,6 +171,15 @@ class ProjectService:
             raise project_disabled()
         return project
 
+    async def advance_published_revision(self, project: Project) -> int:
+        """在调用方业务事务内原子发布一个新的项目修订。"""
+        revision = await self._repository.advance_published_revision(project.id)
+        if revision is None:
+            raise AppException(ErrorCode.RESOURCE_CONFLICT, "项目存在尚未发布的更新")
+        project.revision = revision
+        project.published_revision = revision
+        return revision
+
     async def delete_owned(self, owner_user_id: int, project_id: int) -> None:
         logger.info(
             "删除项目 action=project.delete userId=%s projectId=%s",

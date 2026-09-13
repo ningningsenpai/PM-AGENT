@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from fastapi import Depends
+
 from app.agents.retrieval import AgentInputContextGateway
 from app.agents.tools import ToolExecutor, ToolRegistry
 from app.agents.tools.context import (
@@ -33,20 +35,19 @@ from app.input_context.dependencies import get_normalization_service
 from app.llm.orchestration.project_chat_agent import ProjectChatAgent
 from app.modules.chat.context.service import ContextService
 from app.modules.chat.dependencies import get_context_service
-from app.modules.report.dependencies import get_report_service
 from app.modules.project.dependencies import get_project_service
 from app.modules.project.service import ProjectService
 from app.modules.project_file.management.dependencies import (
     get_project_file_service,
 )
 from app.modules.project_file.management.service import ProjectFileService
+from app.modules.report.dependencies import get_report_service
 from app.modules.report.service import ReportService
 from app.project_context.file_detail import FileDownloader
 from app.project_context.file_detail.extraction import (
     FileContentExtractionService,
     FileContentExtractorFactory,
 )
-from fastapi import Depends
 
 
 def get_project_chat_agent(
@@ -80,18 +81,17 @@ def get_project_chat_agent(
         UserInputContextService(retrieval),
         contexts=contexts,
     )
-    registry = ToolRegistry(
-        [
-            GetCurrentProjectTool(projects),
-            ListCurrentProjectFilesTool(project_files),
-            ListOwnedProjectsTool(projects),
-            RetrieveProjectContextTool(gateway),
-            ListContextEntriesTool(contexts),
-            GetContextChangesTool(contexts),
-            GetProjectReportTool(reports),
-            ReadProjectFileEvidenceTool(project_files),
-        ]
-    )
+    tools = [
+        GetCurrentProjectTool(projects),
+        ListCurrentProjectFilesTool(project_files),
+        ListOwnedProjectsTool(projects),
+        RetrieveProjectContextTool(gateway),
+        ListContextEntriesTool(contexts),
+        GetContextChangesTool(contexts),
+        GetProjectReportTool(reports),
+        ReadProjectFileEvidenceTool(project_files),
+    ]
+    registry = ToolRegistry(tools)
     return ProjectChatAgent(
         settings.llm,
         registry,

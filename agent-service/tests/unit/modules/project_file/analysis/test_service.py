@@ -14,6 +14,7 @@ from app.modules.project_file.analysis import service as analysis_service_module
 from app.modules.project_file.analysis.schemas import ProjectFileAnalysisBatchResult
 from app.modules.project_file.analysis.service import ProjectFileAnalysisService
 from app.project_context.file_detail.schemas import FileSemanticAnalysisResult
+
 from tests.unit.modules.project_file.analysis.factories import file_detail
 from tests.unit.modules.project_file.factories import (
     project,
@@ -68,7 +69,7 @@ def _service(
     )
 
 
-def _success_result(file):
+def _success_result(file, *, may_supply_project_constraints: bool = False):
     detail_ref = (
         f"system/file_details/{file.storage_uuid}-{file.content_hash}-"
         f"{file.path_hash}.json"
@@ -76,6 +77,7 @@ def _success_result(file):
     detail = file_detail(file).model_copy(
         update={
             "detail_ref": detail_ref,
+            "may_supply_project_constraints": may_supply_project_constraints,
         }
     )
     return FileSemanticAnalysisResult(
@@ -99,6 +101,84 @@ def _failure_result(file):
 
 
 class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
+    async def test_document_project_fact_becomes_verified_long_term_memory(
+        self,
+    ) -> None:
+        """核心文档中可定位的事实会形成带来源的长期记忆条目。"""
+        file = project_file(file_id=30, relative_path="docs/roadmap.md")
+        file.detail_ref = "system/file_details/roadmap.json"
+        detail = file_detail(file).model_copy(
+            update={
+                "detail_ref": file.detail_ref,
+                "project_facts": [
+                    {
+                        "kind": "planned_capability",
+                        "statement": "下一阶段完成风险看板",
+                        "source_quote": "下一阶段完成风险看板",
+                        "source_range": {"start_line": 8, "end_line": 8},
+                        "evidence_verified": True,
+                    }
+                ],
+            }
+        )
+        entries = ProjectFileAnalysisService._memory_entries(10, detail, {})
+
+        self.assertEqual(1, len(entries))
+        self.assertEqual("long_memory", entries[0]["kind"])
+        self.assertEqual("planned", entries[0]["attributes"]["state"])
+        self.assertEqual(8, entries[0]["attributes"]["sourceRange"]["start_line"])
+        self.assertEqual(file.content_hash, entries[0]["attributes"]["contentHash"])
+
+    async def test_unverified_document_project_fact_is_not_published(self) -> None:
+        """无法在当前原文唯一定位的模型事实不会进入长期记忆。"""
+        file = project_file(file_id=30, relative_path="docs/roadmap.md")
+        file.may_supply_constraints = True
+        file.detail_ref = "system/file_details/roadmap.json"
+        detail = file_detail(file).model_copy(
+            update={
+                "detail_ref": file.detail_ref,
+                "project_facts": [
+                    {
+                        "kind": "completed_capability",
+                        "statement": "风险看板已经完成",
+                        "source_quote": "",
+                        "evidence_verified": False,
+                    }
+                ],
+            }
+        )
+        self.assertEqual([], ProjectFileAnalysisService._memory_entries(10, detail, {}))
+
+    async def test_code_fact_becomes_observed_memory_but_never_project_constraint(
+        self,
+    ) -> None:
+        """代码可提供当前实现观察，但不因其风格反推项目约束。"""
+        file = project_file(file_id=31, relative_path="app/risk/service.py")
+        file.may_supply_constraints = False
+        file.detail_ref = "system/file_details/risk-service.json"
+        detail = file_detail(file).model_copy(
+            update={
+                "detail_ref": file.detail_ref,
+                "kind": "source_code",
+                "file_type": "code",
+                "project_facts": [
+                    {
+                        "kind": "completed_capability",
+                        "statement": "已经实现风险评分函数",
+                        "source_quote": "def risk_score(probability, impact):",
+                        "source_range": {"start_line": 22, "end_line": 22},
+                        "evidence_verified": True,
+                    }
+                ],
+            }
+        )
+        entries = ProjectFileAnalysisService._memory_entries(10, detail, {})
+
+        self.assertEqual(1, len(entries))
+        self.assertEqual("long_memory", entries[0]["kind"])
+        self.assertEqual("observed_complete", entries[0]["attributes"]["state"])
+        self.assertFalse(file.may_supply_constraints)
+
     async def test_analyze_pending_files_persists_mixed_results(self) -> None:
         """验证项目文件分析会分别保存成功和失败结果。
 
@@ -159,6 +239,7 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
             first.content_hash,
             first.lock_version,
             _success_result(first).detail,
+            promote_constraint_source=False,
         )
         repository.record_analysis_failure.assert_awaited_once_with(
             10,
@@ -186,6 +267,50 @@ class ProjectFileAnalysisServiceTest(IsolatedAsyncioTestCase):
         self.assertIn("failureCount=%s", calls)
         self.assertNotIn("sensitive file content", calls)
         self.assertNotIn(first.object_key, calls)
+
+    async def test_model_judgment_only_promotes_constraint_source(self) -> None:
+        cases = (
+            (False, True, True),
+            (True, True, False),
+            (False, False, False),
+            (True, False, False),
+        )
+        for offset, (stored, judged, expected) in enumerate(cases):
+            with self.subTest(stored=stored, judged=judged):
+                file = project_file(file_id=40 + offset)
+                file.may_supply_constraints = stored
+                repository = _repository([file])
+                storage = Mock()
+                storage.read_bytes.return_value = b"content"
+                content_extractor = AsyncMock()
+                content_extractor.extract_from_bytes.return_value = {
+                    "type": "text",
+                    "text": "content",
+                }
+                semantic_analyzer = AsyncMock()
+                semantic_analyzer.analyze.return_value = _success_result(
+                    file,
+                    may_supply_project_constraints=judged,
+                )
+                service = _service(
+                    repository,
+                    storage=storage,
+                    content_extractor=content_extractor,
+                    semantic_analyzer=semantic_analyzer,
+                )
+
+                await service.analyze_pending_files(
+                    1,
+                    10,
+                    f"constraint-source-{offset}",
+                )
+
+                self.assertEqual(
+                    expected,
+                    repository.record_analysis_success.await_args.kwargs[
+                        "promote_constraint_source"
+                    ],
+                )
 
     async def test_analyze_pending_files_records_content_extraction_failure(
         self,

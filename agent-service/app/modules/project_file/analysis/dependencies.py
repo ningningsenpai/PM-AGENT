@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,10 +34,10 @@ from app.project_context.specification import ProjectSpecificationService
 
 
 def get_project_file_analysis_service(
-    session: AsyncSession = Depends(get_db_session),
-    projects: ProjectService = Depends(get_project_service),
-    storage: ObjectStorage = Depends(get_object_storage),
-    runs: RunService = Depends(get_run_service),
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    projects: Annotated[ProjectService, Depends(get_project_service)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    runs: Annotated[RunService, Depends(get_run_service)],
 ) -> ProjectFileAnalysisService:
     """装配请求级项目文件分析服务。"""
     settings = get_settings()
@@ -66,6 +68,6 @@ def get_project_file_analysis_service(
             generator,
             max_semantic_input_bytes=file_detail_config.max_semantic_input_bytes,
         ),
-        ProjectSpecificationService(storage, locations, generator),
+        ProjectSpecificationService(storage, locations),
         runs=runs,
     )

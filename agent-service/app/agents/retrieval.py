@@ -6,8 +6,6 @@ from app.agents.tools.schemas import ToolExecutionContext
 from app.core.errors import AppException, ErrorCode
 from app.input_context import (
     InputContextRetrievalService,
-    RetrievalEvidence,
-    RetrievalHit,
     RetrievalQuery,
     RetrievalResult,
     UserInputContext,
@@ -38,24 +36,11 @@ class AgentInputContextGateway:
         request: RetrievalQuery,
     ) -> RetrievalResult:
         project_id = await self._owned_project_id(context)
-        entries, terms = await self._learned(context, request.query)
-        expanded = (
-            request.model_copy(
-                update={"query": (request.query + " " + " ".join(terms))[:2000]}
-            )
-            if terms
-            else request
-        )
-        result = await self._retrieval.retrieve(
+        return await self._retrieval.retrieve(
             user_id=context.user_id,
             project_id=project_id,
-            request=expanded,
+            request=request,
             trace_id=context.trace_id,
-        )
-        return (
-            self._merge(result, entries, request)
-            if self._contexts is not None
-            else result
         )
 
     async def prepare(
@@ -64,88 +49,39 @@ class AgentInputContextGateway:
         raw_query: str,
     ) -> UserInputContext:
         project_id = await self._owned_project_id(context)
-        entries, terms = await self._learned(context, raw_query)
         result = await self._input_context.prepare(
             user_id=context.user_id,
             project_id=project_id,
-            raw_query=(raw_query + " " + " ".join(terms))[:2000]
-            if terms
-            else raw_query,
+            raw_query=raw_query,
             trace_id=context.trace_id,
-            **({"include_source": True} if self._contexts is not None else {}),
         )
         if self._contexts is not None:
-            result.retrieval = self._merge(
-                result.retrieval, entries, RetrievalQuery(query=raw_query[:2000])
-            )
-            result.learned_entries = entries[:50]
-            result.learned_terms = terms
+            result.learned_entries = await self._presentation_preferences(context)
+            result.learned_terms = []
         return result
 
-    async def _learned(self, context, query):
-        if self._contexts is None:
-            return [], []
-        from app.modules.chat.context.lexicon import learned_terms
-
+    async def _presentation_preferences(self, context) -> list[dict]:
+        """只向表达层提供有效用户偏好，不把规则或记忆混入事实候选。"""
         entries = await self._contexts.list_entries(
-            context.user_id, context.project_id, query=query
+            context.user_id,
+            context.project_id,
+            kind="habit",
         )
-        return entries, learned_terms(
-            context.user_id, context.project_id, query, entries
-        )
+        return [
+            {
+                "id": entry["id"],
+                "kind": "habit",
+                "content": entry["content"],
+                "conditions": entry.get("conditions", []),
+                "version": entry["version"],
+            }
+            for entry in entries[:50]
+            if entry.get("kind") == "habit" and entry.get("status") == "active"
+        ]
 
     async def release_reads(self):
         if self._contexts is not None:
             await self._contexts.release_reads()
-
-    @staticmethod
-    def _merge(result, entries, request):
-        types = {
-            "habit": "user_habit",
-            "short_memory": "short_term_memory",
-            "long_memory": "long_term_memory",
-            "project_rule": "project_specification",
-        }
-        # 统一使用云端当前清单；旧固定路径内容不能绕过失效、期限和版本过滤。
-        hits = [
-            hit for hit in result.hits if hit.source_type not in set(types.values()) or hit.source_id == "development-stage"
-        ]
-        learned = []
-        for entry in entries:
-            kind = entry["kind"]
-            if kind not in types or request.focus in (
-                "files",
-                "changes",
-            ):
-                continue
-            if request.focus == "specification" and kind != "project_rule":
-                continue
-            if (
-                request.focus == "memory"
-                and kind not in ("short_memory", "long_memory")
-                or request.focus == "habits"
-                and kind != "habit"
-            ):
-                continue
-            learned.append(
-                RetrievalHit(
-                    source_type=types[kind],
-                    source_id=f"entry:{entry['id']}:v{entry['version']}",
-                    title=entry["attributes"].get("key", kind),
-                    summary=entry["content"] + ("；适用条件：" + "、".join(entry.get("conditions", [])) if entry.get("conditions") else ""),
-                    score=1,
-                    evidence=[
-                        RetrievalEvidence(
-                            text=entry["content"],
-                            kind="summary" if entry["attributes"].get("sourceType") == "file_specification" else "user_statement",
-                            logical_path=f"context/entry/{entry['id']}/v{entry['version']}",
-                        )
-                    ],
-                )
-            )
-        result.hits = (learned + hits)[: request.limit]
-        result.no_evidence = not result.hits
-        return result
 
     async def _owned_project_id(self, context: ToolExecutionContext) -> int:
         if context.project_id is None:

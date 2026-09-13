@@ -37,6 +37,10 @@ class Project(TimestampMixin, Base):
             "record_status IN ('enabled', 'disabled')",
             name="ck_project_record_status",
         ),
+        CheckConstraint(
+            "revision >= published_revision AND published_revision >= 0",
+            name="ck_project_revision_order",
+        ),
         Index("idx_project_owner_status", "owner_user_id", "status"),
         Index(
             "idx_project_owner_record_status",
@@ -77,3 +81,5 @@ class Project(TimestampMixin, Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     purge_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    published_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

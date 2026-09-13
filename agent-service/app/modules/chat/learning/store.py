@@ -1,4 +1,4 @@
-"""显式学习草稿的 MySQL 存储，以及旧 MinIO 草稿的只读迁移入口。"""
+"""待确认上下文草稿的 MySQL 存储，以及旧 MinIO 草稿的只读迁移入口。"""
 
 import asyncio
 import copy

@@ -14,14 +14,14 @@ EntryStatus = Literal["active", "pending", "invalid"]
 
 class EntryView(Schema):
     id: SnowflakeId
-    project_id: SnowflakeId | None
+    project_id: SnowflakeId | None = None
     kind: EntryKind
     content: str
     attributes: dict
     status: EntryStatus
     version: int
-    source_message_id: SnowflakeId | None
-    expires_at: ShanghaiDateTime | None
+    source_message_id: SnowflakeId | None = None
+    expires_at: ShanghaiDateTime | None = None
     conditions: list[str] = Field(default_factory=list, max_length=20)
     related_entry_ids: list[str] = Field(default_factory=list, max_length=30)
 

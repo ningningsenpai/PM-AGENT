@@ -63,11 +63,13 @@ class ProjectChatAgent:
         *,
         history: list[dict] | None = None,
         protocol_out: list[dict] | None = None,
+        run_id: int | None = None,
     ) -> ChatResponse:
         """执行非流式原生工具调用循环。"""
         llm = self._resolve_llm(request)
-        tools = self._tool_definitions(llm)
-        context = self._execution_context(request, user_id)
+        allowed_tools = self._allowed_tool_names(request)
+        tools = self._tool_definitions(llm, allowed_tools)
+        context = self._execution_context(request, user_id, run_id=run_id)
         input_context = await self._prepare_input_context(request, context)
         messages = self._build_messages(request, llm, input_context)
         if history is not None:
@@ -130,7 +132,11 @@ class ProjectChatAgent:
             self._check_tool_call_limit(total_tool_calls)
             messages.append(self._assistant_message(turn))
             for call in turn.tool_calls:
-                result = await self._executor.execute(call, context)
+                result = await self._executor.execute(
+                    call,
+                    context,
+                    allowed_tools=allowed_tools,
+                )
                 from app.llm.telemetry import record_tool
 
                 record_tool(_step, result)
@@ -176,7 +182,8 @@ class ProjectChatAgent:
     ) -> AsyncIterator[dict]:
         """执行流式原生工具调用循环并输出稳定 SSE 业务事件。"""
         llm = self._resolve_llm(request)
-        tools = self._tool_definitions(llm)
+        allowed_tools = self._allowed_tool_names(request)
+        tools = self._tool_definitions(llm, allowed_tools)
         if tools and not llm.capabilities.streaming_tool_calling:
             raise AppException(
                 ErrorCode.LLM_TOOL_CALLING_UNSUPPORTED,
@@ -231,7 +238,11 @@ class ProjectChatAgent:
                         step=step,
                     ),
                 }
-                result = await self._executor.execute(call, context)
+                result = await self._executor.execute(
+                    call,
+                    context,
+                    allowed_tools=allowed_tools,
+                )
                 yield {
                     "event": StreamEventType.TOOL_RESULT,
                     "data": ToolResultPayload(
@@ -255,14 +266,92 @@ class ProjectChatAgent:
     def _tool_definitions(
         self,
         llm: BaseLLMClient,
+        allowed_tools: set[str] | None = None,
     ) -> list[dict]:
-        tools = self._registry.definitions()
+        tools = self._registry.definitions(allowed_tools)
         if tools and not llm.capabilities.native_tool_calling:
             raise AppException(
                 ErrorCode.LLM_TOOL_CALLING_UNSUPPORTED,
                 f"模型提供方 {llm.provider} 暂不支持原生工具调用",
             )
         return tools
+
+    @staticmethod
+    def _allowed_tool_names(request: AgentChatRequest) -> set[str]:
+        """依据后端计划收缩工具；计划缺失或损坏时只开放只读能力。"""
+
+        plan = request.context.request_plan
+        if not isinstance(plan, dict):
+            return ProjectChatAgent._safe_read_only_tools()
+        if plan.get("requires_clarification") is True:
+            return ProjectChatAgent._safe_read_only_tools()
+        raw_units = plan.get("request_units")
+        if not isinstance(raw_units, list):
+            return ProjectChatAgent._safe_read_only_tools()
+        actions = {
+            item.get("action")
+            for item in raw_units
+            if isinstance(item, dict) and isinstance(item.get("action"), str)
+        }
+        allowed = {"get_current_project"}
+        mapping = {
+            "answer_project_question": {
+                "retrieve_project_context",
+                "list_current_project_files",
+            },
+            "analyze_project_progress": {
+                "retrieve_project_context",
+                "list_current_project_files",
+                "get_project_report",
+            },
+            "draft_next_stage_tasks": {
+                "retrieve_project_context",
+                "list_context_entries",
+            },
+            "analyze_project_risks": {
+                "retrieve_project_context",
+                "list_current_project_files",
+                "read_project_file_evidence",
+            },
+            "check_project_constraints": {
+                "retrieve_project_context",
+                "list_context_entries",
+                "list_current_project_files",
+                "read_project_file_evidence",
+            },
+            "trace_information_source": {
+                "retrieve_project_context",
+                "list_current_project_files",
+                "read_project_file_evidence",
+                "get_context_changes",
+            },
+            "explain_project_history": {
+                "retrieve_project_context",
+                "list_context_entries",
+                "get_context_changes",
+                "get_project_report",
+            },
+        }
+        for action in actions:
+            allowed.update(mapping.get(action, set()))
+        if plan.get("context_updates"):
+            allowed.update({"list_context_entries", "get_context_changes"})
+        return allowed
+
+    @staticmethod
+    def _safe_read_only_tools() -> set[str]:
+        """兼容请求的安全基线不包含任何草稿生成能力。"""
+
+        return {
+            "get_current_project",
+            "list_owned_projects",
+            "retrieve_project_context",
+            "list_current_project_files",
+            "list_context_entries",
+            "get_context_changes",
+            "get_project_report",
+            "read_project_file_evidence",
+        }
 
     @staticmethod
     def _build_messages(
@@ -305,6 +394,8 @@ class ProjectChatAgent:
     def _execution_context(
         request: AgentChatRequest,
         user_id: int,
+        *,
+        run_id: int | None = None,
     ) -> ToolExecutionContext:
         return ToolExecutionContext(
             user_id=user_id,
@@ -312,6 +403,7 @@ class ProjectChatAgent:
             conversation_id=request.conversation_id,
             project_id=request.context.project_id,
             iteration_id=request.context.iteration_id,
+            run_id=run_id,
         )
 
     @staticmethod

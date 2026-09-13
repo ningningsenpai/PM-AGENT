@@ -12,6 +12,14 @@ from app.core.time import ShanghaiDateTime, shanghai_now
 
 RuleT = TypeVar("RuleT", bound="SpecificationRule")
 
+RULE_SECTION_FILES = {
+    "development_approach": "project_specification/development_approach.json",
+    "technical_constraints": "project_specification/technical_constraints.json",
+    "coding_rules": "project_specification/coding_rules.json",
+    "document_rules": "project_specification/document_rules.json",
+    "risk_rules": "project_specification/risk_rules.json",
+}
+
 
 class SpecificationSchema(Schema):
     model_config = ConfigDict(extra="forbid")
@@ -65,6 +73,48 @@ class DevelopmentStage(SpecificationSchema):
     stage_goal: str = ""
     completed: list[str] = Field(default_factory=list)
     next_focus: list[str] = Field(default_factory=list)
+
+
+class SpecificationSectionReference(SpecificationSchema):
+    """规则分区在 MinIO 中的当前快照引用。"""
+
+    path: str
+    content_hash: str
+    item_count: int = Field(ge=0)
+
+
+class SpecificationSectionReferences(SpecificationSchema):
+    development_approach: SpecificationSectionReference
+    technical_constraints: SpecificationSectionReference
+    coding_rules: SpecificationSectionReference
+    document_rules: SpecificationSectionReference
+    risk_rules: SpecificationSectionReference
+
+
+class ProjectSpecificationManifest(SpecificationSchema):
+    """轻量规则清单；规则正文只存在于五个分区文件。"""
+
+    project_id: SnowflakeId
+    schema_version: str = "2.0.0"
+    updated_at: ShanghaiDateTime
+    development_stage: DevelopmentStage = Field(default_factory=DevelopmentStage)
+    sections: SpecificationSectionReferences
+
+
+class ProjectSpecificationSectionDocument(SpecificationSchema):
+    """单个规则分区的当前快照，不保存累积变更历史。"""
+
+    project_id: SnowflakeId
+    schema_version: str = "2.0.0"
+    section: Literal[
+        "development_approach",
+        "technical_constraints",
+        "coding_rules",
+        "document_rules",
+        "risk_rules",
+    ]
+    updated_at: ShanghaiDateTime
+    rules: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ProjectSpecificationBody(SpecificationSchema):

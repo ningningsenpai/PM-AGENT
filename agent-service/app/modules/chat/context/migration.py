@@ -6,6 +6,7 @@ from app.core.errors import AppException, ErrorCode
 
 from .schemas import EntryView
 from .store import digest, json_bytes
+from app.project_context.specification.schemas import RULE_SECTION_FILES
 
 RULE_FIELDS = (
     "development_approach",
@@ -46,7 +47,7 @@ def specification_entries(project_id, document):
                         "sourceType": "file_specification",
                         "original": item,
                         "field": field,
-                        "targetFile": "project_specification.json",
+                        "targetFile": RULE_SECTION_FILES[field],
                         "targetSection": field,
                         "originalId": item["id"],
                         "humanEdited": bool(item.get("human_edited")),

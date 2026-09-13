@@ -29,6 +29,8 @@ def _project(
         project_name=project_name,
         status=status,
         record_status=record_status,
+        revision=0,
+        published_revision=0,
     )
     project.id = project_id
     project.created_at = datetime(2026, 7, 27, 9, 0, 0)

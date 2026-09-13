@@ -3,7 +3,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-EXPECTED_DATABASE_REVISION = "20260910_02"
+EXPECTED_DATABASE_REVISION = "20260912_04"
 
 
 async def verify_database_revision(engine: AsyncEngine) -> None:

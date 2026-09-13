@@ -66,11 +66,32 @@ class SpecificationCandidateProvider:
                     importance="high",
                 )
             )
-        for value in root.values():
-            if isinstance(value, list):
-                candidates.extend(
-                    self._factory.from_records(value, "project_specification")
+        sections = data.get("sections")
+        if isinstance(sections, dict):
+            for section_name, reference in sections.items():
+                if not isinstance(reference, dict) or not isinstance(
+                    reference.get("path"), str
+                ):
+                    warnings.append(f"项目规范分区引用无效：{section_name}")
+                    continue
+                section = await self._reader.optional_json(
+                    snapshot,
+                    reference["path"],
+                    f"项目规范分区 {section_name}",
+                    warnings,
                 )
+                if isinstance(section, dict):
+                    candidates.extend(
+                        self._factory.from_records(
+                            section.get("rules", []), "project_specification"
+                        )
+                    )
+        else:
+            for value in root.values():
+                if isinstance(value, list):
+                    candidates.extend(
+                        self._factory.from_records(value, "project_specification")
+                    )
         return candidates
 
 

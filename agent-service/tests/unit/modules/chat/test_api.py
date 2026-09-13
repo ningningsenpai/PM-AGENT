@@ -42,7 +42,6 @@ def test_chat_aggregate_registers_each_business_endpoint_once() -> None:
         "/api/v1/agent/conversations": {"get", "post"},
         "/api/v1/agent/conversations/{conversation_id}": {"patch"},
         "/api/v1/agent/conversations/{conversation_id}/messages": {"get", "post"},
-        "/api/v1/agent/conversations/{conversation_id}/learn": {"post"},
         "/api/v1/agent/context-entries": {"get"},
         "/api/v1/agent/context-entries/{entry_id}": {"patch"},
         "/api/v1/agent/context-entries/publish": {"post"},

@@ -5,13 +5,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+
 from app.core.errors import AppException, ErrorCode
 from app.modules.chat.context.schemas import UpdateEntry
-from app.modules.chat.conversation.models import AgentMessage
 from app.modules.chat.conversation.schemas import CreateConversation
 from app.modules.chat.learning.schemas import ConfirmDraft, EditDraft, RefineDraft
 from app.modules.chat.learning.service import new_id
-from app.project_context.specification.schemas import ProjectSpecificationDocument
 from tests.unit.chat.test_persistence import (  # noqa: F401
     candidate,
 )
@@ -204,21 +203,19 @@ async def test_manual_edit_skips_model_and_same_condition_conflict_is_blocked(se
 
 
 async def test_file_refresh_uses_same_manifest_and_preserves_human_correction(services):
-    doc = ProjectSpecificationDocument.empty(11).model_dump(mode="json")
-    rule = {
-        "id": "language",
-        "scope": "项目",
-        "status": "active",
-        "confidence": "high",
-        "source_refs": [],
-        "created_at": datetime.now(UTC).isoformat(),
-        "updated_at": datetime.now(UTC).isoformat(),
-        "rule": "注释使用中文",
-    }
-    doc["project_specification"]["coding_rules"] = [rule]
-    snapshot, _ = await services.contexts.specification_snapshot(1, 11)
-    await services.contexts.publish_specification(1, 11, snapshot, doc)
-    entry = (await services.contexts.list_entries(1, 11))[0]
+    output = candidate(
+        "注释使用中文",
+        kind="project_rule",
+        key="coding.comment_language",
+        targetSection="coding_rules",
+    )
+    draft = await draft_for(services, output)
+    await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
+    entry = next(
+        item
+        for item in await services.contexts.list_entries(1, 11)
+        if item["kind"] == "project_rule"
+    )
     await services.contexts.update_entry(
         1,
         int(entry["id"]),
@@ -230,19 +227,46 @@ async def test_file_refresh_uses_same_manifest_and_preserves_human_correction(se
         ),
         "edit-rule",
     )
-    snapshot, _ = await services.contexts.specification_snapshot(1, 11)
-    rule["rule"] = "代码注释使用英文"
-    await services.contexts.publish_specification(1, 11, snapshot, doc)
     current = await services.contexts.list_entries(1, 11)
-    assert (
-        current[0]["content"] == "代码注释统一使用简体中文"
-        and current[0]["version"] == 2
+    updated = next(item for item in current if item["id"] == entry["id"])
+    assert updated["content"] == "代码注释统一使用简体中文"
+    assert updated["version"] == 2
+    manifest, _ = await services.contexts.fixed.read(
+        1, 11, "project_specification.json"
     )
+    section, _ = await services.contexts.fixed.read(
+        1, 11, "project_specification/coding_rules.json"
+    )
+    assert manifest["sections"]["coding_rules"]["item_count"] == 1
+    assert section["rules"][0]["rule"] == "代码注释统一使用简体中文"
     assert (await services.contexts.changes(1, 11))[0]["reason"] == "用户明确规范"
-    with pytest.raises(AppException, match="基础版本"):
-        await services.contexts.publish_specification(
-            1, 11, snapshot, {**doc, "updated_at": datetime.now(UTC).isoformat()}
-        )
+
+
+async def test_rule_manifest_failure_rolls_back_unpublished_section(services):
+    output = candidate(
+        "所有响应都包含 traceId",
+        kind="project_rule",
+        key="coding.trace_id",
+        targetSection="coding_rules",
+    )
+    draft = await draft_for(services, output)
+    services.contexts.storage.fail_suffix = "system/project_specification.json"
+
+    partial = await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
+
+    assert partial["state"] == "partial"
+    keys = [key for _bucket, key in services.contexts.storage.data]
+    assert not any(
+        key.endswith("system/project_specification/coding_rules.json")
+        for key in keys
+    )
+    services.contexts.storage.fail_suffix = None
+    recovered = await services.learning.confirm(1, 11, draft["id"], confirmation(draft))
+    assert recovered["state"] == "applied"
+    manifest, _ = await services.contexts.fixed.read(
+        1, 11, "project_specification.json"
+    )
+    assert manifest["sections"]["coding_rules"]["item_count"] == 1
 
 
 async def test_short_memory_promotion_recovers_after_old_file_removal_failure(services):
@@ -283,48 +307,6 @@ async def test_short_memory_promotion_recovers_after_old_file_removal_failure(se
     assert recovered["kind"] == "long_memory"
     assert len(entries) == 1 and entries[0]["kind"] == "long_memory"
     assert entries[0]["version"] == 2
-
-
-async def test_durable_draft_recovers_failed_run_without_model_replay(services):
-    conversation = await services.conversations.create(
-        1, CreateConversation(projectId="11")
-    )
-    conversation_id = conversation.id
-    output = candidate()
-    services.session.add(
-        AgentMessage(
-            id=100,
-            conversation_id=conversation_id,
-            role="user",
-            content=output.candidates[0].content,
-            run_id=1,
-        )
-    )
-    await services.session.commit()
-    services.learning.generator = SimpleNamespace(
-        generate=AsyncMock(return_value=output)
-    )
-    finish = services.runs.finish
-    interrupted = False
-
-    async def fail_first_result(*args, **kwargs):
-        nonlocal interrupted
-        if not interrupted:
-            interrupted = True
-            raise RuntimeError("模拟云端草稿已落盘，但数据库完成记录失败")
-        return await finish(*args, **kwargs)
-
-    services.runs.finish = fail_first_result
-    failed = await services.learning.learn(1, conversation_id, "learn-once", "trace")
-    assert failed["status"] == "failed"
-    assert len(await services.learning.list(1, 11)) == 1
-    recovered = await services.learning.learn(1, conversation_id, "learn-once", "trace")
-    assert recovered["status"] == "success" and recovered["runId"] == failed["runId"]
-    assert recovered["result"]["processedMessages"] == 1
-    next_run = await services.learning.learn(1, conversation_id, "learn-next", "trace")
-    assert next_run["result"]["processedMessages"] == 0
-    assert services.learning.generator.generate.await_count == 1
-    assert await services.contexts.list_entries(1, 11) == []
 
 
 async def test_lost_draft_receipt_does_not_overwrite_later_manual_edit(services):

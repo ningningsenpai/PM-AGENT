@@ -30,8 +30,11 @@ class ToolRegistry:
     def get(self, name: str) -> BaseAgentTool | None:
         return self._tools.get(name)
 
-    def definitions(self) -> list[dict]:
-        return [self._tools[name].model_definition() for name in sorted(self._tools)]
+    def definitions(self, names: set[str] | None = None) -> list[dict]:
+        """只导出当前请求允许的工具；未指定时保持旧行为。"""
+
+        selected = set(self._tools) if names is None else set(self._tools) & names
+        return [self._tools[name].model_definition() for name in sorted(selected)]
 
     def __len__(self) -> int:
         return len(self._tools)

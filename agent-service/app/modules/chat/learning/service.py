@@ -1,4 +1,4 @@
-"""显式学习：生成云端草稿、定向反馈和精确版本确认发布。"""
+"""待确认上下文草稿的查看、修订和精确版本发布。"""
 
 from __future__ import annotations
 
@@ -46,112 +46,18 @@ class LearningService:
             draft_repository or LearningDraftRepository(repository.session)
         )
 
-    async def learn(self, user_id, conversation_id, key, trace_id):
-        conversation = await self.conversations.owned(user_id, conversation_id)
-        project_id, cursor = conversation.project_id, conversation.learned_message_id
-        await self.repo.session.commit()
-        previous_drafts = await self.drafts.list(user_id, project_id, conversation_id)
-        cursor = max(
-            [cursor, *[int(d.get("learnedMessageId", "0")) for d in previous_drafts]]
-        )
-        run, fresh = await self.runs.start(
-            user_id, project_id, "learn", key, {}, trace_id, conversation_id
-        )
-        run_id, events = run.id, []
-        if not fresh:
-            recovered = next(
-                (d for d in previous_drafts if d["id"] == str(run_id)), None
-            )
-            if recovered and run.status != "success":
-                conversation = await self.message_repo.conversation(
-                    user_id, conversation_id, lock=True
-                )
-                conversation.learned_message_id = max(
-                    conversation.learned_message_id,
-                    int(recovered.get("learnedMessageId", "0")),
-                )
-                return await self.runs.finish(
-                    run_id,
-                    user_id,
-                    run.events,
-                    self.result(recovered, len(recovered["messages"])),
-                    recover_failed=True,
-                )
-            return self.runs.view(run)
-        try:
-            pending = await self.message_repo.messages(conversation_id, after=cursor)
-            next_cursor = max((row.id for row in pending), default=cursor)
-            messages = [
-                {
-                    "id": str(row.id),
-                    "content": sanitize_sensitive_content(row.content).text,
-                }
-                for row in pending
-                if row.role == "user"
-            ]
-            snapshots = await self.contexts.snapshots(user_id, project_id)
-            existing = [
-                entry for snapshot in snapshots.values() for entry in snapshot.entries
-            ]
-            output = LearningOutput()
-            if messages:
-                prompt = (
-                    LEARNING_RULES
-                    + "\n"
-                    + json.dumps(
-                        {
-                            "messages": messages,
-                            "existing": existing,
-                            "now": shanghai_now().isoformat(),
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                with capture_calls(events):
-                    output = await self.generator.generate(
-                        sanitize_sensitive_content(prompt).text, LearningOutput
-                    )
-            draft = await self.create_draft(
-                user_id,
-                project_id,
-                conversation_id,
-                str(run_id),
-                output,
-                messages,
-                snapshots,
-                learned_message_id=next_cursor,
-            )
-            # 草稿先写入 MySQL；游标只表示已完成提取，不表示用户已经确认。
-            conversation = await self.message_repo.conversation(
-                user_id, conversation_id, lock=True
-            )
-            conversation.learned_message_id = max(
-                conversation.learned_message_id, next_cursor
-            )
-            return await self.runs.finish(
-                run_id, user_id, events, self.result(draft, len(messages))
-            )
-        except asyncio.CancelledError:
-            await self.runs.cancel(run_id, user_id, events)
-            raise
-        except Exception as exc:
-            return await self.failed(run_id, user_id, events, exc)
-
     @staticmethod
-    def result(draft, processed=None):
-        result = {
+    def result(draft):
+        return {
             "draftId": draft["id"],
             "draftVersion": draft["version"],
             "candidateCount": len(draft["candidates"]),
             "state": draft["state"],
             "promptVersion": LEARNING_PROMPT_VERSION,
         }
-        if processed is not None:
-            result["processedMessages"] = processed
-        return result
 
     async def failed(self, run_id, user_id, events, exc):
-        logging.getLogger(__name__).exception("显式学习操作失败，已保留运行记录")
+        logging.getLogger(__name__).exception("待确认上下文整理失败，已保留运行记录")
         await self.repo.session.rollback()
         return await self.runs.finish(
             run_id,

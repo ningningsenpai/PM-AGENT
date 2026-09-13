@@ -18,5 +18,7 @@ class UserInputContext(BaseModel):
     retrieval: RetrievalResult
     warnings: list[str] = Field(default_factory=list, max_length=30)
     degraded: bool = False
+    # 兼容原字段名；这里只允许承载表达偏好，不能作为项目事实证据。
     learned_entries: list[dict] = Field(default_factory=list, max_length=50)
+    # 兼容旧调用保留；普通问答不再用固定上下文词条扩写检索查询。
     learned_terms: list[str] = Field(default_factory=list, max_length=100)

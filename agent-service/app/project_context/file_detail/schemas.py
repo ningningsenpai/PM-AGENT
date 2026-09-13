@@ -74,6 +74,7 @@ class FileDetailSemanticOutput(Schema):
     file_type: str = Field(max_length=64)
     language: str = Field(max_length=64)
     importance: Literal["high", "medium", "low"]
+    may_supply_project_constraints: bool
     summary: str = Field(max_length=4000)
     keywords: list[Keyword] = Field(max_length=50)
     role: str = Field(max_length=2000)
@@ -129,6 +130,7 @@ class FileDetail(Schema):
     language: str
     status: str
     importance: str
+    may_supply_project_constraints: bool = False
     summary: str
     keywords: list[str]
     role: str

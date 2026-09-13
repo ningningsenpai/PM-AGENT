@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import copy
 import hashlib
 import json
@@ -11,19 +10,15 @@ from datetime import datetime
 from app.core.errors import AppException, ErrorCode
 from app.core.time import as_shanghai, shanghai_iso, shanghai_now
 from app.project_context.file_detail.sensitive_content import sanitize_sensitive_content
-from app.project_context.specification.schemas import (
-    ProjectSpecificationDocument,
-    merge_specifications,
-)
 
 from .conflicts import validate_conflicts
-from .fixed_store import PROJECT_SPECIFICATION, FixedContextSnapshot, FixedContextStore
+from .fixed_store import FixedContextStore
 from .schemas import EntryView
 from .store import ContextStore
 
 
 class ContextService:
-    """以 system 固定文件为唯一正式来源；旧 ContextStore 仅供迁移读取。"""
+    """以 system 固定文件为唯一正式来源；MySQL 只保留待确认草稿。"""
 
     def __init__(self, repository, projects, storage, bucket):
         self.repo = repository
@@ -292,37 +287,3 @@ class ContextService:
             }
             for path, etag in versions.items()
         }
-
-    async def specification_snapshot(self, user_id, project_id):
-        await self.authorize(user_id, project_id)
-        await self.repo.session.commit()
-        document, etag = await self.fixed.read(
-            user_id, project_id, PROJECT_SPECIFICATION
-        )
-        return FixedContextSnapshot(
-            etag or "", [], {PROJECT_SPECIFICATION: etag}, etag
-        ), document
-
-    async def publish_specification(self, user_id, project_id, snapshot, document):
-        """兼容规范服务的条件写入；新解析服务直接使用固定文件。"""
-        parsed = ProjectSpecificationDocument.model_validate(document)
-        if int(parsed.project_id) != int(project_id):
-            raise AppException(ErrorCode.FORBIDDEN, "项目规范所属项目不一致")
-        current, etag = await self.fixed.read(
-            user_id, project_id, PROJECT_SPECIFICATION
-        )
-        if etag != snapshot.etag:
-            raise AppException(ErrorCode.RESOURCE_CONFLICT, "项目规范基础版本已变化")
-        merged = merge_specifications(
-            ProjectSpecificationDocument.model_validate(current), parsed
-        )
-        body = json.dumps(
-            merged.model_dump(mode="json"), ensure_ascii=False, indent=2
-        ).encode()
-        revision = await asyncio.to_thread(
-            self.storage.compare_and_put,
-            self.fixed.location(user_id, project_id, PROJECT_SPECIFICATION),
-            body,
-            etag,
-        )
-        return {"version": 1, "revision": revision, "published": True}
