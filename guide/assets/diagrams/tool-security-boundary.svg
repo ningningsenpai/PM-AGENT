@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800" role="img" aria-labelledby="title desc">
+  <title id="title">Agent 工具调用安全边界</title>
+  <desc id="desc">模型工具调用依次经过请求白名单、注册表、参数校验、业务服务权限和输出校验，失败转换为结构化结果并记录。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#526273"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c74e4e"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="135%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#1f2937" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      text { font-family: 'Times New Roman','SimSun','宋体',serif; fill: #172033; }
+      .canvas { fill: #ffffff; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 18px; fill: #5e6b7a; }
+      .node { stroke-width: 2.2; rx: 14; filter: url(#shadow); }
+      .blue { fill: #eaf2ff; stroke: #3b82f6; }
+      .green { fill: #eaf8f1; stroke: #269b6a; }
+      .yellow { fill: #fff6d8; stroke: #d69b18; }
+      .purple { fill: #f2edff; stroke: #7759d7; }
+      .orange { fill: #fff0e5; stroke: #e47937; }
+      .red { fill: #fdecec; stroke: #d85454; }
+      .node-title { font-size: 19px; font-weight: 700; text-anchor: middle; }
+      .node-body { font-size: 15.5px; fill: #536173; text-anchor: middle; }
+      .arrow { fill: none; stroke: #526273; stroke-width: 3; marker-end: url(#arrow); }
+      .fail { fill: none; stroke: #c74e4e; stroke-width: 2.2; stroke-dasharray: 8 7; marker-end: url(#arrow-red); }
+      .branch { fill: none; stroke: #c74e4e; stroke-width: 2.2; stroke-dasharray: 8 7; }
+      .legend-title { font-size: 18px; font-weight: 700; }
+      .legend-text { font-size: 16px; fill: #4b5968; }
+    </style>
+  </defs>
+
+  <rect class="canvas" width="1600" height="800"/>
+  <text class="title" x="60" y="55">Agent 工具调用安全边界</text>
+  <text class="subtitle" x="60" y="88">模型只能提出调用意图；每一层都由后端确定性校验</text>
+
+  <rect class="node yellow" x="45" y="160" width="205" height="110"/>
+  <text class="node-title" x="147" y="202">LLM 工具调用</text>
+  <text class="node-body" x="147" y="232">工具名 + JSON 参数</text>
+  <path class="arrow" d="M250 215 H290"/>
+
+  <rect class="node orange" x="290" y="160" width="205" height="110"/>
+  <text class="node-title" x="392" y="202">请求级白名单</text>
+  <text class="node-body" x="392" y="232">当前动作是否允许</text>
+  <path class="arrow" d="M495 215 H535"/>
+
+  <rect class="node green" x="535" y="160" width="205" height="110"/>
+  <text class="node-title" x="637" y="202">ToolRegistry</text>
+  <text class="node-body" x="637" y="232">是否存在已注册实现</text>
+  <path class="arrow" d="M740 215 H780"/>
+
+  <rect class="node orange" x="780" y="160" width="205" height="110"/>
+  <text class="node-title" x="882" y="202">Pydantic 校验</text>
+  <text class="node-body" x="882" y="232">字段、类型与范围</text>
+  <path class="arrow" d="M985 215 H1025"/>
+
+  <rect class="node green" x="1025" y="160" width="225" height="110"/>
+  <text class="node-title" x="1137" y="202">公开业务 Service</text>
+  <text class="node-body" x="1137" y="232">项目权限 · 超时 · 业务规则</text>
+  <path class="arrow" d="M1250 215 H1290"/>
+
+  <rect class="node orange" x="1290" y="160" width="265" height="110"/>
+  <text class="node-title" x="1422" y="202">输出校验与脱敏</text>
+  <text class="node-body" x="1422" y="232">结构、公开摘要与敏感字段</text>
+
+  <path class="arrow" d="M1422 270 V375"/>
+  <rect class="node purple" x="1290" y="375" width="265" height="105"/>
+  <text class="node-title" x="1422" y="415">结构化 ToolResult</text>
+  <text class="node-body" x="1422" y="445">按 tool_call_id 回填给 Agent</text>
+  <path class="arrow" d="M1290 428 H1250"/>
+
+  <rect class="node blue" x="1025" y="375" width="225" height="105"/>
+  <text class="node-title" x="1137" y="415">运行轨迹</text>
+  <text class="node-body" x="1137" y="445">状态 · 耗时 · 错误 · 用量</text>
+
+  <path class="branch" d="M392 270 V575"/>
+  <path class="branch" d="M637 270 V575"/>
+  <path class="branch" d="M882 270 V575"/>
+  <path class="branch" d="M1137 270 V330 H1000 V575"/>
+  <path class="branch" d="M392 575 H1000"/>
+  <path class="fail" d="M1000 575 H1025"/>
+  <rect class="node red" x="1025" y="525" width="530" height="105"/>
+  <text class="node-title" x="1290" y="567">结构化失败结果</text>
+  <text class="node-body" x="1290" y="597">未知工具、非法参数、越权、超时和业务错误均显式记录，不伪装为成功</text>
+
+  <text class="legend-title" x="60" y="720">图例</text>
+  <rect class="yellow" x="130" y="696" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="176" y="715">模型提出调用</text>
+  <rect class="orange" x="375" y="696" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="421" y="715">安全校验门禁</text>
+  <rect class="green" x="645" y="696" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="691" y="715">注册实现 / 业务服务</text>
+  <rect class="purple" x="960" y="696" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="1006" y="715">结构化结果</text>
+  <rect class="red" x="1195" y="696" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="1241" y="715">失败路径</text>
+  <path class="fail" d="M1410 708 H1480"/>
+  <text class="legend-text" x="1493" y="715">拒绝 / 失败</text>
+</svg>

@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="920" viewBox="0 0 1600 920" role="img" aria-labelledby="title desc">
+  <title id="title">在线问答分层召回</title>
+  <desc id="desc">用户问题经过术语归一化、来源路由、全局轻量召回、文件详情排序和按需原文补证后形成回答上下文。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#526273"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="135%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#1f2937" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      text { font-family: 'Times New Roman','SimSun','宋体',serif; fill: #172033; }
+      .canvas { fill: #ffffff; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 18px; fill: #5e6b7a; }
+      .node { stroke-width: 2.2; rx: 14; filter: url(#shadow); }
+      .blue { fill: #eaf2ff; stroke: #3b82f6; }
+      .green { fill: #eaf8f1; stroke: #269b6a; }
+      .yellow { fill: #fff6d8; stroke: #d69b18; }
+      .purple { fill: #f2edff; stroke: #7759d7; }
+      .orange { fill: #fff0e5; stroke: #e47937; }
+      .gray { fill: #f3f5f7; stroke: #8795a5; }
+      .node-title { font-size: 20px; font-weight: 700; text-anchor: middle; }
+      .node-body { font-size: 16px; fill: #536173; text-anchor: middle; }
+      .arrow { fill: none; stroke: #526273; stroke-width: 3; marker-end: url(#arrow); }
+      .label { font-size: 16px; font-weight: 700; fill: #526273; text-anchor: middle; }
+      .note { fill: #f8fafc; stroke: #aab7c5; stroke-width: 1.7; rx: 12; }
+      .note-title { font-size: 18px; font-weight: 700; }
+      .note-text { font-size: 16px; fill: #4f5f70; }
+      .legend-title { font-size: 18px; font-weight: 700; }
+      .legend-text { font-size: 16px; fill: #4b5968; }
+    </style>
+  </defs>
+
+  <rect class="canvas" width="1600" height="920"/>
+  <text class="title" x="60" y="55">在线问答分层召回</text>
+  <text class="subtitle" x="60" y="88">先用结构化资产缩小范围，证据不足时才读取当前原文</text>
+
+  <rect class="node blue" x="50" y="155" width="190" height="105"/>
+  <text class="node-title" x="145" y="198">用户问题</text>
+  <text class="node-body" x="145" y="228">保留原始输入</text>
+  <path class="arrow" d="M240 208 H285"/>
+
+  <rect class="node green" x="285" y="135" width="275" height="145"/>
+  <text class="node-title" x="422" y="174">术语归一化</text>
+  <text class="node-body" x="422" y="204">Unicode NFKC · Aho-Corasick</text>
+  <text class="node-body" x="422" y="231">最长匹配 · 同义词映射</text>
+  <text class="node-body" x="422" y="258">输出规范词与命中范围</text>
+  <path class="arrow" d="M560 208 H605"/>
+
+  <rect class="node orange" x="605" y="155" width="210" height="105"/>
+  <text class="node-title" x="710" y="198">来源路由</text>
+  <text class="node-body" x="710" y="228">依据请求维度选择范围</text>
+  <path class="arrow" d="M815 208 H860"/>
+
+  <rect class="node purple" x="860" y="135" width="260" height="145"/>
+  <text class="node-title" x="990" y="174">全局轻量召回</text>
+  <text class="node-body" x="990" y="204">Index · 规则 · 记忆</text>
+  <text class="node-body" x="990" y="231">偏好 · 报告</text>
+  <text class="node-body" x="990" y="258">按来源配额获取候选</text>
+  <path class="arrow" d="M1120 208 H1165"/>
+
+  <rect class="node purple" x="1165" y="135" width="380" height="145"/>
+  <text class="node-title" x="1355" y="174">Detail 候选补全</text>
+  <text class="node-body" x="1355" y="204">摘要、关键词、符号、事实与原文锚点</text>
+  <text class="node-body" x="1355" y="231">字段加权 · 来源配额 · 去重</text>
+  <text class="node-body" x="1355" y="258">生成可解释排序结果</text>
+
+  <path class="arrow" d="M1355 280 V340"/>
+  <rect class="node green" x="1165" y="340" width="380" height="105"/>
+  <text class="node-title" x="1355" y="380">相关性排序与证据装配</text>
+  <text class="node-body" x="1355" y="410">不为填满 Top-K 强制返回低相关内容</text>
+  <path class="arrow" d="M1165 393 H1120"/>
+
+  <rect class="node orange" x="900" y="340" width="220" height="105"/>
+  <text class="node-title" x="1010" y="380">证据是否足够</text>
+  <text class="node-body" x="1010" y="410">是否需要核实实现或行号</text>
+  <path class="arrow" d="M900 393 H855"/>
+  <text class="label" x="878" y="378">是</text>
+
+  <rect class="node purple" x="635" y="340" width="220" height="105"/>
+  <text class="node-title" x="745" y="380">回答上下文</text>
+  <text class="node-body" x="745" y="410">事实类型、来源与截断状态</text>
+  <path class="arrow" d="M635 393 H590"/>
+
+  <rect class="node blue" x="350" y="340" width="240" height="105"/>
+  <text class="node-title" x="470" y="380">Agent 回答</text>
+  <text class="node-body" x="470" y="410">关键结论可继续回到证据</text>
+
+  <path class="arrow" d="M1010 445 V520"/>
+  <text class="label" x="1035" y="490">否</text>
+  <rect class="node yellow" x="900" y="520" width="260" height="115"/>
+  <text class="node-title" x="1030" y="558">精确原文补证</text>
+  <text class="node-body" x="1030" y="587">按文件 ID 与真实行范围读取</text>
+  <text class="node-body" x="1030" y="613">最多 200 行 / 32 KiB</text>
+  <path class="arrow" d="M900 578 H855"/>
+
+  <rect class="node orange" x="615" y="520" width="240" height="115"/>
+  <text class="node-title" x="735" y="558">证据校验</text>
+  <text class="node-body" x="735" y="587">项目权限 · 当前哈希</text>
+  <text class="node-body" x="735" y="613">真实行号 · 敏感内容脱敏</text>
+  <path class="arrow" d="M735 520 V445"/>
+
+  <rect class="note" x="50" y="505" width="500" height="180"/>
+  <text class="note-title" x="80" y="545">请求级预算</text>
+  <text class="note-text" x="80" y="578">• 前置轻量候选：最多 5 条</text>
+  <text class="note-text" x="80" y="610">• 差异化召回：最多 3 次</text>
+  <text class="note-text" x="80" y="642">• 原文预读：最多 2 个文件，合计 12 KiB</text>
+  <text class="note-text" x="80" y="674">• 当前在线方案：可解释词法召回，不依赖向量数据库</text>
+
+  <text class="legend-title" x="60" y="820">图例</text>
+  <rect class="blue" x="130" y="796" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="176" y="815">用户输入 / 输出</text>
+  <rect class="green" x="365" y="796" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="411" y="815">确定性处理</text>
+  <rect class="orange" x="595" y="796" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="641" y="815">路由 / 校验</text>
+  <rect class="purple" x="805" y="796" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="851" y="815">结构化知识资产</text>
+  <rect class="yellow" x="1065" y="796" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="1111" y="815">按需原文读取</text>
+  <path class="arrow" d="M1355 808 H1430"/>
+  <text class="legend-text" x="1450" y="815">处理方向</text>
+</svg>

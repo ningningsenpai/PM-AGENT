@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="940" viewBox="0 0 1600 940" role="img" aria-labelledby="title desc">
+  <title id="title">多维请求理解与 Agent 执行</title>
+  <desc id="desc">复合项目问题经过请求理解、严格校验、来源路由和工具白名单后进入有限 Agent 循环。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#526273"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="135%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#1f2937" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      text { font-family: 'Times New Roman','SimSun','宋体',serif; fill: #172033; }
+      .canvas { fill: #ffffff; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 18px; fill: #5e6b7a; }
+      .node { stroke-width: 2.2; rx: 14; filter: url(#shadow); }
+      .blue { fill: #eaf2ff; stroke: #3b82f6; }
+      .green { fill: #eaf8f1; stroke: #269b6a; }
+      .yellow { fill: #fff6d8; stroke: #d69b18; }
+      .purple { fill: #f2edff; stroke: #7759d7; }
+      .orange { fill: #fff0e5; stroke: #e47937; }
+      .gray { fill: #f3f5f7; stroke: #8795a5; }
+      .node-title { font-size: 20px; font-weight: 700; text-anchor: middle; }
+      .node-body { font-size: 16px; fill: #536173; text-anchor: middle; }
+      .chip { font-size: 17px; font-weight: 700; text-anchor: middle; }
+      .arrow { fill: none; stroke: #526273; stroke-width: 3; marker-end: url(#arrow); }
+      .data { fill: none; stroke: #728197; stroke-width: 2.3; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+      .group { fill: #f8fafc; stroke: #c8d2df; stroke-width: 2; rx: 18; }
+      .group-title { font-size: 20px; font-weight: 700; }
+      .note-text { font-size: 16px; fill: #4f5f70; }
+      .legend-title { font-size: 18px; font-weight: 700; }
+      .legend-text { font-size: 16px; fill: #4b5968; }
+    </style>
+  </defs>
+
+  <rect class="canvas" width="1600" height="940"/>
+  <text class="title" x="60" y="55">多维请求理解与 Agent 执行</text>
+  <text class="subtitle" x="60" y="88">将一个复合问题拆成可校验的分析单元，再收缩来源与工具范围</text>
+
+  <rect class="node blue" x="50" y="145" width="220" height="115"/>
+  <text class="node-title" x="160" y="187">复合项目问题</text>
+  <text class="node-body" x="160" y="217">进度 + 风险 + 约束</text>
+  <text class="node-body" x="160" y="242">规划 + 溯源 + 表达要求</text>
+  <path class="arrow" d="M270 203 H315"/>
+
+  <rect class="node yellow" x="315" y="145" width="245" height="115"/>
+  <text class="node-title" x="437" y="187">请求理解模型</text>
+  <text class="node-body" x="437" y="217">提取维度、动作与依赖</text>
+  <text class="node-body" x="437" y="242">识别上下文更新信号</text>
+  <path class="arrow" d="M560 203 H605"/>
+
+  <rect class="node orange" x="605" y="145" width="235" height="115"/>
+  <text class="node-title" x="722" y="187">后端严格校验</text>
+  <text class="node-body" x="722" y="217">白名单动作 · 无循环依赖</text>
+  <text class="node-body" x="722" y="242">未知字段直接拒绝</text>
+  <path class="arrow" d="M840 203 H885"/>
+
+  <rect class="node green" x="885" y="145" width="265" height="115"/>
+  <text class="node-title" x="1017" y="187">受限 RequestPlan</text>
+  <text class="node-body" x="1017" y="217">最多 8 个请求单元</text>
+  <text class="node-body" x="1017" y="242">动作、主题、时间与依赖</text>
+  <path class="arrow" d="M1150 203 H1195"/>
+
+  <rect class="node purple" x="1195" y="145" width="350" height="115"/>
+  <text class="node-title" x="1370" y="187">来源与能力映射</text>
+  <text class="node-body" x="1370" y="217">规则 · 记忆 · Detail · 报告 · 原文</text>
+  <text class="node-body" x="1370" y="242">按动作收缩请求级工具白名单</text>
+
+  <path class="data" d="M437 260 V340"/>
+  <rect class="group" x="50" y="340" width="760" height="315" rx="18"/>
+  <text class="group-title" x="80" y="380">七类分析维度</text>
+  <rect class="green" x="85" y="410" width="195" height="70" rx="12"/>
+  <text class="chip" x="182" y="452">进度 progress</text>
+  <rect class="green" x="310" y="410" width="195" height="70" rx="12"/>
+  <text class="chip" x="407" y="452">规划 planning</text>
+  <rect class="green" x="535" y="410" width="235" height="70" rx="12"/>
+  <text class="chip" x="652" y="452">风险 risk</text>
+  <rect class="orange" x="85" y="505" width="245" height="70" rx="12"/>
+  <text class="chip" x="207" y="547">约束 constraint_check</text>
+  <rect class="purple" x="360" y="505" width="195" height="70" rx="12"/>
+  <text class="chip" x="457" y="547">溯源 source_trace</text>
+  <rect class="purple" x="585" y="505" width="185" height="70" rx="12"/>
+  <text class="chip" x="677" y="547">上下文更新</text>
+  <rect class="blue" x="235" y="590" width="350" height="46" rx="12"/>
+  <text class="chip" x="410" y="620">表达 presentation · 仅控制当前回答</text>
+
+  <path class="arrow" d="M1370 260 V350"/>
+  <rect class="node orange" x="1195" y="350" width="350" height="105"/>
+  <text class="node-title" x="1370" y="390">请求级工具白名单</text>
+  <text class="node-body" x="1370" y="420">只开放完成当前动作所需的只读工具</text>
+  <path class="arrow" d="M1195 403 H1150"/>
+
+  <rect class="node yellow" x="870" y="350" width="280" height="140"/>
+  <text class="node-title" x="1010" y="390">有限 Agent 循环</text>
+  <text class="node-body" x="1010" y="420">LLM 判断 → 工具调用</text>
+  <text class="node-body" x="1010" y="447">结构化结果 → 继续判断</text>
+  <text class="node-body" x="1010" y="474">直到形成最终回答</text>
+  <path class="arrow" d="M1010 490 V560"/>
+
+  <rect class="node blue" x="1195" y="555" width="350" height="110"/>
+  <text class="node-title" x="1370" y="597">带证据的分析结果</text>
+  <text class="node-body" x="1370" y="627">回答 · 任务草案 · 风险说明 · 来源追溯</text>
+  <path class="arrow" d="M1150 610 H1195"/>
+
+  <rect class="node gray" x="870" y="555" width="280" height="110"/>
+  <text class="node-title" x="1010" y="595">请求级上限</text>
+  <text class="node-body" x="1010" y="625">5 轮模型决策 · 8 次工具调用</text>
+  <text class="node-body" x="1010" y="650">3 次差异化上下文召回</text>
+
+  <text class="legend-title" x="60" y="830">图例</text>
+  <rect class="blue" x="130" y="806" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="176" y="825">输入 / 输出 / 表达</text>
+  <rect class="yellow" x="390" y="806" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="436" y="825">模型语义判断</text>
+  <rect class="orange" x="625" y="806" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="671" y="825">校验 / 安全门禁</text>
+  <rect class="green" x="875" y="806" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="921" y="825">请求单元 / 分析动作</text>
+  <rect class="purple" x="1165" y="806" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="1211" y="825">来源 / 上下文</text>
+  <path class="data" d="M1410 818 H1480"/>
+  <text class="legend-text" x="1493" y="825">语义提取</text>
+</svg>

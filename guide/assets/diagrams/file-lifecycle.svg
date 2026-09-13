@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1060" viewBox="0 0 1600 1060" role="img" aria-labelledby="title desc">
+  <title id="title">项目文件同步、解析与索引闭环</title>
+  <desc id="desc">项目目录扫描后按新增、正文变化、路径变化、删除和未变化分类处理，最终重建当前索引。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#526273"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="135%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#1f2937" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      text { font-family: 'Times New Roman','SimSun','宋体',serif; fill: #172033; }
+      .canvas { fill: #ffffff; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 18px; fill: #5e6b7a; }
+      .node { stroke-width: 2.2; rx: 14; filter: url(#shadow); }
+      .blue { fill: #eaf2ff; stroke: #3b82f6; }
+      .green { fill: #eaf8f1; stroke: #269b6a; }
+      .yellow { fill: #fff6d8; stroke: #d69b18; }
+      .purple { fill: #f2edff; stroke: #7759d7; }
+      .orange { fill: #fff0e5; stroke: #e47937; }
+      .red { fill: #fdecec; stroke: #d85454; }
+      .gray { fill: #f3f5f7; stroke: #8795a5; }
+      .node-title { font-size: 20px; font-weight: 700; text-anchor: middle; }
+      .node-body { font-size: 16px; fill: #536173; text-anchor: middle; }
+      .lane-label { font-size: 18px; font-weight: 700; text-anchor: middle; }
+      .arrow { fill: none; stroke: #526273; stroke-width: 3; marker-end: url(#arrow); }
+      .branch { fill: none; stroke: #526273; stroke-width: 2.5; }
+      .data { fill: none; stroke: #6c7a89; stroke-width: 2.3; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+      .note { fill: #fff8f4; stroke: #d97745; stroke-width: 1.8; rx: 12; }
+      .note-text { font-size: 16px; fill: #62402d; }
+      .legend-title { font-size: 18px; font-weight: 700; }
+      .legend-text { font-size: 16px; fill: #4b5968; }
+    </style>
+  </defs>
+
+  <rect class="canvas" width="1600" height="1060"/>
+  <text class="title" x="60" y="55">项目文件同步、解析与索引闭环</text>
+  <text class="subtitle" x="60" y="88">同步与解析分步执行；不同变化类型拥有独立、可恢复的处理路径</text>
+
+  <rect class="node blue" x="55" y="155" width="200" height="100"/>
+  <text class="node-title" x="155" y="195">本地项目目录</text>
+  <text class="node-body" x="155" y="224">代码 · 文档 · 配置</text>
+  <path class="arrow" d="M255 205 H305"/>
+
+  <rect class="node green" x="305" y="155" width="210" height="100"/>
+  <text class="node-title" x="410" y="195">扫描与过滤</text>
+  <text class="node-body" x="410" y="224">忽略目录、类型与大小校验</text>
+  <path class="arrow" d="M515 205 H565"/>
+
+  <rect class="node green" x="565" y="155" width="210" height="100"/>
+  <text class="node-title" x="670" y="195">指纹与哈希</text>
+  <text class="node-body" x="670" y="224">快速指纹 · SHA-256</text>
+  <path class="arrow" d="M775 205 H825"/>
+
+  <rect class="node orange" x="825" y="155" width="200" height="100"/>
+  <text class="node-title" x="925" y="195">同步计划</text>
+  <text class="node-body" x="925" y="224">识别五类文件变化</text>
+
+  <path class="branch" d="M1025 205 H1055 V750"/>
+  <path class="arrow" d="M1055 315 H1095"/>
+  <path class="arrow" d="M1055 455 H1095"/>
+  <path class="arrow" d="M1055 595 H1095"/>
+  <path class="arrow" d="M1055 735 H1095"/>
+
+  <rect class="blue" x="55" y="295" width="190" height="42" rx="10"/>
+  <text class="lane-label" x="150" y="322">新增 / 正文变化</text>
+  <rect class="node green" x="1095" y="275" width="390" height="100"/>
+  <text class="node-title" x="1290" y="308">上传并等待用户发起解析</text>
+  <text class="node-body" x="1290" y="336">MinIO 原文件 + MySQL 状态与哈希</text>
+  <text class="node-body" x="1290" y="360">解析后生成 Detail，刷新规则与文件事实</text>
+
+  <rect class="orange" x="55" y="435" width="190" height="42" rx="10"/>
+  <text class="lane-label" x="150" y="462">路径变化</text>
+  <rect class="node orange" x="1095" y="415" width="390" height="100"/>
+  <text class="node-title" x="1290" y="448">更新路径并使旧解析失效</text>
+  <text class="node-body" x="1290" y="476">清理旧 Detail 与规则来源</text>
+  <text class="node-body" x="1290" y="500">重新解析后生成带新路径哈希的 Detail</text>
+
+  <rect class="red" x="55" y="575" width="190" height="42" rx="10"/>
+  <text class="lane-label" x="150" y="602">删除</text>
+  <rect class="node red" x="1095" y="555" width="390" height="100"/>
+  <text class="node-title" x="1290" y="588">删除文件并撤销来源</text>
+  <text class="node-body" x="1290" y="616">清理对象、Detail 与规则组</text>
+  <text class="node-body" x="1290" y="640">按剩余文件重建 Index</text>
+
+  <rect class="gray" x="55" y="715" width="190" height="42" rx="10"/>
+  <text class="lane-label" x="150" y="742">未变化</text>
+  <rect class="node gray" x="1095" y="695" width="390" height="100"/>
+  <text class="node-title" x="1290" y="728">保留当前解析状态</text>
+  <text class="node-body" x="1290" y="756">已有 Detail 则继续复用</text>
+  <text class="node-body" x="1290" y="780">未解析文件仍等待用户发起解析</text>
+
+  <path class="branch" d="M1485 325 H1520"/>
+  <path class="branch" d="M1485 465 H1520"/>
+  <path class="branch" d="M1485 605 H1520"/>
+  <path class="branch" d="M1485 745 H1520"/>
+  <path class="branch" d="M1520 325 V850"/>
+  <path class="arrow" d="M1520 850 H1485"/>
+  <rect class="node purple" x="1095" y="825" width="390" height="90"/>
+  <text class="node-title" x="1290" y="860">重建当前 Index</text>
+  <text class="node-body" x="1290" y="887">新的项目上下文可供问答与报告使用</text>
+
+  <rect class="note" x="285" y="335" width="690" height="300"/>
+  <text class="node-title" x="630" y="380">解析与知识资产更新</text>
+  <rect class="node yellow" x="330" y="415" width="190" height="80"/>
+  <text class="node-title" x="425" y="448">DeepSeek 解析</text>
+  <text class="node-body" x="425" y="475">结构化 Detail</text>
+  <path class="arrow" d="M520 455 H555"/>
+  <rect class="node orange" x="555" y="415" width="170" height="80"/>
+  <text class="node-title" x="640" y="448">Schema 校验</text>
+  <text class="node-body" x="640" y="475">来源与字段约束</text>
+  <path class="arrow" d="M725 455 H760"/>
+  <rect class="node purple" x="760" y="400" width="170" height="110"/>
+  <text class="node-title" x="845" y="435">知识资产</text>
+  <text class="node-body" x="845" y="462">Detail · 规则</text>
+  <text class="node-body" x="845" y="488">长期记忆 · Index</text>
+  <text class="note-text" x="330" y="555"><tspan font-weight="700">注意：</tspan>同步成功不等于解析成功；文件级失败会保留状态并支持定向重试。</text>
+  <text class="note-text" x="330" y="590"><tspan font-weight="700">当前限制：</tspan>删除或移动后的文件派生长期记忆仍需通过现存原文复核。</text>
+
+  <text class="legend-title" x="60" y="990">图例</text>
+  <rect class="blue" x="130" y="966" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="176" y="985">用户输入 / 操作</text>
+  <rect class="green" x="350" y="966" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="396" y="985">确定性处理</text>
+  <rect class="orange" x="570" y="966" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="616" y="985">校验 / 状态变化</text>
+  <rect class="yellow" x="835" y="966" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="881" y="985">模型解析</text>
+  <rect class="purple" x="1035" y="966" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="1081" y="985">知识资产</text>
+  <rect class="red" x="1245" y="966" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="1291" y="985">失效 / 清理</text>
+  <rect class="gray" x="1435" y="966" width="34" height="24" rx="5"/>
+  <text class="legend-text" x="1481" y="985">状态保持</text>
+</svg>
