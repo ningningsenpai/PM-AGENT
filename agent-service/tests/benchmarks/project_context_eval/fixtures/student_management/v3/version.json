@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "version": "v3",
+  "inherits": "v2",
+  "description": "工程加固迭代：限制 CORS，并为学生写接口增加短期幂等保护。",
+  "exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/*.tsbuildinfo",
+    "backend/target/**",
+    "frontend/dist/**"
+  ],
+  "deletes": []
+}

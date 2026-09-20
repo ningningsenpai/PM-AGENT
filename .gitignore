@@ -58,6 +58,8 @@ tmp/
 # RAG 原始大数据集
 agent-service/eval/chat-dataset/
 dataset
+!agent-service/tests/benchmarks/project_context_eval/dataset/
+!agent-service/tests/benchmarks/project_context_eval/dataset/**
 
 # AGI-saber
 agent-service/AGI-saber

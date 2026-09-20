@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "version": "v2",
+  "inherits": "v1",
+  "description": "档案维护迭代：姓名查询改为参数绑定，并实现学生编辑后端链路。",
+  "exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/*.tsbuildinfo",
+    "backend/target/**",
+    "frontend/dist/**"
+  ],
+  "deletes": []
+}

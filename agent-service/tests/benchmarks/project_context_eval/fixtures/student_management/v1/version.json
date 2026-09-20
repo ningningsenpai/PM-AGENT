@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "version": "v1",
+  "inherits": null,
+  "description": "原始 50% 完成度的学生管理 Demo，只做哈希锁定，不修改受保护源目录。",
+  "exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/*.tsbuildinfo",
+    "backend/target/**",
+    "frontend/dist/**"
+  ],
+  "deletes": []
+}

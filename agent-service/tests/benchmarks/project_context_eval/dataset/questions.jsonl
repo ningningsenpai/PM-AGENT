@@ -1,0 +1,50 @@
+{"id":"D001","split":"dev","category":"direct","version":"v1","question":"v1 样本当前完成度是多少，已经打通了哪些核心能力？","tags":["进度","README"]}
+{"id":"D002","split":"dev","category":"direct","version":"v1","question":"前端开发服务器使用哪个端口，并把 /api 代理到哪里？","tags":["前端","端口"]}
+{"id":"D003","split":"dev","category":"direct","version":"v1","question":"该 Demo 的开发数据库和目标数据库分别是什么？","tags":["数据库","技术栈"]}
+{"id":"D004","split":"dev","category":"direct","version":"v1","question":"阶段二原计划包含哪些学生档案维护能力？","tags":["阶段二","计划"]}
+{"id":"D005","split":"dev","category":"direct","version":"v2","question":"v2 后端新实现了哪个学生接口？","tags":["v2","接口"]}
+{"id":"D006","split":"dev","category":"direct","version":"v3","question":"v3 的 CORS 只允许哪个前端来源？","tags":["v3","CORS"]}
+{"id":"D007","split":"holdout","category":"direct","version":"v2","question":"v2 编辑接口允许修改哪些字段，哪些关键字段不允许修改？","tags":["v2","编辑"]}
+{"id":"D008","split":"holdout","category":"direct","version":"v3","question":"v3 幂等键的保留时间是多少？","tags":["v3","幂等"]}
+{"id":"S001","split":"dev","category":"paraphrase","version":"v1","question":"花名册按名字模糊找人时，有没有把用户输入直接塞进查询语句的洞？","tags":["同义改写","SQL注入"]}
+{"id":"S002","split":"dev","category":"paraphrase","version":"v1","question":"对外直接暴露流水自增号，会不会让别人猜出盘子有多大？对应哪项风险？","tags":["同义改写","主键枚举"]}
+{"id":"S003","split":"dev","category":"paraphrase","version":"v1","question":"学生通讯录是不是在列表里裸奔了？请指出具体暴露字段。","tags":["同义改写","隐私"]}
+{"id":"S004","split":"dev","category":"paraphrase","version":"v1","question":"当前是不是任何网站都能跨域敲这个后端的门？","tags":["同义改写","CORS"]}
+{"id":"S005","split":"dev","category":"paraphrase","version":"v1","question":"用户连续点两次录入，会不会因为没有防重而写入两遍？","tags":["同义改写","幂等"]}
+{"id":"S006","split":"dev","category":"paraphrase","version":"v1","question":"浏览器里的真实点选流程有没有自动回归兜底？","tags":["同义改写","测试"]}
+{"id":"S007","split":"holdout","category":"paraphrase","version":"v1","question":"有没有把数据库口令和第三方钥匙直接写死在配置里？","tags":["同义改写","凭据"]}
+{"id":"S008","split":"holdout","category":"paraphrase","version":"v2","question":"v2 找学生时是不是已经把拼 SQL 改成绑参数了？","tags":["同义改写","参数绑定"]}
+{"id":"X001","split":"dev","category":"cross_file","version":"v1","question":"姓名查询请求从 Controller 到数据库的调用链是什么，并在哪里形成 SQL 注入风险？","tags":["跨文件","调用链"]}
+{"id":"X002","split":"dev","category":"cross_file","version":"v1","question":"新增学生从 React API 到后端持久化经过哪些文件？","tags":["跨文件","新增链路"]}
+{"id":"X003","split":"dev","category":"cross_file","version":"v1","question":"学生状态和逻辑删除分别如何在 Java 模型与 SQL 表中表达？","tags":["跨文件","数据模型"]}
+{"id":"X004","split":"dev","category":"cross_file","version":"v2","question":"v2 学生编辑如何贯穿 Controller、Service、Repository 和前端 API？","tags":["跨文件","v2"]}
+{"id":"X005","split":"dev","category":"cross_file","version":"v2","question":"v2 已关闭和仍打开的主要风险分别是什么？请用代码和版本记录交叉说明。","tags":["跨文件","风险状态"]}
+{"id":"X006","split":"dev","category":"cross_file","version":"v3","question":"v3 对跨域和重复提交分别采取了什么措施？","tags":["跨文件","工程加固"]}
+{"id":"X007","split":"dev","category":"cross_file","version":"v3","question":"v3 已完成了哪些阶段三加固项，又有哪些阶段三事项仍未完成？","tags":["跨文件","进度"]}
+{"id":"X008","split":"holdout","category":"cross_file","version":"v2","question":"对比 v1 文档中的 R-03 和 v2 代码，姓名查询风险发生了什么变化？","tags":["跨文件","版本对比"]}
+{"id":"X009","split":"holdout","category":"cross_file","version":"v3","question":"从 v2 到 v3，写接口的幂等约束在文档和 Controller 中如何落地？","tags":["跨文件","版本对比"]}
+{"id":"X010","split":"holdout","category":"cross_file","version":"v3","question":"接口文档设计了逻辑删除，但到 v3 是否已经有对应 Controller 和 Repository 实现？","tags":["跨文件","实现核对"]}
+{"id":"F001","split":"dev","category":"false_premise","version":"v1","question":"项目已经完成 JWT 登录鉴权，请说明登录接口和权限校验实现。","tags":["错误前提","鉴权"]}
+{"id":"F002","split":"dev","category":"false_premise","version":"v2","question":"v2 已经完成学生逻辑删除，请定位删除接口和删除 SQL。","tags":["错误前提","删除"]}
+{"id":"F003","split":"dev","category":"false_premise","version":"v3","question":"v3 已经上线课程和成绩管理，请列出已实现接口。","tags":["错误前提","课程成绩"]}
+{"id":"F004","split":"dev","category":"false_premise","version":"v1","question":"后端通过 JPA ORM 访问数据库，请指出实体映射和 Repository 接口。","tags":["错误前提","技术栈"]}
+{"id":"F005","split":"holdout","category":"false_premise","version":"v3","question":"该系统已拆成学生、课程、鉴权三个微服务，请描述服务间调用。","tags":["错误前提","架构"]}
+{"id":"F006","split":"holdout","category":"false_premise","version":"v3","question":"v3 的幂等实现依赖 Redis 集群，请说明键结构和过期策略。","tags":["错误前提","幂等"]}
+{"id":"N001","split":"dev","category":"unanswerable","version":"v3","question":"生产环境绑定的正式域名是什么？","tags":["无答案","部署"]}
+{"id":"N002","split":"dev","category":"unanswerable","version":"v3","question":"生产部署每个实例配置了多少 CPU 和内存？","tags":["无答案","容量"]}
+{"id":"N003","split":"dev","category":"unanswerable","version":"v1","question":"线上管理员的真实密码是什么？","tags":["无答案","敏感信息"]}
+{"id":"N004","split":"dev","category":"unanswerable","version":"v3","question":"系统承诺的 P95 响应时间 SLA 是多少毫秒？","tags":["无答案","SLA"]}
+{"id":"N005","split":"holdout","category":"unanswerable","version":"v3","question":"当前生产环境有多少名真实在校用户？","tags":["无答案","用户量"]}
+{"id":"N006","split":"holdout","category":"unanswerable","version":"v3","question":"学生档案依法必须保留多少年？","tags":["无答案","合规"]}
+{"id":"H001","split":"dev","category":"history","version":"v2","question":"姓名模糊查询从 v1 到 v2 经历了什么实现变化？","tags":["历史状态","SQL"]}
+{"id":"H002","split":"dev","category":"history","version":"v3","question":"CORS 配置从 v1/v2 到 v3 如何变化？","tags":["历史状态","CORS"]}
+{"id":"H003","split":"dev","category":"history","version":"v3","question":"三个冻结版本的完成度如何演进？","tags":["历史状态","进度"]}
+{"id":"H004","split":"dev","category":"history","version":"v2","question":"学生编辑接口在哪个版本首次进入后端实现？","tags":["历史状态","编辑"]}
+{"id":"H005","split":"holdout","category":"history","version":"v3","question":"写接口幂等从最初缺失到 v3 的状态如何变化？","tags":["历史状态","幂等"]}
+{"id":"H006","split":"holdout","category":"history","version":"v3","question":"逻辑删除在 v1、v2、v3 分别处于什么状态？","tags":["历史状态","删除"]}
+{"id":"C001","split":"dev","category":"code_location","version":"v1","question":"精确定位 v1 姓名查询拼接 SQL 的文件和代码行。","tags":["代码定位","SQL注入"]}
+{"id":"C002","split":"dev","category":"code_location","version":"v1","question":"精确定位允许任意来源跨域的配置。","tags":["代码定位","CORS"]}
+{"id":"C003","split":"dev","category":"code_location","version":"v1","question":"精确定位新增学生接口缺少鉴权和幂等的提示代码。","tags":["代码定位","写接口"]}
+{"id":"C004","split":"dev","category":"code_location","version":"v1","question":"精确定位前端列表直接显示电话和邮箱的位置。","tags":["代码定位","隐私"]}
+{"id":"C005","split":"holdout","category":"code_location","version":"v2","question":"精确定位 v2 姓名查询使用 LIKE 占位符和参数值的位置。","tags":["代码定位","参数绑定"]}
+{"id":"C006","split":"holdout","category":"code_location","version":"v3","question":"精确定位 v3 可信 CORS 来源和幂等保留期两处代码。","tags":["代码定位","v3"]}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "datasetSha256": "ba3fa20824ec51d534d8815084878cd486c87f180171f2d7271e064bb3e418c7",
+  "questionCount": 50,
+  "splitCounts": {
+    "dev": 35,
+    "holdout": 15
+  },
+  "categoryCounts": {
+    "direct": 8,
+    "paraphrase": 8,
+    "cross_file": 10,
+    "false_premise": 6,
+    "unanswerable": 6,
+    "history": 6,
+    "code_location": 6
+  },
+  "fixtureSnapshots": {
+    "v1": {
+      "fileCount": 32,
+      "snapshotSha256": "879f7600edd0f01da3aef8d5d073d9aec8e6a24e6b6bb58f9f28b8feead3ebb2"
+    },
+    "v2": {
+      "fileCount": 34,
+      "snapshotSha256": "3c63ab042a36c45da1efac0515b69738ac2b70b287eabffe21e5d758b1405654"
+    },
+    "v3": {
+      "fileCount": 35,
+      "snapshotSha256": "ac6d562d255ca876905e334ee3d8841a608e8aceb8bf7bbf9d4222f2d90e571e"
+    }
+  }
+}
