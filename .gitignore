@@ -52,6 +52,12 @@ agent-service/.venv/
 .tmp/
 tmp/
 
+# 本地手动归档文件
+/saved/
+
+# 本地中文技能参考副本
+/BaseSkill-CN/
+
 # 主业务完成后再优化的 Agent 留档资产
 /archive/agent-service-deferred/
 
